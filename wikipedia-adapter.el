@@ -42,10 +42,7 @@ Returns the buffer containing the page content."
 (defun wp--save-page-buffer (&optional summary)
   "Save the current buffer to the wiki.
 SUMMARY is the edit summary.  If nil, the user will be prompted."
-  (if summary
-      (let ((mediawiki-edit-summary summary))
-        (mediawiki-save))
-    (mediawiki-save)))
+  (mediawiki-save summary))
 
 (defun wp--current-page-title ()
   "Return the title of the page in the current buffer, or nil."
