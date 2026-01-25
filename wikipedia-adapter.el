@@ -28,11 +28,11 @@ SITE should be a site name configured in `mediawiki-site-alist'."
   "Make an API call with ACTION and PARAMS.
 ACTION is the MediaWiki API action (e.g., \"query\").
 PARAMS is an alist of additional parameters.
-Returns the parsed JSON response as an alist."
-  (let ((mediawiki-api-params (append `((action . ,action)
-                                        (format . "json"))
-                                      params)))
-    (mediawiki-api-call mediawiki-api-params)))
+Returns the parsed response.  Note that mediawiki.el uses XML format
+internally, so the response is an XML-derived structure, not JSON."
+  (unless (bound-and-true-p mediawiki-site)
+    (error "No active wiki session; use `wikipedia-login' first"))
+  (mediawiki-api-call mediawiki-site action params))
 
 (defun wp--open-page-buffer (title)
   "Open TITLE for editing in a buffer.
