@@ -49,6 +49,29 @@ SUMMARY is the edit summary.  If nil, the user will be prompted."
   (when (bound-and-true-p mediawiki-page-title)
     mediawiki-page-title))
 
+(defun wp--preview (title wikitext)
+  "Preview WIKITEXT as if it were the content of TITLE.
+Returns the parsed HTML as a string."
+  (unless (bound-and-true-p mediawiki-site)
+    (error "No active wiki session; use `wikipedia-login' first"))
+  (let* ((result (mediawiki-api-call
+                  mediawiki-site "parse"
+                  (list (cons "title" title)
+                        (cons "text" wikitext)
+                        (cons "prop" "text")
+                        (cons "disableeditsection" "1")
+                        (cons "preview" "1"))))
+         (text-element (assq 'text (cddr result))))
+    (wp--extract-preview-html text-element)))
+
+(defun wp--extract-preview-html (text-element)
+  "Extract HTML string from TEXT-ELEMENT returned by parse API."
+  (when text-element
+    (let ((content (cddr text-element)))
+      (if (stringp (car content))
+          (car content)
+        (car (last text-element))))))
+
 (defun wp--ensure-logged-in ()
   "Ensure we have an active session, signaling an error if not."
   (unless (bound-and-true-p mediawiki-site)

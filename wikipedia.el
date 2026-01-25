@@ -46,6 +46,21 @@
   :group 'external
   :prefix "wikipedia-")
 
+(defvar wikipedia-edit-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "C-c C-p") #'wikipedia-preview)
+    map)
+  "Keymap for Wikipedia editing commands.
+This map can be activated as a minor mode in mediawiki-mode buffers.")
+
+;;;###autoload
+(define-minor-mode wikipedia-edit-mode
+  "Minor mode for Wikipedia editing commands.
+Provides keybindings for preview and other wikipedia.el features
+when editing a wiki page."
+  :lighter " WP"
+  :keymap wikipedia-edit-mode-map)
+
 (provide 'wikipedia)
 
 ;;; wikipedia.el ends here
