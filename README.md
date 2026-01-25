@@ -4,14 +4,14 @@ This package aims to provide a comprehensive Emacs interface for Wikipedia and
 other MediaWiki sites, with a focus on fast editing workflows, review tools, and
 optional local/offline browsing of watched pages.
 
-The initial goal is to produce a cohesive “workbench” experience inside Emacs:
+The initial goal is to produce a cohesive "workbench" experience inside Emacs:
 browse what needs attention, inspect changes, open pages for editing, preview,
 and publish edits, while keeping the UI consistent and keyboard-driven.
 
 ## Goals
 
 - Provide a practical, reliable Emacs workflow for Wikipedia editing and review.
-- Support both “online” operations (via the MediaWiki API) and “local” operations
+- Support both "online" operations (via the MediaWiki API) and "local" operations
   (via a local mirror of selected pages and their revision history).
 - Keep the design modular, so features can be developed and tested
   incrementally, in separate Elisp files.
@@ -50,13 +50,13 @@ and publish edits, while keeping the UI consistent and keyboard-driven.
   - two arbitrary revisions of a page
   - a revision and its parent
   - edit previews
-- Browse a page’s revision history with useful metadata:
+- Browse a page's revision history with useful metadata:
   - timestamp, user, edit summary, size delta, tags, minor flag
-- Open a specific revision’s wikitext for inspection.
+- Open a specific revision's wikitext for inspection.
 
 ### Watchlist
 
-- View the user’s watchlist in Emacs.
+- View the user's watchlist in Emacs.
 - Filter and search watchlist entries (by namespace, type, user, title, etc.).
 - Jump from a watchlist entry to:
   - the page
@@ -93,7 +93,7 @@ Integrate with AI services (via `gptel.el`) to assist with various tasks, includ
   
 ## User experience (UI sketch)
 
-The package is expected to provide a small set of “main entry points” that open
+The package is expected to provide a small set of "main entry points" that open
 dedicated buffers, similar in spirit to other Emacs workbench-style packages.
 
 Planned buffer types:
@@ -107,37 +107,87 @@ Planned buffer types:
 - Local browser buffers: index/history/view for locally mirrored content.
 - User stats buffer: a report view for XTools results.
 
-## Architecture (planned)
+## Architecture
 
-The implementation is expected to be split into layers:
+The implementation is split into layers:
 
 1. API client layer
    - HTTP request helpers, authentication, token management, continuation.
    - Returns structured data rather than directly manipulating UI buffers.
+   - Uses JSON format (`format=json`) for API responses.
 
 2. Domain operations layer
-   - “Edit page”, “preview”, “fetch watchlist”, “compare revisions”, “sync page”.
+   - "Edit page", "preview", "fetch watchlist", "compare revisions", "sync page".
    - Encodes MediaWiki-specific workflows and parameters.
 
 3. UI layer
    - Special-mode/tabulated-list buffers and interactive commands.
    - Minimal logic beyond presentation and dispatch to domain operations.
 
-The local mirror subsystem is expected to be separate from the online features,
-but integrated at the UI level (e.g., “open local copy” from watchlist).
+The local mirror subsystem is separate from the online features, but integrated
+at the UI level (e.g., "open local copy" from watchlist).
 
-## Compatibility and dependencies (to be decided)
+### Relationship to mediawiki.el
 
-Open questions that affect implementation:
+This package depends on `mediawiki.el` for basic editing and session management
+initially. Usage is isolated behind an adapter layer so that the dependency can
+be replaced later if needed. The adapter provides:
 
-- Should this package depend on `mediawiki.el` for editing/session management, or
-  should it implement its own MediaWiki client from the start?
-- Which Emacs versions should be supported?
-- Should the local mirror use SQLite (built-in sqlite in newer Emacs, or a
-  library such as emacsql), or a file-based store?
+- `wp--login`: establish session
+- `wp--api-call`: make API requests
+- `wp--open-for-edit`: open a page buffer (delegates to `mediawiki-open`)
+- `wp--save`: save buffer to wiki (delegates to `mediawiki-save`)
 
-These will be decided early, because they influence the API client and storage
-design.
+This approach allows reusing proven functionality while keeping the option to
+implement a custom client if `mediawiki.el` proves insufficient.
+
+## Technical notes
+
+### Authentication
+
+- Use `auth-source` for credential storage (supports `~/.authinfo.gpg`).
+- Modern MediaWiki prefers `action=clientlogin` over legacy `action=login`.
+- Users with 2FA enabled need bot passwords (MediaWiki "app passwords").
+- The package should clearly report authentication failures.
+
+### API conventions
+
+- Use `format=json` for all API calls (simpler than XML parsing).
+- Handle continuation transparently (`continue` parameter in responses).
+- Respect rate limits; retry only when safe (idempotent operations).
+
+### Local mirror storage
+
+Storage uses SQLite (built-in in Emacs 29+, or via `emacsql` for older versions).
+
+Schema concepts:
+
+- **pages table**: `pageid` (primary key), `title`, `namespace`, `last_synced_revid`
+- **titles table**: `pageid`, `title`, `timestamp` (tracks renames)
+- **revisions table**: `revid` (primary key), `pageid`, `parentid`, `timestamp`,
+  `user`, `comment`, `minor`, `size`, `sha1`, `tags`
+- **content table**: `revid`, `content` (compressed wikitext blob)
+
+Key design decisions:
+
+- `pageid` is the stable identifier (titles change on moves).
+- Store compressed wikitext to reduce storage.
+- Incremental sync: fetch revisions newer than `last_synced_revid`.
+
+### Sync strategy
+
+1. Fetch watchlist titles via `action=query&list=watchlistraw`.
+2. For each page, fetch revisions via `action=query&prop=revisions` with
+   `rvprop=ids|timestamp|user|comment|content|sha1|size|flags|tags`.
+3. Use continuation (`rvcontinue`) to fetch complete history.
+4. For large pages (tens of thousands of revisions), configurable policies:
+   - Full history for pages under N revisions
+   - Last M revisions for larger pages
+
+### Emacs version compatibility
+
+Target Emacs 29.1+ initially (for built-in SQLite and modern JSON support).
+Earlier versions may work with `emacsql-sqlite` but are not a priority.
 
 ## Security and authentication
 
@@ -169,7 +219,7 @@ design.
    - open diff/page from entries
    - mark entries as seen (if supported)
 
-5. Add local mirror (optional)
+5. Add local mirror
    - local storage schema
    - sync engine
    - local browsing and local diffs
@@ -184,7 +234,7 @@ design.
 - Local mirror policy: full history always, or configurable limits for large
   pages?
 - Rendering: is on-demand online rendering (without caching) sufficient for
-  preview and “readable view” needs?
+  preview and "readable view" needs?
 
 ## Contributing
 
