@@ -40,6 +40,7 @@
 
 (require 'wikipedia-adapter)
 (require 'wikipedia-page)
+(require 'wikipedia-history)
 
 (defgroup wikipedia nil
   "Emacs interface for Wikipedia editing."

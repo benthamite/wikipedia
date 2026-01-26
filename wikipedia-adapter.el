@@ -77,6 +77,82 @@ Returns the parsed HTML as a string."
   (unless (bound-and-true-p mediawiki-site)
     (error "No active wiki session; use `wikipedia-login' first")))
 
+(defun wp--get-page-history (title &optional limit)
+  "Fetch revision history for TITLE.
+LIMIT is the maximum number of revisions to fetch (default 50).
+Returns a list of revision alists with keys: revid, parentid,
+timestamp, user, comment, size, minor."
+  (unless (bound-and-true-p mediawiki-site)
+    (error "No active wiki session; use `wikipedia-login' first"))
+  (let* ((result (mediawiki-api-call
+                  mediawiki-site "query"
+                  (list (cons "titles" title)
+                        (cons "prop" "revisions")
+                        (cons "rvprop" "ids|timestamp|user|comment|size|flags")
+                        (cons "rvlimit" (number-to-string (or limit 50))))))
+         (pages (cddr (assq 'pages (cddr result))))
+         (page (car pages))
+         (revisions (cddr (assq 'revisions (cddr page)))))
+    (mapcar #'wp--parse-revision revisions)))
+
+(defun wp--parse-revision (rev)
+  "Parse a revision element REV into an alist."
+  (let ((attrs (cadr rev)))
+    `((revid . ,(cdr (assq 'revid attrs)))
+      (parentid . ,(cdr (assq 'parentid attrs)))
+      (timestamp . ,(cdr (assq 'timestamp attrs)))
+      (user . ,(cdr (assq 'user attrs)))
+      (comment . ,(or (cdr (assq 'comment attrs)) ""))
+      (size . ,(cdr (assq 'size attrs)))
+      (minor . ,(assq 'minor attrs)))))
+
+(defun wp--get-revision-content (title revid)
+  "Fetch the wikitext content of TITLE at revision REVID."
+  (unless (bound-and-true-p mediawiki-site)
+    (error "No active wiki session; use `wikipedia-login' first"))
+  (let* ((result (mediawiki-api-call
+                  mediawiki-site "query"
+                  (list (cons "titles" title)
+                        (cons "prop" "revisions")
+                        (cons "rvprop" "content")
+                        (cons "rvslots" "main")
+                        (cons "rvstartid" (number-to-string revid))
+                        (cons "rvendid" (number-to-string revid)))))
+         (pages (cddr (assq 'pages (cddr result))))
+         (page (car pages))
+         (revisions (cddr (assq 'revisions (cddr page))))
+         (rev (car revisions)))
+    (wp--extract-revision-content rev)))
+
+(defun wp--extract-revision-content (rev)
+  "Extract wikitext content from revision element REV."
+  (when rev
+    (let* ((slots (assq 'slots (cddr rev)))
+           (slot (assq 'slot (cddr slots))))
+      (when slot
+        (car (last slot))))))
+
+(defun wp--compare-revisions (from-rev to-rev)
+  "Get diff between FROM-REV and TO-REV revision IDs.
+Returns the diff HTML as a string."
+  (unless (bound-and-true-p mediawiki-site)
+    (error "No active wiki session; use `wikipedia-login' first"))
+  (let* ((result (mediawiki-api-call
+                  mediawiki-site "compare"
+                  (list (cons "fromrev" (number-to-string from-rev))
+                        (cons "torev" (number-to-string to-rev)))))
+         (diff-body (cddr result)))
+    (wp--extract-diff-content diff-body)))
+
+(defun wp--extract-diff-content (diff-body)
+  "Extract diff content from DIFF-BODY."
+  (when diff-body
+    (let ((body-element (assq 'body diff-body)))
+      (if body-element
+          (or (cdr body-element)
+              (car (last body-element)))
+        (car (last diff-body))))))
+
 (provide 'wikipedia-adapter)
 
 ;;; wikipedia-adapter.el ends here
