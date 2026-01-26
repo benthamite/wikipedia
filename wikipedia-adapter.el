@@ -34,9 +34,14 @@ ACTION is the MediaWiki API action (e.g., \"query\").
 PARAMS is an alist of additional parameters.
 Returns the parsed response.  Note that mediawiki.el uses XML format
 internally, so the response is an XML-derived structure, not JSON."
-  (unless (bound-and-true-p mediawiki-site)
-    (error "No active wiki session; use `wikipedia-login' first"))
-  (mediawiki-api-call mediawiki-site action params))
+  (let ((site (wp--get-site)))
+    (mediawiki-api-call site action params)))
+
+(defun wp--get-site ()
+  "Return the current site, signaling an error if none is active."
+  (or wp--current-site
+      (bound-and-true-p mediawiki-site)
+      (error "No active wiki session; use `wikipedia-login' first")))
 
 (defun wp--open-page-buffer (title)
   "Open TITLE for editing in a buffer.
@@ -56,10 +61,9 @@ SUMMARY is the edit summary.  If nil, the user will be prompted."
 (defun wp--preview (title wikitext)
   "Preview WIKITEXT as if it were the content of TITLE.
 Returns the parsed HTML as a string."
-  (unless (bound-and-true-p mediawiki-site)
-    (error "No active wiki session; use `wikipedia-login' first"))
-  (let* ((result (mediawiki-api-call
-                  mediawiki-site "parse"
+  (let* ((site (wp--get-site))
+         (result (mediawiki-api-call
+                  site "parse"
                   (list (cons "title" title)
                         (cons "text" wikitext)
                         (cons "prop" "text")
@@ -88,10 +92,9 @@ Returns the parsed HTML as a string."
 LIMIT is the maximum number of revisions to fetch (default 50).
 Returns a list of revision alists with keys: revid, parentid,
 timestamp, user, comment, size, minor."
-  (unless (bound-and-true-p mediawiki-site)
-    (error "No active wiki session; use `wikipedia-login' first"))
-  (let* ((result (mediawiki-api-call
-                  mediawiki-site "query"
+  (let* ((site (wp--get-site))
+         (result (mediawiki-api-call
+                  site "query"
                   (list (cons "titles" title)
                         (cons "prop" "revisions")
                         (cons "rvprop" "ids|timestamp|user|comment|size|flags")
@@ -114,10 +117,9 @@ timestamp, user, comment, size, minor."
 
 (defun wp--get-revision-content (title revid)
   "Fetch the wikitext content of TITLE at revision REVID."
-  (unless (bound-and-true-p mediawiki-site)
-    (error "No active wiki session; use `wikipedia-login' first"))
-  (let* ((result (mediawiki-api-call
-                  mediawiki-site "query"
+  (let* ((site (wp--get-site))
+         (result (mediawiki-api-call
+                  site "query"
                   (list (cons "titles" title)
                         (cons "prop" "revisions")
                         (cons "rvprop" "content")
@@ -141,10 +143,9 @@ timestamp, user, comment, size, minor."
 (defun wp--compare-revisions (from-rev to-rev)
   "Get diff between FROM-REV and TO-REV revision IDs.
 Returns the diff HTML as a string."
-  (unless (bound-and-true-p mediawiki-site)
-    (error "No active wiki session; use `wikipedia-login' first"))
-  (let* ((result (mediawiki-api-call
-                  mediawiki-site "compare"
+  (let* ((site (wp--get-site))
+         (result (mediawiki-api-call
+                  site "compare"
                   (list (cons "fromrev" (number-to-string from-rev))
                         (cons "torev" (number-to-string to-rev)))))
          (diff-body (cddr result)))
