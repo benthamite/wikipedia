@@ -41,6 +41,7 @@
 (require 'wikipedia-adapter)
 (require 'wikipedia-page)
 (require 'wikipedia-history)
+(require 'wikipedia-watchlist)
 
 (defgroup wikipedia nil
   "Emacs interface for Wikipedia editing."

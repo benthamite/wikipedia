@@ -9,6 +9,7 @@
 ;;; Code:
 
 (require 'wikipedia-adapter)
+(require 'wikipedia-history)
 (require 'tabulated-list)
 
 (defvar-local wikipedia-history--page-title nil

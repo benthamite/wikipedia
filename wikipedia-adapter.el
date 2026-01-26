@@ -170,6 +170,29 @@ Returns the diff HTML as a string."
               (car (last body-element)))
         (car (last diff-body))))))
 
+(defun wp--get-watchlist (&optional limit)
+  "Fetch the user's watchlist.
+LIMIT is the maximum number of entries to fetch (default 50).
+Returns a list of watchlist entry alists."
+  (let* ((site (wp--get-site))
+         (result (mediawiki-api-call
+                  site "query"
+                  (list (cons "list" "watchlist")
+                        (cons "wlprop" "ids|title|timestamp|user|comment")
+                        (cons "wllimit" (number-to-string (or limit 50))))))
+         (watchlist (cddr (assq 'watchlist (cddr result)))))
+    (mapcar #'wp--parse-watchlist-entry watchlist)))
+
+(defun wp--parse-watchlist-entry (entry)
+  "Parse a watchlist ENTRY element into an alist."
+  (let ((attrs (cadr entry)))
+    `((title . ,(cdr (assq 'title attrs)))
+      (revid . ,(wp--parse-number (cdr (assq 'revid attrs))))
+      (old_revid . ,(wp--parse-number (cdr (assq 'old_revid attrs))))
+      (timestamp . ,(cdr (assq 'timestamp attrs)))
+      (user . ,(cdr (assq 'user attrs)))
+      (comment . ,(or (cdr (assq 'comment attrs)) "")))))
+
 (provide 'wikipedia-adapter)
 
 ;;; wikipedia-adapter.el ends here
