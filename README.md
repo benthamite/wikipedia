@@ -79,6 +79,38 @@ In the watchlist buffer:
 | `g`     | Refresh watchlist                    |
 | `q`     | Quit                                 |
 
+### Local mirror
+
+Sync watched pages to a local SQLite database for offline browsing:
+
+- `M-x wikipedia-sync-watchlist` - sync all watchlist pages to local database
+- `M-x wikipedia-sync-page` - sync a single page
+- `M-x wikipedia-mirror` - browse the local mirror
+
+In the mirror browser:
+
+| Key | Command                    |
+|-----|----------------------------|
+| `RET`/`o` | Open page for editing (online) |
+| `h` | Show local history         |
+| `s` | Sync page                  |
+| `S` | Sync all watched pages     |
+| `g` | Refresh                    |
+| `q` | Quit                       |
+
+In local history view:
+
+| Key | Command                    |
+|-----|----------------------------|
+| `RET`/`v` | View revision content |
+| `d` | Diff with parent revision  |
+| `g` | Refresh                    |
+| `q` | Quit                       |
+
+Database utilities:
+- `M-x wikipedia-db-stats` - show database statistics
+- `M-x wikipedia-db-close` - close database connection
+
 ## Package structure
 
 - `wikipedia.el` - Main entry point and customization group
@@ -86,6 +118,9 @@ In the watchlist buffer:
 - `wikipedia-page.el` - Page operations (open, save, preview)
 - `wikipedia-history.el` - Revision history browsing and diffs
 - `wikipedia-watchlist.el` - Watchlist browsing
+- `wikipedia-db.el` - SQLite storage layer
+- `wikipedia-sync.el` - Synchronization with Wikipedia
+- `wikipedia-mirror.el` - Local mirror browser
 
 ## Goals
 
@@ -103,10 +138,6 @@ In the watchlist buffer:
 - Supporting every MediaWiki extension or every third-party wiki configuration.
 
 ## Planned features
-
-### Local mirror
-
-Sync watched pages to a local SQLite store for offline inspection and local diffs.
 
 ### XTools integration
 
@@ -150,7 +181,7 @@ Requires Emacs 29.1+ (for built-in SQLite and modern JSON support).
 - [x] Phase 2: Preview
 - [x] Phase 3: Diffs and history browsing
 - [x] Phase 4: Watchlist UI
-- [ ] Phase 5: Local mirror
+- [x] Phase 5: Local mirror
 - [ ] Phase 6: XTools integration
 
 ## License

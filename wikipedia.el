@@ -42,6 +42,9 @@
 (require 'wikipedia-page)
 (require 'wikipedia-history)
 (require 'wikipedia-watchlist)
+(require 'wikipedia-db)
+(require 'wikipedia-sync)
+(require 'wikipedia-mirror)
 
 (defgroup wikipedia nil
   "Emacs interface for Wikipedia editing."
