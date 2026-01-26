@@ -107,13 +107,23 @@ timestamp, user, comment, size, minor."
 (defun wp--parse-revision (rev)
   "Parse a revision element REV into an alist."
   (let ((attrs (cadr rev)))
-    `((revid . ,(cdr (assq 'revid attrs)))
-      (parentid . ,(cdr (assq 'parentid attrs)))
+    `((revid . ,(wp--parse-number (cdr (assq 'revid attrs))))
+      (parentid . ,(wp--parse-number (cdr (assq 'parentid attrs))))
       (timestamp . ,(cdr (assq 'timestamp attrs)))
       (user . ,(cdr (assq 'user attrs)))
       (comment . ,(or (cdr (assq 'comment attrs)) ""))
-      (size . ,(cdr (assq 'size attrs)))
+      (size . ,(wp--parse-number (cdr (assq 'size attrs))))
       (minor . ,(assq 'minor attrs)))))
+
+(defun wp--parse-number (value)
+  "Parse VALUE as a number.
+If VALUE is already a number, return it.  If it's a string, convert it.
+If it's nil or empty, return nil."
+  (cond
+   ((numberp value) value)
+   ((and (stringp value) (not (string-empty-p value)))
+    (string-to-number value))
+   (t nil)))
 
 (defun wp--get-revision-content (title revid)
   "Fetch the wikitext content of TITLE at revision REVID."
