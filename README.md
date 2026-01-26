@@ -64,12 +64,28 @@ Diffs are displayed using `ediff`, so all your ediff customizations apply.
 | `g` | Refresh preview            |
 | `q` | Quit                       |
 
+### Watchlist
+
+- `M-x wikipedia-watchlist` - view your watchlist
+
+In the watchlist buffer:
+
+| Key     | Command                              |
+|---------|--------------------------------------|
+| `RET`/`o` | Open page for editing              |
+| `d`     | Show diff for the change             |
+| `h`     | Show page history                    |
+| `b`     | Browse page in external browser      |
+| `g`     | Refresh watchlist                    |
+| `q`     | Quit                                 |
+
 ## Package structure
 
 - `wikipedia.el` - Main entry point and customization group
 - `wikipedia-adapter.el` - Adapter layer isolating mediawiki.el dependency
 - `wikipedia-page.el` - Page operations (open, save, preview)
 - `wikipedia-history.el` - Revision history browsing and diffs
+- `wikipedia-watchlist.el` - Watchlist browsing
 
 ## Goals
 
@@ -87,13 +103,6 @@ Diffs are displayed using `ediff`, so all your ediff customizations apply.
 - Supporting every MediaWiki extension or every third-party wiki configuration.
 
 ## Planned features
-
-### Watchlist
-
-- View the user's watchlist in Emacs.
-- Filter and search watchlist entries.
-- Jump from a watchlist entry to the page, diff, or history.
-- Mark entries as seen (if supported by the API).
 
 ### Local mirror
 
@@ -140,7 +149,7 @@ Requires Emacs 29.1+ (for built-in SQLite and modern JSON support).
 - [x] Phase 1: Minimal online workflow (open, edit, save)
 - [x] Phase 2: Preview
 - [x] Phase 3: Diffs and history browsing
-- [ ] Phase 4: Watchlist UI
+- [x] Phase 4: Watchlist UI
 - [ ] Phase 5: Local mirror
 - [ ] Phase 6: XTools integration
 
