@@ -45,6 +45,7 @@
 (require 'wikipedia-db)
 (require 'wikipedia-sync)
 (require 'wikipedia-mirror)
+(require 'wikipedia-xtools)
 
 (defgroup wikipedia nil
   "Emacs interface for Wikipedia editing."

@@ -121,6 +121,7 @@ Database utilities:
 - `wikipedia-db.el` - SQLite storage layer
 - `wikipedia-sync.el` - Synchronization with Wikipedia
 - `wikipedia-mirror.el` - Local mirror browser
+- `wikipedia-xtools.el` - XTools API integration
 
 ## Goals
 
@@ -137,11 +138,15 @@ Database utilities:
 - Replacing the full Wikipedia web UI for every feature.
 - Supporting every MediaWiki extension or every third-party wiki configuration.
 
+### XTools statistics
+
+- `M-x wikipedia-xtools-user-stats` - view user edit statistics
+- `M-x wikipedia-xtools-page-stats` - view page statistics
+- `M-x wikipedia-xtools-top-editors` - view top editors for a page
+
+Customize `wikipedia-xtools-project` to change the target wiki (default: `en.wikipedia.org`).
+
 ## Planned features
-
-### XTools integration
-
-Fetch and display user statistics via the XTools API.
 
 ### AI integration
 
@@ -182,7 +187,7 @@ Requires Emacs 29.1+ (for built-in SQLite and modern JSON support).
 - [x] Phase 3: Diffs and history browsing
 - [x] Phase 4: Watchlist UI
 - [x] Phase 5: Local mirror
-- [ ] Phase 6: XTools integration
+- [x] Phase 6: XTools integration
 
 ## License
 
