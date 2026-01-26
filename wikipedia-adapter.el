@@ -148,7 +148,10 @@ If it's nil or empty, return nil."
     (let* ((slots (assq 'slots (cddr rev)))
            (slot (assq 'slot (cddr slots))))
       (when slot
-        (car (last slot))))))
+        (let ((content (car (last slot))))
+          (if (stringp content)
+              content
+            nil))))))
 
 (defun wp--compare-revisions (from-rev to-rev)
   "Get diff between FROM-REV and TO-REV revision IDs.

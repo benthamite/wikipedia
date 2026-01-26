@@ -145,11 +145,13 @@
                         (list revid)))))
 
 (defun wikipedia-db-insert-content (revision-id content)
-  "Insert CONTENT for REVISION-ID."
-  (let ((db (wikipedia-db--ensure-connection)))
-    (sqlite-execute db
-                    "INSERT OR REPLACE INTO content (revision_id, content) VALUES (?, ?)"
-                    (list revision-id content))))
+  "Insert CONTENT for REVISION-ID.
+CONTENT must be a string or nil."
+  (when (and revision-id (stringp content))
+    (let ((db (wikipedia-db--ensure-connection)))
+      (sqlite-execute db
+                      "INSERT OR REPLACE INTO content (revision_id, content) VALUES (?, ?)"
+                      (list revision-id content)))))
 
 (defun wikipedia-db-get-content (revision-id)
   "Get content for REVISION-ID."
