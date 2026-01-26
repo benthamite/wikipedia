@@ -22,7 +22,9 @@
     (define-key map (kbd "RET") #'wikipedia-history-view-revision)
     (define-key map "v" #'wikipedia-history-view-revision)
     (define-key map "d" #'wikipedia-history-diff-to-previous)
+    (define-key map "c" #'wikipedia-history-diff-to-current)
     (define-key map "D" #'wikipedia-history-diff-revisions)
+    (define-key map "b" #'wikipedia-history-browse-revision)
     (define-key map "q" #'quit-window)
     (define-key map "g" #'wikipedia-history-refresh)
     map)
@@ -117,7 +119,7 @@
       (pop-to-buffer buffer))))
 
 (defun wikipedia-history-diff-to-previous ()
-  "Show diff between revision at point and its parent."
+  "Show diff between revision at point and its parent (like Wikipedia's \"prev\")."
   (interactive)
   (let* ((rev (wikipedia-history--revision-at-point))
          (revid (alist-get 'revid rev))
@@ -126,77 +128,72 @@
       (error "No revision at point"))
     (unless parentid
       (error "This revision has no parent"))
-    (wikipedia--show-diff parentid revid wikipedia-history--page-title)))
+    (wikipedia--show-ediff parentid revid wikipedia-history--page-title)))
+
+(defun wikipedia-history-diff-to-current ()
+  "Show diff between revision at point and the current revision (like Wikipedia's \"cur\")."
+  (interactive)
+  (let* ((rev (wikipedia-history--revision-at-point))
+         (revid (alist-get 'revid rev))
+         (current-rev (car wikipedia-history--revisions))
+         (current-revid (alist-get 'revid current-rev)))
+    (unless revid
+      (error "No revision at point"))
+    (when (= revid current-revid)
+      (error "Already at the current revision"))
+    (wikipedia--show-ediff revid current-revid wikipedia-history--page-title)))
+
+(defun wikipedia-history-browse-revision ()
+  "Open the revision at point in an external browser."
+  (interactive)
+  (let* ((rev (wikipedia-history--revision-at-point))
+         (revid (alist-get 'revid rev)))
+    (unless revid
+      (error "No revision at point"))
+    (let ((url (wikipedia--revision-url wikipedia-history--page-title revid)))
+      (browse-url url))))
 
 (defun wikipedia-history-diff-revisions ()
-  "Diff two marked revisions, or prompt for revision IDs."
+  "Diff two revisions, prompting for revision IDs."
   (interactive)
   (let* ((from (read-number "From revision: "))
          (to (read-number "To revision: ")))
-    (wikipedia--show-diff from to wikipedia-history--page-title)))
+    (wikipedia--show-ediff from to wikipedia-history--page-title)))
 
-(defun wikipedia--show-diff (from-rev to-rev title)
-  "Display diff between FROM-REV and TO-REV for TITLE."
-  (let* ((diff-html (wp--compare-revisions from-rev to-rev))
-         (buffer (get-buffer-create
-                  (format "*Wikipedia Diff: %s (%d→%d)*" title from-rev to-rev))))
+(defun wikipedia--show-ediff (from-rev to-rev title)
+  "Display ediff between FROM-REV and TO-REV for TITLE."
+  (let* ((from-content (wp--get-revision-content title from-rev))
+         (to-content (wp--get-revision-content title to-rev))
+         (from-buffer (wikipedia--create-revision-buffer title from-rev from-content))
+         (to-buffer (wikipedia--create-revision-buffer title to-rev to-content)))
+    (ediff-buffers from-buffer to-buffer)))
+
+(defun wikipedia--create-revision-buffer (title revid content)
+  "Create a buffer for TITLE at REVID with CONTENT."
+  (let ((buffer (get-buffer-create (format "*WP Rev %d: %s*" revid title))))
     (with-current-buffer buffer
       (let ((inhibit-read-only t))
         (erase-buffer)
-        (if diff-html
-            (progn
-              (insert diff-html)
-              (goto-char (point-min))
-              (wikipedia-diff--render-html))
-          (insert "(No differences)")))
-      (wikipedia-diff-mode)
-      (setq-local header-line-format
-                  (format "Diff: %s (rev %d → %d)" title from-rev to-rev)))
-    (pop-to-buffer buffer)))
+        (insert (or content ""))
+        (goto-char (point-min)))
+      (setq buffer-read-only t))
+    buffer))
 
-(defun wikipedia-diff--render-html ()
-  "Render the HTML diff in the current buffer as text."
-  (let ((dom (libxml-parse-html-region (point-min) (point-max))))
-    (erase-buffer)
-    (wikipedia-diff--render-table dom)))
+(defun wikipedia--revision-url (title revid)
+  "Return the URL for TITLE at REVID."
+  (let ((site-url (wikipedia--get-site-url)))
+    (format "%s?title=%s&oldid=%d"
+            site-url
+            (url-hexify-string title)
+            revid)))
 
-(defun wikipedia-diff--render-table (dom)
-  "Render diff table from DOM."
-  (let ((rows (dom-by-tag dom 'tr)))
-    (dolist (row rows)
-      (let ((cells (dom-by-tag row 'td)))
-        (when (>= (length cells) 4)
-          (let* ((left-line (dom-text (nth 0 cells)))
-                 (left-content (wikipedia-diff--cell-text (nth 1 cells)))
-                 (right-line (dom-text (nth 2 cells)))
-                 (right-content (wikipedia-diff--cell-text (nth 3 cells)))
-                 (left-class (dom-attr (nth 1 cells) 'class))
-                 (right-class (dom-attr (nth 3 cells) 'class)))
-            (cond
-             ((and left-content (string-match "diff-deletedline" (or left-class "")))
-              (insert (format "-%s\n" left-content)))
-             ((and right-content (string-match "diff-addedline" (or right-class "")))
-              (insert (format "+%s\n" right-content)))
-             ((and left-content (not (string-empty-p left-content)))
-              (insert (format " %s\n" left-content))))))))))
-
-(defun wikipedia-diff--cell-text (cell)
-  "Extract text content from diff CELL."
-  (when cell
-    (let ((div (car (dom-by-tag cell 'div))))
-      (if div
-          (string-trim (dom-texts div ""))
-        (string-trim (dom-texts cell ""))))))
-
-(defvar wikipedia-diff-mode-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map "q" #'quit-window)
-    map)
-  "Keymap for `wikipedia-diff-mode'.")
-
-(define-derived-mode wikipedia-diff-mode special-mode "WP-Diff"
-  "Major mode for viewing Wikipedia diffs.
-\\{wikipedia-diff-mode-map}")
+(defun wikipedia--get-site-url ()
+  "Return the base URL for the current wiki site."
+  (let* ((site (wp--get-site))
+         (site-info (cdr (assoc site mediawiki-site-alist))))
+    (or (plist-get site-info :url)
+        (car site-info)
+        (error "Cannot determine URL for site %s" site))))
 
 (provide 'wikipedia-history)
 
