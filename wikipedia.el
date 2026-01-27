@@ -2,7 +2,7 @@
 
 ;; Copyright (C) 2025
 
-;; Author: Your Name <your@email.com>
+;; Author: Pablo Stafforini
 ;; Version: 0.1.0
 ;; Package-Requires: ((emacs "29.1") (mediawiki "2.4.9"))
 ;; Keywords: wiki, wikipedia, mediawiki
