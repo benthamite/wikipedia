@@ -94,6 +94,7 @@
   (when-let ((title (wikipedia-mirror--title-at-point)))
     (wikipedia-mirror-history title)))
 
+(declare-function wikipedia-sync-page "wikipedia-sync")
 (defun wikipedia-mirror-sync-page ()
   "Sync the page at point."
   (interactive)
@@ -102,6 +103,7 @@
     (wikipedia-sync-page title)
     (wikipedia-mirror-refresh)))
 
+(declare-function wikipedia-sync-update "wikipedia-sync")
 (defun wikipedia-mirror-sync-all ()
   "Sync all watched pages."
   (interactive)

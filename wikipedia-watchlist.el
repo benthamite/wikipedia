@@ -94,6 +94,7 @@
       (error "No entry at point"))
     (wp--open-page-buffer title)))
 
+(declare-function wikipedia--show-ediff "wikipedia-history")
 (defun wikipedia-watchlist-show-diff ()
   "Show the diff for the change at point."
   (interactive)
@@ -107,6 +108,7 @@
       (error "Cannot determine revisions for diff"))
     (wikipedia--show-ediff old-revid revid title)))
 
+(declare-function wikipedia-history "wikipedia-history")
 (defun wikipedia-watchlist-show-history ()
   "Show the history for the page at point."
   (interactive)
@@ -126,6 +128,7 @@
     (let ((url (wikipedia--page-url title)))
       (browse-url url))))
 
+(declare-function wikipedia--get-site-url "wikipedia-history")
 (defun wikipedia--page-url (title)
   "Return the URL for page TITLE."
   (let ((site-url (wikipedia--get-site-url)))

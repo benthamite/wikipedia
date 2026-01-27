@@ -1,4 +1,4 @@
-;;; wikipedia-history.el --- Revision history for wikipedia.el -*- lexical-binding: t; -*-
+;;; wikipedia-history.el --- Revision history  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2025
 
@@ -119,7 +119,8 @@
       (pop-to-buffer buffer))))
 
 (defun wikipedia-history-diff-to-previous ()
-  "Show diff between revision at point and its parent (like Wikipedia's \"prev\")."
+  "Show diff between revision at point and its parent.
+This is equivalent to Wikipedia \"prev\"."
   (interactive)
   (let* ((rev (wikipedia-history--revision-at-point))
          (revid (alist-get 'revid rev))
@@ -131,7 +132,8 @@
     (wikipedia--show-ediff parentid revid wikipedia-history--page-title)))
 
 (defun wikipedia-history-diff-to-current ()
-  "Show diff between revision at point and the current revision (like Wikipedia's \"cur\")."
+  "Show diff between revision at point and the current revision.
+This is equivalent to Wikipedia's \"cur\"."
   (interactive)
   (let* ((rev (wikipedia-history--revision-at-point))
          (revid (alist-get 'revid rev))
