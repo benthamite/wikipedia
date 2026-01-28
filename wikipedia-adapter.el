@@ -177,7 +177,9 @@ Returns the diff HTML as a string."
   "Fetch the user's watchlist.
 LIMIT is the maximum number of entries to fetch (default 50).
 DAYS is how many days back to fetch (default 3).
-Returns a list of watchlist entry alists."
+Returns a list of watchlist entry alists.
+By default, excludes bot edits and minor edits, and only includes
+page edits and page creations (matching the Wikipedia UI defaults)."
   (let* ((site (wp--get-site))
          (end-time (wp--format-timestamp-for-api (- (float-time) (* (or days 3) 86400))))
          (result (mediawiki-api-call
@@ -185,6 +187,8 @@ Returns a list of watchlist entry alists."
                   (list (cons "list" "watchlist")
                         (cons "wlprop" "ids|title|timestamp|user|comment|sizes")
                         (cons "wlallrev" "1")
+                        (cons "wlshow" "!bot|!minor")
+                        (cons "wltype" "edit|new")
                         (cons "wlend" end-time)
                         (cons "wllimit" (number-to-string (or limit 50))))))
          (watchlist (cddr (assq 'watchlist (cddr result)))))
