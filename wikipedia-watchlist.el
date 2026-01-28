@@ -89,8 +89,40 @@
 
 (defun wikipedia-watchlist--rebuild-list ()
   "Rebuild `tabulated-list-entries' from grouped entries."
-  (setq tabulated-list-entries
-        (wikipedia-watchlist--build-display-entries)))
+  (let ((entries (wikipedia-watchlist--build-display-entries)))
+    (setq tabulated-list-entries entries)
+    (wikipedia-watchlist--adjust-column-widths entries)))
+
+(defun wikipedia-watchlist--adjust-column-widths (entries)
+  "Adjust column widths based on content in ENTRIES."
+  (let* ((max-widths '(2 40 20 20 8))
+         (actual-widths (wikipedia-watchlist--compute-column-widths entries))
+         (new-format (wikipedia-watchlist--build-format max-widths actual-widths)))
+    (setq tabulated-list-format new-format)
+    (tabulated-list-init-header)))
+
+(defun wikipedia-watchlist--compute-column-widths (entries)
+  "Compute the maximum width of each column in ENTRIES."
+  (let ((widths (list 0 0 0 0 0)))
+    (dolist (entry entries)
+      (let ((row (cadr entry)))
+        (dotimes (i 5)
+          (let* ((cell (aref row i))
+                 (text (if (stringp cell) cell (format "%s" cell)))
+                 (len (length text)))
+            (when (> len (nth i widths))
+              (setf (nth i widths) len))))))
+    widths))
+
+(defun wikipedia-watchlist--build-format (max-widths actual-widths)
+  "Build column format using minimum of MAX-WIDTHS and ACTUAL-WIDTHS."
+  (vector
+   (list "" (min (nth 0 max-widths) (nth 0 actual-widths)) nil)
+   (list "Page" (min (nth 1 max-widths) (nth 1 actual-widths)) t)
+   (list "Time" (min (nth 2 max-widths) (nth 2 actual-widths)) t)
+   (list "User" (min (nth 3 max-widths) (nth 3 actual-widths)) t)
+   (list "Change" (min (nth 4 max-widths) (nth 4 actual-widths)) t)
+   (list "Summary" 0 nil)))
 
 (defun wikipedia-watchlist--build-display-entries ()
   "Build the list of display entries from grouped data."
