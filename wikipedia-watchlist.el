@@ -24,6 +24,7 @@
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "RET") #'wikipedia-watchlist-open-page)
     (define-key map (kbd "TAB") #'wikipedia-watchlist-toggle-expand)
+    (define-key map (kbd "SPC") #'wikipedia-watchlist-toggle-expand)
     (define-key map "o" #'wikipedia-watchlist-open-page)
     (define-key map "d" #'wikipedia-watchlist-show-diff)
     (define-key map "h" #'wikipedia-watchlist-show-history)
