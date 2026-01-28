@@ -12,6 +12,7 @@
 (require 'tabulated-list)
 
 (declare-function wikipedia-thank "wikipedia")
+(declare-function wikipedia-user-at-point "wikipedia-user")
 
 (defvar-local wikipedia-history--page-title nil
   "The page title for this history buffer.")
@@ -30,6 +31,7 @@
     (define-key map "q" #'quit-window)
     (define-key map "g" #'wikipedia-history-refresh)
     (define-key map "t" #'wikipedia-thank)
+    (define-key map "u" #'wikipedia-user-at-point)
     map)
   "Keymap for `wikipedia-history-mode'.")
 

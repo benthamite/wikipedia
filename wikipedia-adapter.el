@@ -198,6 +198,51 @@ Returns a list of watchlist entry alists."
       (oldlen . ,(wp--parse-number (cdr (assq 'oldlen attrs))))
       (newlen . ,(wp--parse-number (cdr (assq 'newlen attrs)))))))
 
+(defun wp--thank-revision (revid)
+  "Send a thank notification for revision REVID.
+Returns non-nil on success."
+  (let* ((site (wp--get-site))
+         (token (wp--get-csrf-token site)))
+    (mediawiki-api-call
+     site "thank"
+     (list (cons "rev" (number-to-string revid))
+           (cons "token" token)))
+    t))
+
+(defun wp--get-csrf-token (site)
+  "Get a CSRF token for SITE."
+  (let* ((result (mediawiki-api-call
+                  site "query"
+                  (list (cons "meta" "tokens")
+                        (cons "type" "csrf"))))
+         (tokens (assq 'tokens (cddr (assq 'query (cddr result))))))
+    (cdr (assq 'csrftoken (cadr tokens)))))
+
+(defun wp--get-user-contributions (username &optional limit)
+  "Fetch contributions for USERNAME.
+LIMIT is the maximum number of contributions to fetch (default 50).
+Returns a list of contribution alists."
+  (let* ((site (wp--get-site))
+         (result (mediawiki-api-call
+                  site "query"
+                  (list (cons "list" "usercontribs")
+                        (cons "ucuser" username)
+                        (cons "ucprop" "ids|title|timestamp|comment|sizediff|flags")
+                        (cons "uclimit" (number-to-string (or limit 50))))))
+         (contribs (cddr (assq 'usercontribs (cddr result)))))
+    (mapcar #'wp--parse-contrib-entry contribs)))
+
+(defun wp--parse-contrib-entry (entry)
+  "Parse a user contribution ENTRY element into an alist."
+  (let ((attrs (cadr entry)))
+    `((revid . ,(wp--parse-number (cdr (assq 'revid attrs))))
+      (parentid . ,(wp--parse-number (cdr (assq 'parentid attrs))))
+      (title . ,(cdr (assq 'title attrs)))
+      (timestamp . ,(cdr (assq 'timestamp attrs)))
+      (comment . ,(or (cdr (assq 'comment attrs)) ""))
+      (sizediff . ,(wp--parse-number (cdr (assq 'sizediff attrs))))
+      (minor . ,(assq 'minor attrs)))))
+
 (provide 'wikipedia-adapter)
 
 ;;; wikipedia-adapter.el ends here

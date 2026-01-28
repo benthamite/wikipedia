@@ -32,6 +32,8 @@
     (define-key map "g" #'wikipedia-watchlist-refresh)
     (define-key map "e" #'wikipedia-watchlist-expand-all)
     (define-key map "c" #'wikipedia-watchlist-collapse-all)
+    (define-key map "t" #'wikipedia-thank)
+    (define-key map "u" #'wikipedia-user-at-point)
     (define-key map "q" #'quit-window)
     map)
   "Keymap for `wikipedia-watchlist-mode'.")
@@ -282,6 +284,18 @@
       (cadr id))
      (t nil))))
 
+(defun wikipedia-watchlist--revid-at-point ()
+  "Return the revision ID at point."
+  (let ((entry (wikipedia-watchlist--entry-at-point)))
+    (when entry
+      (alist-get 'revid entry))))
+
+(defun wikipedia-watchlist--user-at-point ()
+  "Return the username at point."
+  (let ((entry (wikipedia-watchlist--entry-at-point)))
+    (when entry
+      (alist-get 'user entry))))
+
 (defun wikipedia-watchlist-toggle-expand ()
   "Toggle expansion of the group at point."
   (interactive)
@@ -366,6 +380,8 @@
       (browse-url url))))
 
 (declare-function wikipedia--get-site-url "wikipedia-history")
+(declare-function wikipedia-thank "wikipedia")
+(declare-function wikipedia-user-at-point "wikipedia-user")
 (defun wikipedia--page-url (title)
   "Return the URL for page TITLE."
   (let ((site-url (wikipedia--get-site-url)))
