@@ -45,6 +45,7 @@
     (define-key map "u" #'wikipedia-user-at-point)
     (define-key map "x" #'wikipedia-watchlist-unwatch)
     (define-key map "q" #'quit-window)
+    (define-key map "!" #'wikipedia-watchlist-mark-all-read)
     map)
   "Keymap for `wikipedia-watchlist-mode'.")
 
