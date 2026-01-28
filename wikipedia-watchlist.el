@@ -34,6 +34,7 @@
     (define-key map "c" #'wikipedia-watchlist-collapse-all)
     (define-key map "t" #'wikipedia-thank)
     (define-key map "u" #'wikipedia-user-at-point)
+    (define-key map "x" #'wikipedia-watchlist-unwatch)
     (define-key map "q" #'quit-window)
     map)
   "Keymap for `wikipedia-watchlist-mode'.")
@@ -378,6 +379,21 @@
       (error "No entry at point"))
     (let ((url (wikipedia--page-url title)))
       (browse-url url))))
+
+(defun wikipedia-watchlist-unwatch ()
+  "Remove the page at point from the watchlist."
+  (interactive)
+  (let ((title (wikipedia-watchlist--title-at-point)))
+    (unless title
+      (error "No entry at point"))
+    (when (yes-or-no-p (format "Remove \"%s\" from watchlist? " title))
+      (condition-case err
+          (progn
+            (wp--unwatch-page title)
+            (message "Removed \"%s\" from watchlist" title)
+            (wikipedia-watchlist-refresh))
+        (error
+         (message "Failed to unwatch: %s" (error-message-string err)))))))
 
 (declare-function wikipedia--get-site-url "wikipedia-history")
 (declare-function wikipedia-thank "wikipedia")

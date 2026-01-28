@@ -218,6 +218,18 @@ Returns non-nil on success."
          (tokens (assq 'tokens (cddr (assq 'query (cddr result))))))
     (cdr (assq 'csrftoken (cadr tokens)))))
 
+(defun wp--unwatch-page (title)
+  "Remove TITLE from the user's watchlist.
+Returns non-nil on success."
+  (let* ((site (wp--get-site))
+         (token (wp--get-csrf-token site)))
+    (mediawiki-api-call
+     site "watch"
+     (list (cons "titles" title)
+           (cons "unwatch" "1")
+           (cons "token" token)))
+    t))
+
 (defun wp--get-user-contributions (username &optional limit)
   "Fetch contributions for USERNAME.
 LIMIT is the maximum number of contributions to fetch (default 50).
