@@ -11,6 +11,8 @@
 (require 'wikipedia-adapter)
 (require 'tabulated-list)
 
+(declare-function wikipedia-thank "wikipedia")
+
 (defvar-local wikipedia-history--page-title nil
   "The page title for this history buffer.")
 
@@ -27,6 +29,7 @@
     (define-key map "b" #'wikipedia-history-browse-revision)
     (define-key map "q" #'quit-window)
     (define-key map "g" #'wikipedia-history-refresh)
+    (define-key map "t" #'wikipedia-thank)
     map)
   "Keymap for `wikipedia-history-mode'.")
 
@@ -94,6 +97,16 @@
     (when revid
       (seq-find (lambda (r) (eq (alist-get 'revid r) revid))
                 wikipedia-history--revisions))))
+
+(defun wikipedia-history--revid-at-point ()
+  "Return the revision ID at point."
+  (tabulated-list-get-id))
+
+(defun wikipedia-history--user-at-point ()
+  "Return the username at point."
+  (let ((rev (wikipedia-history--revision-at-point)))
+    (when rev
+      (alist-get 'user rev))))
 
 (defun wikipedia-history-view-revision ()
   "View the wikitext of the revision at point."
