@@ -173,16 +173,19 @@ Returns the diff HTML as a string."
               (car (last body-element)))
         (car (last diff-body))))))
 
-(defun wp--get-watchlist (&optional limit)
+(defun wp--get-watchlist (&optional limit days)
   "Fetch the user's watchlist.
 LIMIT is the maximum number of entries to fetch (default 50).
+DAYS is how many days back to fetch (default 3).
 Returns a list of watchlist entry alists."
   (let* ((site (wp--get-site))
+         (end-time (wp--format-timestamp-for-api (- (float-time) (* (or days 3) 86400))))
          (result (mediawiki-api-call
                   site "query"
                   (list (cons "list" "watchlist")
                         (cons "wlprop" "ids|title|timestamp|user|comment|sizes")
                         (cons "wlallrev" "1")
+                        (cons "wlend" end-time)
                         (cons "wllimit" (number-to-string (or limit 50))))))
          (watchlist (cddr (assq 'watchlist (cddr result)))))
     (mapcar #'wp--parse-watchlist-entry watchlist)))
@@ -244,6 +247,10 @@ Returns a list of contribution alists."
                         (cons "uclimit" (number-to-string (or limit 50))))))
          (contribs (cddr (assq 'usercontribs (cddr result)))))
     (mapcar #'wp--parse-contrib-entry contribs)))
+
+(defun wp--format-timestamp-for-api (time)
+  "Format TIME (as seconds since epoch) for the MediaWiki API."
+  (format-time-string "%Y-%m-%dT%H:%M:%SZ" (seconds-to-time time) t))
 
 (defun wp--parse-contrib-entry (entry)
   "Parse a user contribution ENTRY element into an alist."
