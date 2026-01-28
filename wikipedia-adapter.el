@@ -46,7 +46,8 @@ internally, so the response is an XML-derived structure, not JSON."
 (defun wp--open-page-buffer (title)
   "Open TITLE for editing in a buffer.
 Returns the buffer containing the page content."
-  (mediawiki-open title))
+  (let ((mediawiki-site (wp--get-site)))
+    (mediawiki-open title)))
 
 (defun wp--save-page-buffer (&optional summary)
   "Save the current buffer to the wiki.
