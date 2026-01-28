@@ -197,10 +197,35 @@
    (t 'default)))
 
 (defun wikipedia-watchlist--format-timestamp (timestamp)
-  "Format TIMESTAMP for display."
+  "Format TIMESTAMP for display as relative time."
   (if timestamp
-      (replace-regexp-in-string "T" " " (substring timestamp 0 16))
+      (wikipedia-watchlist--relative-time timestamp)
     ""))
+
+(defun wikipedia-watchlist--relative-time (timestamp)
+  "Convert TIMESTAMP to a relative time string."
+  (let* ((time (wikipedia-watchlist--parse-timestamp timestamp))
+         (seconds-ago (float-time (time-subtract (current-time) time))))
+    (wikipedia-watchlist--format-seconds-ago seconds-ago)))
+
+(defun wikipedia-watchlist--parse-timestamp (timestamp)
+  "Parse ISO 8601 TIMESTAMP string to Emacs time."
+  (encode-time (iso8601-parse timestamp)))
+
+(defun wikipedia-watchlist--format-seconds-ago (seconds)
+  "Format SECONDS as a human-readable relative time."
+  (let ((minutes (/ seconds 60))
+        (hours (/ seconds 3600))
+        (days (/ seconds 86400))
+        (weeks (/ seconds 604800))
+        (months (/ seconds 2592000)))
+    (cond
+     ((< seconds 60) "just now")
+     ((< minutes 60) (format "%d minute%s ago" (floor minutes) (if (< minutes 2) "" "s")))
+     ((< hours 24) (format "%d hour%s ago" (floor hours) (if (< hours 2) "" "s")))
+     ((< days 7) (format "%d day%s ago" (floor days) (if (< days 2) "" "s")))
+     ((< weeks 4) (format "%d week%s ago" (floor weeks) (if (< weeks 2) "" "s")))
+     (t (format "%d month%s ago" (floor months) (if (< months 2) "" "s"))))))
 
 (defun wikipedia-watchlist--entry-at-point ()
   "Return the watchlist entry at point."
