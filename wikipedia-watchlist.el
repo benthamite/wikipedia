@@ -21,6 +21,13 @@
 (defvar-local wikipedia-watchlist--expanded nil
   "Hash table tracking which page titles are expanded.")
 
+(defvar-local wikipedia-watchlist--read nil
+  "Hash table tracking which revision IDs have been read.")
+
+(defface wikipedia-watchlist-unread
+  '((t :weight bold))
+  "Face for unread watchlist entries.")
+
 (defvar wikipedia-watchlist-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "RET") #'wikipedia-watchlist-open-page)
@@ -33,6 +40,7 @@
     (define-key map "g" #'wikipedia-watchlist-refresh)
     (define-key map "e" #'wikipedia-watchlist-expand-all)
     (define-key map "c" #'wikipedia-watchlist-collapse-all)
+    (define-key map "m" #'wikipedia-watchlist-mark-all-read)
     (define-key map "t" #'wikipedia-thank)
     (define-key map "u" #'wikipedia-user-at-point)
     (define-key map "x" #'wikipedia-watchlist-unwatch)
@@ -53,6 +61,7 @@
   (setq tabulated-list-padding 2)
   (setq tabulated-list-sort-key nil)
   (setq wikipedia-watchlist--expanded (make-hash-table :test 'equal))
+  (setq wikipedia-watchlist--read (make-hash-table :test 'eql))
   (tabulated-list-init-header))
 
 ;;;###autoload
@@ -153,33 +162,56 @@
          (expanded-p (gethash title wikipedia-watchlist--expanded))
          (indicator (if expandable
                         (if expanded-p "▼" "▶")
-                      " ")))
+                      " "))
+         (unread-p (wikipedia-watchlist--group-has-unread-p entries)))
     (list (cons 'group title)
-          (vector
-           indicator
-           (wikipedia-watchlist--format-title-with-count title count)
-           (wikipedia-watchlist--format-timestamp timestamp)
-           users
-           (wikipedia-watchlist--format-size-change-value total-change)
-           (or comment "")))))
+          (wikipedia-watchlist--apply-unread-face
+           (vector
+            indicator
+            (wikipedia-watchlist--format-title-with-count title count)
+            (wikipedia-watchlist--format-timestamp timestamp)
+            users
+            (wikipedia-watchlist--format-size-change-value total-change)
+            (or comment ""))
+           unread-p))))
+
+(defun wikipedia-watchlist--group-has-unread-p (entries)
+  "Return non-nil if any entry in ENTRIES is unread."
+  (seq-some (lambda (entry)
+              (not (gethash (alist-get 'revid entry) wikipedia-watchlist--read)))
+            entries))
+
+(defun wikipedia-watchlist--apply-unread-face (row unread-p)
+  "Apply unread face to ROW if UNREAD-P is non-nil."
+  (if unread-p
+      (let ((new-row (copy-sequence row)))
+        (dotimes (i (length new-row))
+          (let ((cell (aref new-row i)))
+            (when (stringp cell)
+              (aset new-row i (propertize cell 'face 'wikipedia-watchlist-unread)))))
+        new-row)
+    row))
 
 (defun wikipedia-watchlist--make-child-entry (entry)
   "Create a child entry for individual ENTRY."
-  (let ((title (alist-get 'title entry))
-        (timestamp (alist-get 'timestamp entry))
-        (user (alist-get 'user entry))
-        (comment (alist-get 'comment entry))
-        (revid (alist-get 'revid entry))
-        (oldlen (alist-get 'oldlen entry))
-        (newlen (alist-get 'newlen entry)))
+  (let* ((title (alist-get 'title entry))
+         (timestamp (alist-get 'timestamp entry))
+         (user (alist-get 'user entry))
+         (comment (alist-get 'comment entry))
+         (revid (alist-get 'revid entry))
+         (oldlen (alist-get 'oldlen entry))
+         (newlen (alist-get 'newlen entry))
+         (unread-p (not (gethash revid wikipedia-watchlist--read))))
     (list (cons 'child (cons title revid))
-          (vector
-           ""
-           (concat "  " (wikipedia-watchlist--format-timestamp timestamp))
-           ""
-           (or user "")
-           (wikipedia-watchlist--format-size-change oldlen newlen)
-           (or comment "")))))
+          (wikipedia-watchlist--apply-unread-face
+           (vector
+            ""
+            (concat "  " (wikipedia-watchlist--format-timestamp timestamp))
+            ""
+            (or user "")
+            (wikipedia-watchlist--format-size-change oldlen newlen)
+            (or comment ""))
+           unread-p))))
 
 (defun wikipedia-watchlist--format-title-with-count (title count)
   "Format TITLE with change COUNT if more than 1."
@@ -348,7 +380,23 @@
   (let ((title (wikipedia-watchlist--title-at-point)))
     (unless title
       (error "No entry at point"))
+    (wikipedia-watchlist--mark-at-point-read)
     (wp--open-page-buffer title)))
+
+(defun wikipedia-watchlist--mark-at-point-read ()
+  "Mark the entry at point as read and refresh display."
+  (let ((id (tabulated-list-get-id)))
+    (cond
+     ((and (consp id) (eq (car id) 'group))
+      (let* ((title (cdr id))
+             (entries (alist-get title wikipedia-watchlist--grouped-entries nil nil #'equal)))
+        (dolist (entry entries)
+          (puthash (alist-get 'revid entry) t wikipedia-watchlist--read))))
+     ((and (consp id) (eq (car id) 'child))
+      (let ((revid (cddr id)))
+        (puthash revid t wikipedia-watchlist--read))))
+    (wikipedia-watchlist--rebuild-list)
+    (tabulated-list-print t)))
 
 (declare-function wikipedia--show-ediff "wikipedia-history")
 (defun wikipedia-watchlist-show-diff ()
@@ -362,6 +410,7 @@
       (error "No entry at point"))
     (unless (and revid old-revid)
       (error "Cannot determine revisions for diff"))
+    (wikipedia-watchlist--mark-at-point-read)
     (wikipedia--show-ediff old-revid revid title)))
 
 (declare-function wikipedia-history "wikipedia-history")
@@ -381,6 +430,15 @@
       (error "No entry at point"))
     (let ((url (wikipedia--page-url title)))
       (browse-url url))))
+
+(defun wikipedia-watchlist-mark-all-read ()
+  "Mark all entries in the watchlist as read."
+  (interactive)
+  (dolist (entry wikipedia-watchlist--entries)
+    (puthash (alist-get 'revid entry) t wikipedia-watchlist--read))
+  (wikipedia-watchlist--rebuild-list)
+  (tabulated-list-print t)
+  (message "Marked all entries as read"))
 
 (defun wikipedia-watchlist-unwatch ()
   "Remove the page at point from the watchlist."
