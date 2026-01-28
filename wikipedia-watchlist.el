@@ -221,7 +221,7 @@
     title))
 
 (defun wikipedia-watchlist--summarize-users (entries)
-  "Summarize the users who made changes in ENTRIES."
+  "Summarize the users who changed ENTRIES."
   (let ((users (make-hash-table :test 'equal)))
     (dolist (entry entries)
       (let ((user (alist-get 'user entry)))
