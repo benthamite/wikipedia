@@ -182,6 +182,7 @@ Returns a list of watchlist entry alists."
                   site "query"
                   (list (cons "list" "watchlist")
                         (cons "wlprop" "ids|title|timestamp|user|comment|sizes")
+                        (cons "wlallrev" "1")
                         (cons "wllimit" (number-to-string (or limit 50))))))
          (watchlist (cddr (assq 'watchlist (cddr result)))))
     (mapcar #'wp--parse-watchlist-entry watchlist)))
