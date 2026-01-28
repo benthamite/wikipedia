@@ -148,6 +148,7 @@
          (timestamp (alist-get 'timestamp latest))
          (users (wikipedia-watchlist--summarize-users entries))
          (total-change (wikipedia-watchlist--total-size-change entries))
+         (comment (alist-get 'comment latest))
          (expandable (> count 1))
          (expanded-p (gethash title wikipedia-watchlist--expanded))
          (indicator (if expandable
@@ -160,7 +161,7 @@
            (wikipedia-watchlist--format-timestamp timestamp)
            users
            (wikipedia-watchlist--format-size-change-value total-change)
-           ""))))
+           (or comment "")))))
 
 (defun wikipedia-watchlist--make-child-entry (entry)
   "Create a child entry for individual ENTRY."
