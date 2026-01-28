@@ -385,16 +385,20 @@
 
 (defun wikipedia-watchlist--mark-at-point-read ()
   "Mark the entry at point as read and refresh display."
-  (let ((id (tabulated-list-get-id)))
+  (let ((id (tabulated-list-get-id))
+        (title nil))
     (cond
      ((and (consp id) (eq (car id) 'group))
-      (let* ((title (cdr id))
-             (entries (alist-get title wikipedia-watchlist--grouped-entries nil nil #'equal)))
+      (setq title (cdr id))
+      (let ((entries (alist-get title wikipedia-watchlist--grouped-entries nil nil #'equal)))
         (dolist (entry entries)
           (puthash (alist-get 'revid entry) t wikipedia-watchlist--read))))
      ((and (consp id) (eq (car id) 'child))
+      (setq title (cadr id))
       (let ((revid (cddr id)))
         (puthash revid t wikipedia-watchlist--read))))
+    (when title
+      (wp--mark-page-seen title))
     (wikipedia-watchlist--rebuild-list)
     (tabulated-list-print t)))
 
@@ -434,11 +438,14 @@
 (defun wikipedia-watchlist-mark-all-read ()
   "Mark all entries in the watchlist as read."
   (interactive)
-  (dolist (entry wikipedia-watchlist--entries)
-    (puthash (alist-get 'revid entry) t wikipedia-watchlist--read))
-  (wikipedia-watchlist--rebuild-list)
-  (tabulated-list-print t)
-  (message "Marked all entries as read"))
+  (let ((titles (mapcar #'car wikipedia-watchlist--grouped-entries)))
+    (dolist (entry wikipedia-watchlist--entries)
+      (puthash (alist-get 'revid entry) t wikipedia-watchlist--read))
+    (dolist (title titles)
+      (wp--mark-page-seen title))
+    (wikipedia-watchlist--rebuild-list)
+    (tabulated-list-print t)
+    (message "Marked all entries as read")))
 
 (defun wikipedia-watchlist-unwatch ()
   "Remove the page at point from the watchlist."

@@ -239,6 +239,18 @@ Returns non-nil on success."
            (cons "token" token)))
     t))
 
+(defun wp--mark-page-seen (title)
+  "Mark TITLE as seen on the watchlist.
+This sets the notification timestamp to now, marking all revisions as seen.
+Returns non-nil on success."
+  (let* ((site (wp--get-site))
+         (token (wp--get-csrf-token site)))
+    (mediawiki-api-call
+     site "setnotificationtimestamp"
+     (list (cons "titles" title)
+           (cons "token" token)))
+    t))
+
 (defun wp--get-user-contributions (username &optional limit)
   "Fetch contributions for USERNAME.
 LIMIT is the maximum number of contributions to fetch (default 50).
