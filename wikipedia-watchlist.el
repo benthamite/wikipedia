@@ -10,6 +10,7 @@
 
 (require 'wikipedia-adapter)
 (require 'tabulated-list)
+(require 'iso8601)
 
 (defvar-local wikipedia-watchlist--entries nil
   "The list of watchlist entries displayed in this buffer.")
