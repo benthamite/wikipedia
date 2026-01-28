@@ -33,6 +33,7 @@
         [("Page" 40 t)
          ("Time" 20 t)
          ("User" 20 t)
+         ("Change" 8 t)
          ("Summary" 0 nil)])
   (setq tabulated-list-padding 2)
   (setq tabulated-list-sort-key '("Time" . t))
@@ -64,13 +65,31 @@
         (timestamp (alist-get 'timestamp entry))
         (user (alist-get 'user entry))
         (comment (alist-get 'comment entry))
-        (revid (alist-get 'revid entry)))
+        (revid (alist-get 'revid entry))
+        (oldlen (alist-get 'oldlen entry))
+        (newlen (alist-get 'newlen entry)))
     (list revid
           (vector
            (or title "")
            (wikipedia-watchlist--format-timestamp timestamp)
            (or user "")
+           (wikipedia-watchlist--format-size-change oldlen newlen)
            (or comment "")))))
+
+(defun wikipedia-watchlist--format-size-change (oldlen newlen)
+  "Format the size change from OLDLEN to NEWLEN."
+  (if (and oldlen newlen)
+      (let ((diff (- newlen oldlen)))
+        (propertize (format "%+d" diff)
+                    'face (wikipedia-watchlist--size-change-face diff)))
+    ""))
+
+(defun wikipedia-watchlist--size-change-face (diff)
+  "Return the face for a size change of DIFF characters."
+  (cond
+   ((> diff 0) 'success)
+   ((< diff 0) 'error)
+   (t 'default)))
 
 (defun wikipedia-watchlist--format-timestamp (timestamp)
   "Format TIMESTAMP for display."

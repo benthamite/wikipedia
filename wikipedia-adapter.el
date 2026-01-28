@@ -181,7 +181,7 @@ Returns a list of watchlist entry alists."
          (result (mediawiki-api-call
                   site "query"
                   (list (cons "list" "watchlist")
-                        (cons "wlprop" "ids|title|timestamp|user|comment")
+                        (cons "wlprop" "ids|title|timestamp|user|comment|sizes")
                         (cons "wllimit" (number-to-string (or limit 50))))))
          (watchlist (cddr (assq 'watchlist (cddr result)))))
     (mapcar #'wp--parse-watchlist-entry watchlist)))
@@ -194,7 +194,9 @@ Returns a list of watchlist entry alists."
       (old_revid . ,(wp--parse-number (cdr (assq 'old_revid attrs))))
       (timestamp . ,(cdr (assq 'timestamp attrs)))
       (user . ,(cdr (assq 'user attrs)))
-      (comment . ,(or (cdr (assq 'comment attrs)) "")))))
+      (comment . ,(or (cdr (assq 'comment attrs)) ""))
+      (oldlen . ,(wp--parse-number (cdr (assq 'oldlen attrs))))
+      (newlen . ,(wp--parse-number (cdr (assq 'newlen attrs)))))))
 
 (provide 'wikipedia-adapter)
 
