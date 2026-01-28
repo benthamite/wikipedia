@@ -223,9 +223,28 @@ Returns non-nil on success."
   (let* ((result (mediawiki-api-call
                   site "query"
                   (list (cons "meta" "tokens")
-                        (cons "type" "csrf"))))
-         (tokens (assq 'tokens (cddr (assq 'query (cddr result))))))
-    (cdr (assq 'csrftoken (cadr tokens)))))
+                        (cons "type" "csrf")))))
+    (wp--extract-csrf-token result)))
+
+(defun wp--extract-csrf-token (result)
+  "Extract CSRF token from API RESULT."
+  (let ((token (wp--find-token-in-tree result)))
+    (or token
+        (error "Failed to get CSRF token"))))
+
+(defun wp--find-token-in-tree (tree)
+  "Recursively search TREE for csrftoken attribute."
+  (cond
+   ((null tree) nil)
+   ((not (listp tree)) nil)
+   ((and (listp tree) (assq 'csrftoken (cadr tree)))
+    (cdr (assq 'csrftoken (cadr tree))))
+   ((and (listp tree) (assq 'csrftoken tree))
+    (cdr (assq 'csrftoken tree)))
+   (t (let ((found nil))
+        (dolist (elem tree found)
+          (when (and (not found) (listp elem))
+            (setq found (wp--find-token-in-tree elem))))))))
 
 (defun wp--unwatch-page (title)
   "Remove TITLE from the user's watchlist.
