@@ -81,11 +81,11 @@ Returns the parsed HTML as a string."
         (car (last text-element))))))
 
 (defun wp--ensure-logged-in ()
-  "Ensure we have an active session, signaling an error if not."
+  "Ensure we have an active session, prompting for login if needed."
   (unless (or wp--current-site (bound-and-true-p mediawiki-site))
-    (error "No active wiki session; use `wikipedia-login' first"))
-  (when (and wp--current-site (not (bound-and-true-p mediawiki-site)))
-    (setq mediawiki-site wp--current-site)))
+    (call-interactively #'mediawiki-site))
+  (when (bound-and-true-p mediawiki-site)
+    (setq wp--current-site mediawiki-site)))
 
 (defun wp--get-page-history (title &optional limit)
   "Fetch revision history for TITLE.
