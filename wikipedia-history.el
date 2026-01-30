@@ -13,6 +13,11 @@
 
 (declare-function wikipedia-thank "wikipedia")
 (declare-function wikipedia-user-at-point "wikipedia-user")
+(declare-function wikipedia-open "wikipedia-page")
+(declare-function wikipedia-browse "wikipedia-page")
+(declare-function wikipedia-xtools-user-stats "wikipedia-xtools")
+(declare-function wikipedia-watchlist-watch "wikipedia-watchlist")
+(declare-function wikipedia-watchlist-unwatch "wikipedia-watchlist")
 
 (defvar-local wikipedia-history--page-title nil
   "The page title for this history buffer.")
@@ -23,15 +28,20 @@
 (defvar wikipedia-history-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "RET") #'wikipedia-history-view-revision)
+    (define-key map "o" #'wikipedia-open)
     (define-key map "v" #'wikipedia-history-view-revision)
     (define-key map "d" #'wikipedia-history-diff-to-previous)
     (define-key map "c" #'wikipedia-history-diff-to-current)
     (define-key map "D" #'wikipedia-history-diff-revisions)
     (define-key map "b" #'wikipedia-history-browse-revision)
-    (define-key map "q" #'quit-window)
+    (define-key map "B" #'wikipedia-browse)
     (define-key map "g" #'wikipedia-history-refresh)
     (define-key map "t" #'wikipedia-thank)
     (define-key map "u" #'wikipedia-user-at-point)
+    (define-key map "s" #'wikipedia-xtools-user-stats)
+    (define-key map "w" #'wikipedia-watchlist-watch)
+    (define-key map "x" #'wikipedia-watchlist-unwatch)
+    (define-key map "q" #'quit-window)
     map)
   "Keymap for `wikipedia-history-mode'.")
 

@@ -12,6 +12,9 @@
 (require 'wikipedia-adapter)
 (require 'shr)
 
+(declare-function wikipedia--page-title-at-point "wikipedia")
+(declare-function wikipedia--page-url "wikipedia-watchlist")
+
 ;;;###autoload
 (defun wikipedia-login (site)
   "Log in to SITE.
@@ -41,6 +44,17 @@ for the summary if the current value is empty."
   (wp--ensure-logged-in)
   (wp--save-page-buffer summary)
   (message "Saved %s" (or (wp--current-page-title) "page")))
+
+;;;###autoload
+(defun wikipedia-browse (title)
+  "Open Wikipedia page TITLE in an external browser.
+If called interactively and point is on a page (in watchlist, history,
+user contributions, or editing buffer), use that page. Otherwise, prompt."
+  (interactive
+   (list (or (wikipedia--page-title-at-point)
+             (read-string "Page title to browse: "))))
+  (let ((url (wikipedia--page-url title)))
+    (browse-url url)))
 
 ;;;###autoload
 (defun wikipedia-preview ()

@@ -34,15 +34,19 @@
     (define-key map (kbd "TAB") #'wikipedia-watchlist-toggle-expand)
     (define-key map (kbd "SPC") #'wikipedia-watchlist-toggle-expand)
     (define-key map "o" #'wikipedia-watchlist-open-page)
+    (define-key map "v" #'wikipedia-watchlist-show-diff)
     (define-key map "d" #'wikipedia-watchlist-show-diff)
     (define-key map "h" #'wikipedia-watchlist-show-history)
     (define-key map "b" #'wikipedia-watchlist-browse)
+    (define-key map "B" #'wikipedia-browse)
     (define-key map "g" #'wikipedia-watchlist-refresh)
     (define-key map "e" #'wikipedia-watchlist-expand-all)
     (define-key map "c" #'wikipedia-watchlist-collapse-all)
     (define-key map "m" #'wikipedia-watchlist-mark-all-read)
     (define-key map "t" #'wikipedia-thank)
     (define-key map "u" #'wikipedia-user-at-point)
+    (define-key map "s" #'wikipedia-xtools-user-stats)
+    (define-key map "w" #'wikipedia-watchlist-watch)
     (define-key map "x" #'wikipedia-watchlist-unwatch)
     (define-key map "q" #'quit-window)
     (define-key map "!" #'wikipedia-watchlist-mark-all-read)
@@ -448,24 +452,46 @@
     (tabulated-list-print t)
     (message "Marked all entries as read")))
 
+;;;###autoload
+(defun wikipedia-watchlist-watch (title)
+  "Add page TITLE to the watchlist.
+If called interactively and point is on a page (in watchlist, history,
+user contributions, or editing buffer), use that page. Otherwise, prompt."
+  (interactive
+   (list (or (wikipedia--page-title-at-point)
+             (read-string "Page title to watch: "))))
+  (wp--ensure-logged-in)
+  (condition-case err
+      (progn
+        (wp--watch-page title)
+        (message "Added \"%s\" to watchlist" title)
+        (when (derived-mode-p 'wikipedia-watchlist-mode)
+          (wikipedia-watchlist-refresh)))
+    (error
+     (message "Failed to watch page: %s" (error-message-string err)))))
+
 (defun wikipedia-watchlist-unwatch ()
-  "Remove the page at point from the watchlist."
+  "Remove the page at point from the watchlist.
+If point is on a watchlist entry, use that page. Otherwise, prompt for page title."
   (interactive)
-  (let ((title (wikipedia-watchlist--title-at-point)))
-    (unless title
-      (error "No entry at point"))
+  (let ((title (or (wikipedia--page-title-at-point)
+                   (read-string "Page title to unwatch: "))))
     (when (yes-or-no-p (format "Remove \"%s\" from watchlist? " title))
       (condition-case err
           (progn
             (wp--unwatch-page title)
             (message "Removed \"%s\" from watchlist" title)
-            (wikipedia-watchlist-refresh))
+            (when (derived-mode-p 'wikipedia-watchlist-mode)
+              (wikipedia-watchlist-refresh)))
         (error
          (message "Failed to unwatch: %s" (error-message-string err)))))))
 
 (declare-function wikipedia--get-site-url "wikipedia-history")
+(declare-function wikipedia--page-title-at-point "wikipedia")
 (declare-function wikipedia-thank "wikipedia")
 (declare-function wikipedia-user-at-point "wikipedia-user")
+(declare-function wikipedia-browse "wikipedia-page")
+(declare-function wikipedia-xtools-user-stats "wikipedia-xtools")
 (defun wikipedia--page-url (title)
   "Return the URL for page TITLE."
   (let ((site-url (wikipedia--get-site-url)))

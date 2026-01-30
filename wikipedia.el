@@ -100,10 +100,31 @@ This function checks various contexts to find a username."
     (bound-and-true-p wikipedia-user--username))
    (t nil)))
 
+(defun wikipedia--page-title-at-point ()
+  "Return the page title at point, or nil.
+This function checks various contexts to find a page title."
+  (cond
+   ;; In watchlist mode
+   ((derived-mode-p 'wikipedia-watchlist-mode)
+    (wikipedia-watchlist--title-at-point))
+   ;; In history mode
+   ((derived-mode-p 'wikipedia-history-mode)
+    (bound-and-true-p wikipedia-history--page-title))
+   ;; In user contributions mode
+   ((derived-mode-p 'wikipedia-user-contributions-mode)
+    (let ((contrib (wikipedia-user--contrib-at-point)))
+      (when contrib (alist-get 'title contrib))))
+   ;; In a mediawiki editing buffer
+   ((bound-and-true-p mediawiki-page-title)
+    mediawiki-page-title)
+   (t nil)))
+
 (declare-function wikipedia-watchlist--revid-at-point "wikipedia-watchlist")
 (declare-function wikipedia-watchlist--user-at-point "wikipedia-watchlist")
+(declare-function wikipedia-watchlist--title-at-point "wikipedia-watchlist")
 (declare-function wikipedia-history--revid-at-point "wikipedia-history")
 (declare-function wikipedia-history--user-at-point "wikipedia-history")
+(declare-function wikipedia-user--contrib-at-point "wikipedia-user")
 
 ;;;###autoload
 (define-minor-mode wikipedia-edit-mode

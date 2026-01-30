@@ -245,11 +245,34 @@ Returns non-nil on success."
           (when (and (not found) (listp elem))
             (setq found (wp--find-token-in-tree elem))))))))
 
+(defun wp--get-watch-token (site)
+  "Get a watch token for SITE."
+  (let* ((result (mediawiki-api-call
+                  site "query"
+                  (list (cons "meta" "tokens")
+                        (cons "type" "watch"))))
+         (tokens-elem (assq 'tokens (cddr result)))
+         (token-attrs (when tokens-elem (cadr tokens-elem))))
+    (or (cdr (assq 'watchtoken token-attrs))
+        (cdr (assq 'csrftoken token-attrs))
+        (wp--extract-csrf-token result))))
+
+(defun wp--watch-page (title)
+  "Add TITLE to the user's watchlist.
+Returns non-nil on success."
+  (let* ((site (wp--get-site))
+         (token (wp--get-watch-token site)))
+    (mediawiki-api-call
+     site "watch"
+     (list (cons "titles" title)
+           (cons "token" token)))
+    t))
+
 (defun wp--unwatch-page (title)
   "Remove TITLE from the user's watchlist.
 Returns non-nil on success."
   (let* ((site (wp--get-site))
-         (token (wp--get-csrf-token site)))
+         (token (wp--get-watch-token site)))
     (mediawiki-api-call
      site "watch"
      (list (cons "titles" title)
