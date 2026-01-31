@@ -114,6 +114,22 @@ This function checks various contexts to find a page title."
     mediawiki-page-title)
    (t nil)))
 
+;;;; Reading with defaults
+
+(defun wikipedia--read-page-title ()
+  "Read a page title, defaulting to the title at point."
+  (let ((default (wikipedia--page-title-at-point)))
+    (if default
+        (read-string (format "Page title (default %s): " default) nil nil default)
+      (read-string "Page title: "))))
+
+(defun wikipedia--read-username ()
+  "Read a username, defaulting to the user at point."
+  (let ((default (wikipedia--user-at-point)))
+    (if default
+        (read-string (format "Username (default %s): " default) nil nil default)
+      (read-string "Username: "))))
+
 ;;;; Cross-mode commands
 
 (defun wikipedia-thank (revid &optional user)

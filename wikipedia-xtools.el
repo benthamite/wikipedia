@@ -98,12 +98,8 @@ Returns an alist with top edited pages."
 
 ;;;###autoload
 (defun wikipedia-xtools-user-stats (username)
-  "Display XTools statistics for USERNAME.
-If called interactively and point is on a user (in watchlist, history,
-or user contributions mode), use that user. Otherwise, prompt for username."
-  (interactive
-   (list (or (wikipedia--user-at-point)
-             (read-string "Username: "))))
+  "Display XTools statistics for USERNAME."
+  (interactive (list (wikipedia--read-username)))
   (message "Fetching statistics for %s..." username)
   (let* ((endpoint (format "user/simple_editcount/%s/%s"
                            wikipedia-xtools-project
@@ -225,7 +221,7 @@ GROUPS can be a vector or list of group names."
 ;;;###autoload
 (defun wikipedia-xtools-page-stats (title)
   "Display XTools page statistics for TITLE."
-  (interactive "sPage title: ")
+  (interactive (list (wikipedia--read-page-title)))
   (let* ((endpoint (format "page/articleinfo/%s/%s"
                            wikipedia-xtools-project
                            (url-hexify-string title)))
@@ -265,7 +261,7 @@ GROUPS can be a vector or list of group names."
 ;;;###autoload
 (defun wikipedia-xtools-top-editors (title)
   "Display top editors for page TITLE."
-  (interactive "sPage title: ")
+  (interactive (list (wikipedia--read-page-title)))
   (let* ((endpoint (format "page/top_editors/%s/%s"
                            wikipedia-xtools-project
                            (url-hexify-string title)))

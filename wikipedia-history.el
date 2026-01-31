@@ -62,9 +62,7 @@
 ;;;###autoload
 (defun wikipedia-history (title)
   "Display revision history for page TITLE."
-  (interactive
-   (list (or (wp--current-page-title)
-             (read-string "Page title: "))))
+  (interactive (list (wikipedia--read-page-title)))
   (wp--ensure-logged-in)
   (let ((buffer (get-buffer-create (format "*Wikipedia History: %s*" title))))
     (with-current-buffer buffer

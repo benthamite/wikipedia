@@ -459,12 +459,8 @@
 
 ;;;###autoload
 (defun wikipedia-watchlist-watch (title)
-  "Add page TITLE to the watchlist.
-If called interactively and point is on a page (in watchlist, history,
-user contributions, or editing buffer), use that page. Otherwise, prompt."
-  (interactive
-   (list (or (wikipedia--page-title-at-point)
-             (read-string "Page title to watch: "))))
+  "Add page TITLE to the watchlist."
+  (interactive (list (wikipedia--read-page-title)))
   (wp--ensure-logged-in)
   (condition-case err
       (progn
@@ -475,21 +471,18 @@ user contributions, or editing buffer), use that page. Otherwise, prompt."
     (error
      (message "Failed to watch page: %s" (error-message-string err)))))
 
-(defun wikipedia-watchlist-unwatch ()
-  "Remove the page at point from the watchlist.
-If point is on a watchlist entry, use that page. Otherwise, prompt for page title."
-  (interactive)
-  (let ((title (or (wikipedia--page-title-at-point)
-                   (read-string "Page title to unwatch: "))))
-    (when (yes-or-no-p (format "Remove \"%s\" from watchlist? " title))
-      (condition-case err
-          (progn
-            (wp--unwatch-page title)
-            (message "Removed \"%s\" from watchlist" title)
-            (when (derived-mode-p 'wikipedia-watchlist-mode)
-              (wikipedia-watchlist-refresh)))
-        (error
-         (message "Failed to unwatch: %s" (error-message-string err)))))))
+(defun wikipedia-watchlist-unwatch (title)
+  "Remove page TITLE from the watchlist."
+  (interactive (list (wikipedia--read-page-title)))
+  (when (yes-or-no-p (format "Remove \"%s\" from watchlist? " title))
+    (condition-case err
+        (progn
+          (wp--unwatch-page title)
+          (message "Removed \"%s\" from watchlist" title)
+          (when (derived-mode-p 'wikipedia-watchlist-mode)
+            (wikipedia-watchlist-refresh)))
+      (error
+       (message "Failed to unwatch: %s" (error-message-string err))))))
 
 (provide 'wikipedia-watchlist)
 

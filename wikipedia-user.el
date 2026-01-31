@@ -62,7 +62,7 @@
 ;;;###autoload
 (defun wikipedia-user-contributions (username)
   "Display contributions for USERNAME."
-  (interactive "sUsername: ")
+  (interactive (list (wikipedia--read-username)))
   (wp--ensure-logged-in)
   (let ((buffer (get-buffer-create (format "*Wikipedia Contributions: %s*" username))))
     (with-current-buffer buffer
@@ -194,31 +194,29 @@
 
 ;;; User stats
 
-(defun wikipedia-user-stats ()
-  "Display statistics for the current user."
-  (interactive)
-  (let ((username (or wikipedia-user--username
-                      (read-string "Username: "))))
-    (wikipedia-xtools-user-stats username)))
+(defun wikipedia-user-stats (username)
+  "Display statistics for USERNAME."
+  (interactive (list (wikipedia--read-username)))
+  (wikipedia-xtools-user-stats username))
 
 ;;; User page commands
 
 ;;;###autoload
 (defun wikipedia-user-page (username)
   "Open the user page for USERNAME."
-  (interactive "sUsername: ")
+  (interactive (list (wikipedia--read-username)))
   (wp--open-page-buffer (format "User:%s" username)))
 
 ;;;###autoload
 (defun wikipedia-user-talk (username)
   "Open the talk page for USERNAME."
-  (interactive "sUsername: ")
+  (interactive (list (wikipedia--read-username)))
   (wp--open-page-buffer (format "User talk:%s" username)))
 
 ;;;###autoload
 (defun wikipedia-user-browse (username)
   "Open USERNAME's user page in an external browser."
-  (interactive "sUsername: ")
+  (interactive (list (wikipedia--read-username)))
   (let ((url (wikipedia--user-page-url username)))
     (browse-url url)))
 

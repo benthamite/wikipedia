@@ -29,7 +29,7 @@ When called interactively, prompts for the site name."
 (defun wikipedia-open (title)
   "Open the Wikipedia page TITLE for editing.
 When called interactively, prompts for the page title."
-  (interactive "sPage title: ")
+  (interactive (list (wikipedia--read-page-title)))
   (wp--ensure-logged-in)
   (wp--open-page-buffer title))
 
@@ -45,12 +45,8 @@ for the summary if the current value is empty."
 
 ;;;###autoload
 (defun wikipedia-browse (title)
-  "Open Wikipedia page TITLE in an external browser.
-If called interactively and point is on a page (in watchlist, history,
-user contributions, or editing buffer), use that page. Otherwise, prompt."
-  (interactive
-   (list (or (wikipedia--page-title-at-point)
-             (read-string "Page title to browse: "))))
+  "Open Wikipedia page TITLE in an external browser."
+  (interactive (list (wikipedia--read-page-title)))
   (let ((url (wikipedia--page-url title)))
     (browse-url url)))
 

@@ -10,6 +10,7 @@
 
 (require 'wikipedia-db)
 (require 'wikipedia-adapter)
+(require 'wikipedia-common)
 
 (defgroup wikipedia-sync nil
   "Synchronization settings for Wikipedia local mirror."
@@ -28,7 +29,7 @@
 ;;;###autoload
 (defun wikipedia-sync-page (title)
   "Sync page TITLE to local database."
-  (interactive "sPage title: ")
+  (interactive (list (wikipedia--read-page-title)))
   (wp--ensure-logged-in)
   (let ((page-id (wikipedia-db-insert-page title)))
     (message "Syncing %s..." title)
