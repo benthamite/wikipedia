@@ -9,9 +9,10 @@
 ;;; Code:
 
 (require 'wikipedia-adapter)
+(require 'wikipedia-common)
 (require 'tabulated-list)
 
-(declare-function wikipedia-thank "wikipedia")
+(declare-function wikipedia-thank "wikipedia-common")
 (declare-function wikipedia-user-at-point "wikipedia-user")
 (declare-function wikipedia-open "wikipedia-page")
 (declare-function wikipedia-browse "wikipedia-page")
@@ -186,41 +187,6 @@ This is equivalent to Wikipedia's \"cur\"."
   (let* ((from (read-number "From revision: "))
          (to (read-number "To revision: ")))
     (wikipedia--show-ediff from to wikipedia-history--page-title)))
-
-(defun wikipedia--show-ediff (from-rev to-rev title)
-  "Display ediff between FROM-REV and TO-REV for TITLE."
-  (let* ((from-content (wp--get-revision-content title from-rev))
-         (to-content (wp--get-revision-content title to-rev))
-         (from-buffer (wikipedia--create-revision-buffer title from-rev from-content))
-         (to-buffer (wikipedia--create-revision-buffer title to-rev to-content)))
-    (ediff-buffers from-buffer to-buffer)))
-
-(defun wikipedia--create-revision-buffer (title revid content)
-  "Create a buffer for TITLE at REVID with CONTENT."
-  (let ((buffer (get-buffer-create (format "*WP Rev %d: %s*" revid title))))
-    (with-current-buffer buffer
-      (let ((inhibit-read-only t))
-        (erase-buffer)
-        (insert (or content ""))
-        (goto-char (point-min)))
-      (setq buffer-read-only t))
-    buffer))
-
-(defun wikipedia--revision-url (title revid)
-  "Return the URL for TITLE at REVID."
-  (let ((site-url (wikipedia--get-site-url)))
-    (format "%s?title=%s&oldid=%d"
-            site-url
-            (url-hexify-string title)
-            revid)))
-
-(defun wikipedia--get-site-url ()
-  "Return the base URL for the current wiki site."
-  (let* ((site (wp--get-site))
-         (site-info (cdr (assoc site mediawiki-site-alist))))
-    (or (plist-get site-info :url)
-        (car site-info)
-        (error "Cannot determine URL for site %s" site))))
 
 (provide 'wikipedia-history)
 

@@ -10,10 +10,8 @@
 ;;; Code:
 
 (require 'wikipedia-adapter)
+(require 'wikipedia-common)
 (require 'shr)
-
-(declare-function wikipedia--page-title-at-point "wikipedia")
-(declare-function wikipedia--page-url "wikipedia-watchlist")
 
 ;;;###autoload
 (defun wikipedia-login (site)

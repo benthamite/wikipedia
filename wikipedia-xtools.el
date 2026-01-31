@@ -12,8 +12,7 @@
 (require 'json)
 (require 'url)
 (require 'wikipedia-adapter)
-
-(declare-function wikipedia--user-at-point "wikipedia")
+(require 'wikipedia-common)
 
 (defgroup wikipedia-xtools nil
   "XTools integration settings."

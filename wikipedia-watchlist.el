@@ -9,6 +9,7 @@
 ;;; Code:
 
 (require 'wikipedia-adapter)
+(require 'wikipedia-common)
 (require 'tabulated-list)
 (require 'iso8601)
 
@@ -27,6 +28,12 @@
 (defface wikipedia-watchlist-unread
   '((t :weight bold))
   "Face for unread watchlist entries.")
+
+(declare-function wikipedia-thank "wikipedia-common")
+(declare-function wikipedia-user-at-point "wikipedia-user")
+(declare-function wikipedia-browse "wikipedia-page")
+(declare-function wikipedia-xtools-user-stats "wikipedia-xtools")
+(declare-function wikipedia-history "wikipedia-history")
 
 (defvar wikipedia-watchlist-mode-map
   (let ((map (make-sparse-keymap)))
@@ -407,7 +414,6 @@
     (wikipedia-watchlist--rebuild-list)
     (tabulated-list-print t)))
 
-(declare-function wikipedia--show-ediff "wikipedia-history")
 (defun wikipedia-watchlist-show-diff ()
   "Show the diff for the change at point."
   (interactive)
@@ -422,7 +428,6 @@
     (wikipedia-watchlist--mark-at-point-read)
     (wikipedia--show-ediff old-revid revid title)))
 
-(declare-function wikipedia-history "wikipedia-history")
 (defun wikipedia-watchlist-show-history ()
   "Show the history for the page at point."
   (interactive)
@@ -485,19 +490,6 @@ If point is on a watchlist entry, use that page. Otherwise, prompt for page titl
               (wikipedia-watchlist-refresh)))
         (error
          (message "Failed to unwatch: %s" (error-message-string err)))))))
-
-(declare-function wikipedia--get-site-url "wikipedia-history")
-(declare-function wikipedia--page-title-at-point "wikipedia")
-(declare-function wikipedia-thank "wikipedia")
-(declare-function wikipedia-user-at-point "wikipedia-user")
-(declare-function wikipedia-browse "wikipedia-page")
-(declare-function wikipedia-xtools-user-stats "wikipedia-xtools")
-(defun wikipedia--page-url (title)
-  "Return the URL for page TITLE."
-  (let ((site-url (wikipedia--get-site-url)))
-    (format "%s?title=%s"
-            site-url
-            (url-hexify-string title))))
 
 (provide 'wikipedia-watchlist)
 

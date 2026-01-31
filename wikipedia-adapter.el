@@ -19,6 +19,9 @@
 
 (require 'mediawiki)
 
+(declare-function mediawiki-make-api-url "mediawiki-api")
+(declare-function url-http-post "mediawiki-http")
+
 (defvar wp--current-site nil
   "The currently active wiki site name.")
 
@@ -36,6 +39,30 @@ Returns the parsed response.  Note that mediawiki.el uses XML format
 internally, so the response is an XML-derived structure, not JSON."
   (let ((site (wp--get-site)))
     (mediawiki-api-call site action params)))
+
+(defun wp--api-call-raw (site action params)
+  "Make an API call to SITE with ACTION and PARAMS.
+Unlike `mediawiki-api-call', this does not expect the response to contain
+an element named after the action.  This is needed for APIs like `thank'
+that return `result' instead of the action name.
+Returns non-nil on success, signals an error on failure."
+  (let* ((url (mediawiki-make-api-url site))
+         (all-params (append params
+                             (list (cons "format" "xml")
+                                   (cons "action" action))))
+         (raw (url-http-post url all-params))
+         (result (assoc 'api
+                        (with-temp-buffer
+                          (insert raw)
+                          (xml-parse-region (point-min) (point-max))))))
+    (unless result
+      (error "Failed to parse API response"))
+    (let ((error-elem (assq 'error (cddr result))))
+      (when error-elem
+        (let ((code (cdr (assq 'code (cadr error-elem))))
+              (info (cdr (assq 'info (cadr error-elem)))))
+          (error "API error (%s): %s" code info))))
+    t))
 
 (defun wp--get-site ()
   "Return the current site, signaling an error if none is active."
@@ -211,11 +238,10 @@ includes page edits and page creations (matching the Wikipedia UI defaults)."
 Returns non-nil on success."
   (let* ((site (wp--get-site))
          (token (wp--get-csrf-token site)))
-    (mediawiki-api-call
+    (wp--api-call-raw
      site "thank"
      (list (cons "rev" (number-to-string revid))
-           (cons "token" token)))
-    t))
+           (cons "token" token)))))
 
 (defun wp--get-csrf-token (site)
   "Get a CSRF token for SITE."

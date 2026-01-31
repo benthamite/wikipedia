@@ -10,6 +10,7 @@
 ;;; Code:
 
 (require 'wikipedia-adapter)
+(require 'wikipedia-common)
 (require 'wikipedia-xtools)
 (require 'tabulated-list)
 
@@ -20,6 +21,12 @@
   "The list of contributions displayed in this buffer.")
 
 ;;; User contributions mode
+
+(declare-function wikipedia-thank "wikipedia-common")
+(declare-function wikipedia-history "wikipedia-history")
+(declare-function wikipedia-browse "wikipedia-page")
+(declare-function wikipedia-watchlist-watch "wikipedia-watchlist")
+(declare-function wikipedia-watchlist-unwatch "wikipedia-watchlist")
 
 (defvar wikipedia-user-contributions-mode-map
   (let ((map (make-sparse-keymap)))
@@ -185,15 +192,6 @@
       (error "No contribution at point"))
     (wikipedia-thank revid wikipedia-user--username)))
 
-(declare-function wikipedia--show-ediff "wikipedia-history")
-(declare-function wikipedia--revision-url "wikipedia-history")
-(declare-function wikipedia-history "wikipedia-history")
-(declare-function wikipedia-thank "wikipedia")
-(declare-function wikipedia-user-at-point "wikipedia-user")
-(declare-function wikipedia-browse "wikipedia-page")
-(declare-function wikipedia-watchlist-watch "wikipedia-watchlist")
-(declare-function wikipedia-watchlist-unwatch "wikipedia-watchlist")
-
 ;;; User stats
 
 (defun wikipedia-user-stats ()
@@ -224,15 +222,6 @@
   (let ((url (wikipedia--user-page-url username)))
     (browse-url url)))
 
-(defun wikipedia--user-page-url (username)
-  "Return the URL for USERNAME's user page."
-  (let ((site-url (wikipedia--get-site-url)))
-    (format "%s?title=User:%s"
-            site-url
-            (url-hexify-string username))))
-
-(declare-function wikipedia--get-site-url "wikipedia-history")
-
 ;;; Inspect user at point
 
 ;;;###autoload
@@ -244,8 +233,6 @@ Works in watchlist and history modes."
     (unless username
       (error "No user at point"))
     (wikipedia-user-contributions username)))
-
-(declare-function wikipedia--user-at-point "wikipedia")
 
 (provide 'wikipedia-user)
 
