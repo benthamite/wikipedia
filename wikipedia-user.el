@@ -22,7 +22,7 @@
 
 ;;; User contributions mode
 
-(declare-function wikipedia-thank "wikipedia-common")
+
 (declare-function wikipedia-history "wikipedia-history")
 (declare-function wikipedia-browse "wikipedia-page")
 (declare-function wikipedia-watchlist-watch "wikipedia-watchlist")
@@ -219,6 +219,25 @@
   (interactive (list (wikipedia--read-username)))
   (let ((url (wikipedia--user-page-url username)))
     (browse-url url)))
+
+;;; Thank
+
+;;;###autoload
+(defun wikipedia-thank (revid &optional user)
+  "Thank the author of revision REVID.
+If USER is provided, it is used in the confirmation message."
+  (interactive (list (wikipedia--revid-at-point)
+                     (wikipedia--user-at-point)))
+  (unless revid
+    (error "No revision at point"))
+  (when (yes-or-no-p (format "Thank %s for this edit? "
+                             (or user "the user")))
+    (condition-case err
+        (progn
+          (wp--thank-revision revid)
+          (message "Thanks sent for revision %s" revid))
+      (error
+       (message "Failed to send thanks: %s" (error-message-string err))))))
 
 ;;; Inspect user at point
 

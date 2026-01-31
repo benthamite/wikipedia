@@ -29,17 +29,18 @@
     ("b" "Browse page" wikipedia-browse)
     ("l" "Login" wikipedia-login)]
    ["Watchlist"
-    ("w" "Watchlist" wikipedia-watchlist)
-    ("W" "Watch page" wikipedia-watchlist-watch)
-    ("X" "Unwatch page" wikipedia-watchlist-unwatch)]
+    ("w w" "Watchlist" wikipedia-watchlist)
+    ("w W" "Watch page" wikipedia-watchlist-watch)
+    ("w u" "Unwatch page" wikipedia-watchlist-unwatch)
+    ("w a" "Mark all read" wikipedia-watchlist-mark-all-read)]
    ["History"
-    ("h" "Page history" wikipedia-history)
-    ("t" "Thank" wikipedia-thank)]]
+    ("h" "Page history" wikipedia-history)]]
   [["User"
     ("u c" "User contributions" wikipedia-user-contributions)
     ("u p" "User page" wikipedia-user-page)
     ("u t" "User talk" wikipedia-user-talk)
-    ("u b" "User browse" wikipedia-user-browse)]
+    ("u b" "User browse" wikipedia-user-browse)
+    ("t" "Thank" wikipedia-thank)]
    ["XTools"
     ("x u" "User stats" wikipedia-xtools-user-stats)
     ("x p" "Page stats" wikipedia-xtools-page-stats)

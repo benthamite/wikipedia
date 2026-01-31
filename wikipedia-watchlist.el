@@ -29,7 +29,7 @@
   '((t :weight bold))
   "Face for unread watchlist entries.")
 
-(declare-function wikipedia-thank "wikipedia-common")
+(declare-function wikipedia-thank "wikipedia-user")
 (declare-function wikipedia-user-at-point "wikipedia-user")
 (declare-function wikipedia-browse "wikipedia-page")
 (declare-function wikipedia-xtools-user-stats "wikipedia-xtools")
