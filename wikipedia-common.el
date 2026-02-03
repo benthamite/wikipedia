@@ -240,7 +240,8 @@ Returns a plist with :from-rev, :to-rev, and :title, or nil."
        from-rev to-rev title source-window))))
 
 (defun wikipedia-diff-follow--show-loading (title from-rev to-rev source-window)
-  "Show loading message in diff buffer for TITLE (FROM-REV to TO-REV)."
+  "Show loading message in diff buffer for TITLE (FROM-REV to TO-REV).
+SOURCE-WINDOW is preserved for later use."
   (let ((buf (get-buffer-create wikipedia-diff-follow--buffer-name)))
     (with-current-buffer buf
       (let ((inhibit-read-only t))
@@ -279,7 +280,9 @@ SOURCE-WINDOW is preserved for display."
          title to-rev (lambda (_) (maybe-render)))))))
 
 (defun wikipedia-diff-follow--render-diff (from-content to-content from-rev to-rev title source-window)
-  "Render diff between FROM-CONTENT and TO-CONTENT in the diff buffer."
+  "Render diff between FROM-CONTENT and TO-CONTENT in the diff buffer.
+FROM-REV and TO-REV are revision IDs, TITLE is the page title.
+SOURCE-WINDOW is the window to avoid when displaying the diff."
   (let* ((from-file (wikipedia--write-temp-file from-content from-rev))
          (to-file (wikipedia--write-temp-file to-content to-rev))
          (diff-output (wikipedia--generate-unified-diff from-file to-file from-rev to-rev))
