@@ -70,6 +70,30 @@ Returns non-nil on success, signals an error on failure."
       (bound-and-true-p mediawiki-site)
       (error "No active wiki session; use `wikipedia-login' first")))
 
+;;;; Async API calls
+
+(defun wp--api-call-async (action params &optional callback)
+  "Make an async API call with ACTION and PARAMS.
+CALLBACK is called with non-nil on success, nil on failure."
+  (let* ((site (wp--get-site))
+         (url (mediawiki-make-api-url site))
+         (all-params (append params
+                             (list (cons "format" "xml")
+                                   (cons "action" action))))
+         (url-request-method "POST")
+         (url-request-extra-headers
+          '(("Content-Type" . "application/x-www-form-urlencoded")))
+         (url-request-data (url-build-query-string all-params)))
+    (url-retrieve
+     url
+     (lambda (status callback-arg)
+       (let ((success (not (plist-get status :error))))
+         (kill-buffer)
+         (when callback-arg
+           (funcall callback-arg success))))
+     (list callback)
+     t t)))
+
 (defun wp--open-page-buffer (title)
   "Open TITLE for editing in a buffer.
 Returns the buffer containing the page content."
@@ -294,6 +318,17 @@ Returns non-nil on success."
            (cons "token" token)))
     t))
 
+(defun wp--watch-page-async (title &optional callback)
+  "Add TITLE to the user's watchlist asynchronously.
+CALLBACK is called with non-nil on success."
+  (let* ((site (wp--get-site))
+         (token (wp--get-watch-token site)))
+    (wp--api-call-async
+     "watch"
+     (list (cons "titles" title)
+           (cons "token" token))
+     callback)))
+
 (defun wp--unwatch-page (title)
   "Remove TITLE from the user's watchlist.
 Returns non-nil on success."
@@ -306,6 +341,18 @@ Returns non-nil on success."
            (cons "token" token)))
     t))
 
+(defun wp--unwatch-page-async (title &optional callback)
+  "Remove TITLE from the user's watchlist asynchronously.
+CALLBACK is called with non-nil on success."
+  (let* ((site (wp--get-site))
+         (token (wp--get-watch-token site)))
+    (wp--api-call-async
+     "watch"
+     (list (cons "titles" title)
+           (cons "unwatch" "1")
+           (cons "token" token))
+     callback)))
+
 (defun wp--mark-page-seen (title)
   "Mark TITLE as seen on the watchlist.
 This sets the notification timestamp to now, marking all revisions as seen.
@@ -317,6 +364,37 @@ Returns non-nil on success."
      (list (cons "titles" title)
            (cons "token" token)))
     t))
+
+(defun wp--mark-pages-seen-async (titles &optional callback)
+  "Mark TITLES as seen on the watchlist asynchronously.
+TITLES is a list of page titles.  They are batched into groups of 50
+for the API.  CALLBACK is called with non-nil when all batches complete."
+  (let* ((site (wp--get-site))
+         (token (wp--get-csrf-token site))
+         (batches (wp--batch-titles titles 50))
+         (pending (length batches))
+         (all-success t))
+    (if (zerop pending)
+        (when callback (funcall callback t))
+      (dolist (batch batches)
+        (wp--api-call-async
+         "setnotificationtimestamp"
+         (list (cons "titles" (string-join batch "|"))
+               (cons "token" token))
+         (lambda (success)
+           (unless success (setq all-success nil))
+           (cl-decf pending)
+           (when (and (zerop pending) callback)
+             (funcall callback all-success)))))))
+  nil)
+
+(defun wp--batch-titles (titles batch-size)
+  "Split TITLES into batches of at most BATCH-SIZE."
+  (let ((result nil))
+    (while titles
+      (push (seq-take titles batch-size) result)
+      (setq titles (seq-drop titles batch-size)))
+    (nreverse result)))
 
 (defun wp--get-user-contributions (username &optional limit)
   "Fetch contributions for USERNAME.

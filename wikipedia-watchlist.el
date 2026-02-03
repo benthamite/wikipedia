@@ -414,7 +414,7 @@
       (let ((revid (cddr id)))
         (puthash revid t wikipedia-watchlist--read))))
     (when title
-      (wp--mark-page-seen title))
+      (wp--mark-pages-seen-async (list title)))
     (wikipedia-watchlist--rebuild-list)
     (tabulated-list-print t)))
 
@@ -455,38 +455,48 @@
   (let ((titles (mapcar #'car wikipedia-watchlist--grouped-entries)))
     (dolist (entry wikipedia-watchlist--entries)
       (puthash (alist-get 'revid entry) t wikipedia-watchlist--read))
-    (dolist (title titles)
-      (wp--mark-page-seen title))
     (wikipedia-watchlist--rebuild-list)
     (tabulated-list-print t)
-    (message "Marked all entries as read")))
+    (message "Marking %d pages as read..." (length titles))
+    (wp--mark-pages-seen-async
+     titles
+     (lambda (success)
+       (if success
+           (message "Marked %d pages as read" (length titles))
+         (message "Some pages could not be marked as read"))))))
 
 ;;;###autoload
 (defun wikipedia-watchlist-watch (title)
   "Add page TITLE to the watchlist."
   (interactive (list (wikipedia--read-page-title)))
   (wp--ensure-logged-in)
-  (condition-case err
-      (progn
-        (wp--watch-page title)
-        (message "Added \"%s\" to watchlist" title)
-        (when (derived-mode-p 'wikipedia-watchlist-mode)
-          (wikipedia-watchlist-refresh)))
-    (error
-     (message "Failed to watch page: %s" (error-message-string err)))))
+  (let ((in-watchlist-mode (derived-mode-p 'wikipedia-watchlist-mode)))
+    (message "Adding \"%s\" to watchlist..." title)
+    (wp--watch-page-async
+     title
+     (lambda (success)
+       (if success
+           (progn
+             (message "Added \"%s\" to watchlist" title)
+             (when in-watchlist-mode
+               (wikipedia-watchlist-refresh)))
+         (message "Failed to watch page \"%s\"" title))))))
 
 (defun wikipedia-watchlist-unwatch (title)
   "Remove page TITLE from the watchlist."
   (interactive (list (wikipedia--read-page-title)))
   (when (yes-or-no-p (format "Remove \"%s\" from watchlist? " title))
-    (condition-case err
-        (progn
-          (wp--unwatch-page title)
-          (message "Removed \"%s\" from watchlist" title)
-          (when (derived-mode-p 'wikipedia-watchlist-mode)
-            (wikipedia-watchlist-refresh)))
-      (error
-       (message "Failed to unwatch: %s" (error-message-string err))))))
+    (let ((in-watchlist-mode (derived-mode-p 'wikipedia-watchlist-mode)))
+      (message "Removing \"%s\" from watchlist..." title)
+      (wp--unwatch-page-async
+       title
+       (lambda (success)
+         (if success
+             (progn
+               (message "Removed \"%s\" from watchlist" title)
+               (when in-watchlist-mode
+                 (wikipedia-watchlist-refresh)))
+           (message "Failed to unwatch page \"%s\"" title)))))))
 
 (provide 'wikipedia-watchlist)
 
