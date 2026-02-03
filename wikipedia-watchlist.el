@@ -88,8 +88,6 @@
       (wikipedia-watchlist-refresh))
     (pop-to-buffer buffer)))
 
-(declare-function wikipedia--prefetch-watchlist-diffs "wikipedia-common")
-
 (defun wikipedia-watchlist-refresh ()
   "Refresh the watchlist."
   (interactive)
@@ -98,8 +96,7 @@
     (setq wikipedia-watchlist--grouped-entries
           (wikipedia-watchlist--group-entries entries))
     (wikipedia-watchlist--rebuild-list)
-    (tabulated-list-print t)
-    (wikipedia--prefetch-watchlist-diffs entries)))
+    (tabulated-list-print t)))
 
 (defun wikipedia-watchlist--group-entries (entries)
   "Group ENTRIES by page title, preserving order of first appearance."
