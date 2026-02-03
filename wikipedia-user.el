@@ -34,6 +34,7 @@
     (define-key map "o" #'wikipedia-user-contributions-open-page)
     (define-key map "v" #'wikipedia-user-contributions-view-revision)
     (define-key map "d" #'wikipedia-user-contributions-view-diff)
+    (define-key map "f" #'wikipedia-diff-follow-mode)
     (define-key map "h" #'wikipedia-user-contributions-show-history)
     (define-key map "b" #'wikipedia-user-contributions-browse)
     (define-key map "B" #'wikipedia-browse)

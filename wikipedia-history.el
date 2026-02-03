@@ -34,6 +34,7 @@
     (define-key map "d" #'wikipedia-history-diff-to-previous)
     (define-key map "c" #'wikipedia-history-diff-to-current)
     (define-key map "D" #'wikipedia-history-diff-revisions)
+    (define-key map "f" #'wikipedia-diff-follow-mode)
     (define-key map "b" #'wikipedia-history-browse-revision)
     (define-key map "B" #'wikipedia-browse)
     (define-key map "g" #'wikipedia-history-refresh)

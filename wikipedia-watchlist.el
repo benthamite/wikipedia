@@ -43,6 +43,7 @@
     (define-key map "o" #'wikipedia-watchlist-open-page)
     (define-key map "v" #'wikipedia-watchlist-show-diff)
     (define-key map "d" #'wikipedia-watchlist-show-diff)
+    (define-key map "f" #'wikipedia-diff-follow-mode)
     (define-key map "h" #'wikipedia-watchlist-show-history)
     (define-key map "b" #'wikipedia-watchlist-browse)
     (define-key map "B" #'wikipedia-browse)
