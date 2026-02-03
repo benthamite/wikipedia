@@ -382,7 +382,8 @@ FROM-REV and TO-REV are the revision IDs, TITLE is the page title."
 
 (defun wikipedia--write-temp-file (content revid)
   "Write CONTENT to a temporary file named after REVID."
-  (let ((file (make-temp-file (format "wp-rev-%d-" revid))))
+  (let ((file (make-temp-file (format "wp-rev-%d-" revid)))
+        (coding-system-for-write 'utf-8))
     (with-temp-file file
       (insert (or content "")))
     file))
