@@ -51,11 +51,16 @@
 
 ;;;; Diff follow mode
 
+(defvar-local wikipedia-diff-follow-mode nil
+  "Non-nil if diff follow mode is enabled in this buffer.")
+
 (defvar-local wikipedia-diff-follow--last-revid nil
   "The last revision ID for which a diff was shown in follow mode.")
 
 (defvar wikipedia-diff-follow--buffer-name "*WP Diff*"
   "Buffer name for diff follow mode output.")
+
+(defvar wikipedia-history--page-title)
 
 (defun wikipedia-diff-follow--show ()
   "Show diff for the entry at point if it changed."
@@ -64,7 +69,8 @@
     (let ((revid (wikipedia--revid-at-point)))
       (when (and revid (not (equal revid wikipedia-diff-follow--last-revid)))
         (setq wikipedia-diff-follow--last-revid revid)
-        (wikipedia-diff-follow--display-diff)))))
+        (wikipedia-diff-follow--display-diff)
+        (wikipedia-diff-follow--mark-read)))))
 
 (defun wikipedia-diff-follow--display-diff ()
   "Display the diff for the current entry in the follow buffer."
@@ -81,6 +87,7 @@
 
 (declare-function wikipedia-history--revision-at-point "wikipedia-history")
 (declare-function wikipedia-watchlist--entry-at-point "wikipedia-watchlist")
+(declare-function wikipedia-watchlist--mark-at-point-read "wikipedia-watchlist")
 
 (defun wikipedia-diff-follow--get-diff-info ()
   "Get diff info for the entry at point.
@@ -146,33 +153,44 @@ Returns a plist with :from-rev, :to-rev, and :title, or nil."
       (setq buffer-read-only t)
       (setq header-line-format
             (format " %s: %d → %d" title from-rev to-rev)))
-    (wikipedia-diff-follow--display-buffer buf)
+    (wikipedia-diff-follow--display-buffer buf source-window)
     (select-window source-window)))
 
-(defun wikipedia-diff-follow--display-buffer (buffer)
-  "Display BUFFER in a side window for diff follow mode."
-  (display-buffer buffer
-                  '((display-buffer-reuse-window
-                     display-buffer-in-side-window)
-                    (side . bottom)
-                    (slot . 0)
-                    (window-height . 0.4)
-                    (preserve-size . (nil . t)))))
+(defun wikipedia-diff-follow--display-buffer (buffer source-window)
+  "Display BUFFER for diff follow mode, reusing other window if available.
+SOURCE-WINDOW is the window to avoid displaying in."
+  (let ((other-window (wikipedia-diff-follow--find-other-window source-window)))
+    (if other-window
+        (set-window-buffer other-window buffer)
+      (display-buffer buffer
+                      '((display-buffer-reuse-window
+                         display-buffer-use-some-window)
+                        (inhibit-same-window . t))))))
+
+(defun wikipedia-diff-follow--find-other-window (source-window)
+  "Find another window to display the diff, excluding SOURCE-WINDOW.
+Returns nil if no suitable window is found."
+  (let ((windows (window-list nil 'no-minibuf)))
+    (when (> (length windows) 1)
+      (seq-find (lambda (w) (not (eq w source-window))) windows))))
+
+(defun wikipedia-diff-follow--mark-read ()
+  "Mark the current entry as read if in watchlist mode."
+  (when (derived-mode-p 'wikipedia-watchlist-mode)
+    (wikipedia-watchlist--mark-at-point-read)))
 
 (defun wikipedia-diff-follow--cleanup ()
   "Clean up diff follow mode state."
-  (setq wikipedia-diff-follow--last-revid nil)
-  (when-let ((buf (get-buffer wikipedia-diff-follow--buffer-name)))
-    (when-let ((win (get-buffer-window buf)))
-      (delete-window win))))
+  (setq wikipedia-diff-follow--last-revid nil))
 
 ;;;###autoload
 (define-minor-mode wikipedia-diff-follow-mode
   "Minor mode to automatically show diffs when navigating entries.
 When enabled, moving to a different entry in history, watchlist, or
-contributions buffers will automatically display the diff in a side window.
+contributions buffers will automatically display the diff in another window.
 Only works with unified diff mode, not ediff."
   :lighter " Follow"
+  :variable wikipedia-diff-follow-mode
   (if wikipedia-diff-follow-mode
       (progn
         (when (eq wikipedia-diff-function 'ediff)
