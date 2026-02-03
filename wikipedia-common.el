@@ -54,6 +54,9 @@
 (defvar wikipedia--revision-cache (make-hash-table :test 'eql)
   "Cache of revision content, keyed by revision ID.")
 
+(defvar wikipedia--prefetch-in-flight (make-hash-table :test 'eql)
+  "Revision IDs currently being fetched.")
+
 (defun wikipedia--cache-get (revid)
   "Get cached content for REVID, or nil if not cached."
   (gethash revid wikipedia--revision-cache))
@@ -68,6 +71,77 @@
       (let ((content (wp--get-revision-content title revid)))
         (wikipedia--cache-put revid content)
         content)))
+
+;;;; Async prefetching
+
+(declare-function mediawiki-make-api-url "mediawiki-api")
+
+(defun wikipedia--build-revision-api-url (site title revid)
+  "Build API URL for fetching revision REVID of TITLE from SITE."
+  (let ((api-url (mediawiki-make-api-url site)))
+    (format "%s?%s" api-url
+            (url-build-query-string
+             `(("action" "query")
+               ("format" "xml")
+               ("titles" ,title)
+               ("prop" "revisions")
+               ("rvprop" "content")
+               ("rvslots" "main")
+               ("rvstartid" ,(number-to-string revid))
+               ("rvendid" ,(number-to-string revid)))))))
+
+(defun wikipedia--parse-async-revision-response ()
+  "Parse revision content from async response in current buffer.
+Returns the wikitext content or nil."
+  (goto-char (point-min))
+  (when (re-search-forward "\n\n" nil t)
+    (let* ((xml (xml-parse-region (point) (point-max)))
+           (api (car xml))
+           (query (assq 'query (cddr api)))
+           (pages (assq 'pages (cddr query)))
+           (page (car (cddr pages)))
+           (revisions (assq 'revisions (cddr page)))
+           (rev (car (cddr revisions)))
+           (slots (assq 'slots (cddr rev)))
+           (slot (assq 'slot (cddr slots))))
+      (when slot
+        (let ((content (car (last slot))))
+          (when (stringp content)
+            content))))))
+
+(defun wikipedia--fetch-revision-async (title revid &optional callback)
+  "Fetch revision REVID for TITLE asynchronously.
+CALLBACK is called with the content when done (optional).
+The content is always stored in the cache."
+  (when (and revid (not (wikipedia--cache-get revid))
+             (not (gethash revid wikipedia--prefetch-in-flight)))
+    (puthash revid t wikipedia--prefetch-in-flight)
+    (let* ((site (wp--get-site))
+           (url (wikipedia--build-revision-api-url site title revid)))
+      (url-retrieve
+       url
+       (lambda (status revid-arg callback-arg)
+         (remhash revid-arg wikipedia--prefetch-in-flight)
+         (unless (plist-get status :error)
+           (let ((content (wikipedia--parse-async-revision-response)))
+             (when content
+               (wikipedia--cache-put revid-arg content))
+             (when callback-arg
+               (funcall callback-arg content))))
+         (kill-buffer))
+       (list revid callback)
+       t t))))
+
+(defun wikipedia--prefetch-watchlist-diffs (entries)
+  "Prefetch revision content for all watchlist ENTRIES asynchronously.
+This fetches in the background without blocking Emacs."
+  (dolist (entry entries)
+    (let ((title (alist-get 'title entry))
+          (revid (alist-get 'revid entry))
+          (old-revid (alist-get 'old_revid entry)))
+      (when (and title revid old-revid)
+        (wikipedia--fetch-revision-async title old-revid)
+        (wikipedia--fetch-revision-async title revid)))))
 
 ;;;; Diff follow mode
 
@@ -155,11 +229,54 @@ Returns a plist with :from-rev, :to-rev, and :title, or nil."
 
 (defun wikipedia-diff-follow--fetch-and-display (from-rev to-rev title)
   "Fetch and display diff between FROM-REV and TO-REV for TITLE."
-  (let ((from-content (wikipedia--get-revision-content-cached title from-rev))
-        (to-content (wikipedia--get-revision-content-cached title to-rev))
+  (let ((from-content (wikipedia--cache-get from-rev))
+        (to-content (wikipedia--cache-get to-rev))
         (source-window (selected-window)))
-    (wikipedia-diff-follow--render-diff from-content to-content
-                                        from-rev to-rev title source-window)))
+    (if (and from-content to-content)
+        (wikipedia-diff-follow--render-diff from-content to-content
+                                            from-rev to-rev title source-window)
+      (wikipedia-diff-follow--show-loading title from-rev to-rev source-window)
+      (wikipedia-diff-follow--fetch-both-async
+       from-rev to-rev title source-window))))
+
+(defun wikipedia-diff-follow--show-loading (title from-rev to-rev source-window)
+  "Show loading message in diff buffer for TITLE (FROM-REV to TO-REV)."
+  (let ((buf (get-buffer-create wikipedia-diff-follow--buffer-name)))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert "Loading diff..."))
+      (setq buffer-read-only t)
+      (setq header-line-format
+            (format " %s: %d → %d (loading...)" title from-rev to-rev)))
+    (wikipedia-diff-follow--display-buffer buf source-window)))
+
+(defun wikipedia-diff-follow--fetch-both-async (from-rev to-rev title source-window)
+  "Fetch both revisions async and display diff when both are ready.
+FROM-REV and TO-REV are revision IDs, TITLE is the page title.
+SOURCE-WINDOW is preserved for display."
+  (let ((expected-revid wikipedia-diff-follow--last-revid)
+        (pending 2)
+        (from-content (wikipedia--cache-get from-rev))
+        (to-content (wikipedia--cache-get to-rev)))
+    (cl-flet ((maybe-render
+                ()
+                (cl-decf pending)
+                (when (zerop pending)
+                  (setq from-content (or from-content (wikipedia--cache-get from-rev)))
+                  (setq to-content (or to-content (wikipedia--cache-get to-rev)))
+                  (when (and from-content to-content
+                             (eq expected-revid wikipedia-diff-follow--last-revid))
+                    (wikipedia-diff-follow--render-diff
+                     from-content to-content from-rev to-rev title source-window)))))
+      (if from-content
+          (maybe-render)
+        (wikipedia--fetch-revision-async
+         title from-rev (lambda (_) (maybe-render))))
+      (if to-content
+          (maybe-render)
+        (wikipedia--fetch-revision-async
+         title to-rev (lambda (_) (maybe-render)))))))
 
 (defun wikipedia-diff-follow--render-diff (from-content to-content from-rev to-rev title source-window)
   "Render diff between FROM-CONTENT and TO-CONTENT in the diff buffer."
