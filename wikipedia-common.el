@@ -49,6 +49,121 @@
 
 (defvar wikipedia-diff-function)
 
+;;;; Revision content cache
+
+(defvar wikipedia--revision-cache (make-hash-table :test 'eql)
+  "Cache of revision content, keyed by revision ID.")
+
+(defvar wikipedia--prefetch-queue nil
+  "Queue of revision pairs to prefetch: ((title from-rev to-rev) ...).")
+
+(defvar wikipedia--prefetch-timer nil
+  "Timer for background prefetching.")
+
+(defvar wikipedia--prefetch-in-progress nil
+  "Non-nil when a prefetch is currently running.")
+
+(defun wikipedia--cache-get (revid)
+  "Get cached content for REVID, or nil if not cached."
+  (gethash revid wikipedia--revision-cache))
+
+(defun wikipedia--cache-put (revid content)
+  "Store CONTENT in cache for REVID."
+  (puthash revid content wikipedia--revision-cache))
+
+(defun wikipedia--get-revision-content-cached (title revid)
+  "Get revision content for TITLE at REVID, using cache if available."
+  (or (wikipedia--cache-get revid)
+      (let ((content (wp--get-revision-content title revid)))
+        (wikipedia--cache-put revid content)
+        content)))
+
+(defun wikipedia--prefetch-revision (title revid callback)
+  "Fetch revision REVID for TITLE asynchronously, calling CALLBACK when done.
+CALLBACK receives the content as argument."
+  (if (wikipedia--cache-get revid)
+      (when callback (funcall callback (wikipedia--cache-get revid)))
+    (if (fboundp 'make-thread)
+        (make-thread
+         (lambda ()
+           (condition-case nil
+               (let ((content (wp--get-revision-content title revid)))
+                 (wikipedia--cache-put revid content)
+                 (when callback
+                   (run-at-time 0 nil callback content)))
+             (error nil))))
+      (run-with-idle-timer
+       0.1 nil
+       (lambda ()
+         (condition-case nil
+             (let ((content (wp--get-revision-content title revid)))
+               (wikipedia--cache-put revid content)
+               (when callback (funcall callback content)))
+           (error nil)))))))
+
+(defun wikipedia--prefetch-diff (title from-rev to-rev)
+  "Queue prefetching of revision content for FROM-REV and TO-REV."
+  (unless (and (wikipedia--cache-get from-rev)
+               (wikipedia--cache-get to-rev))
+    (push (list title from-rev to-rev) wikipedia--prefetch-queue)
+    (wikipedia--start-prefetch-timer)))
+
+(defun wikipedia--start-prefetch-timer ()
+  "Start the prefetch timer if not already running."
+  (unless wikipedia--prefetch-timer
+    (setq wikipedia--prefetch-timer
+          (run-with-idle-timer 0.5 t #'wikipedia--process-prefetch-queue))))
+
+(defun wikipedia--stop-prefetch-timer ()
+  "Stop the prefetch timer."
+  (when wikipedia--prefetch-timer
+    (cancel-timer wikipedia--prefetch-timer)
+    (setq wikipedia--prefetch-timer nil)))
+
+(defun wikipedia--process-prefetch-queue ()
+  "Process one item from the prefetch queue."
+  (when (and wikipedia--prefetch-queue
+             (not wikipedia--prefetch-in-progress))
+    (let* ((item (pop wikipedia--prefetch-queue))
+           (title (nth 0 item))
+           (from-rev (nth 1 item))
+           (to-rev (nth 2 item)))
+      (setq wikipedia--prefetch-in-progress t)
+      (if (fboundp 'make-thread)
+          (make-thread
+           (lambda ()
+             (condition-case nil
+                 (progn
+                   (unless (wikipedia--cache-get from-rev)
+                     (wikipedia--cache-put from-rev
+                                           (wp--get-revision-content title from-rev)))
+                   (unless (wikipedia--cache-get to-rev)
+                     (wikipedia--cache-put to-rev
+                                           (wp--get-revision-content title to-rev))))
+               (error nil))
+             (setq wikipedia--prefetch-in-progress nil)))
+        (condition-case nil
+            (progn
+              (unless (wikipedia--cache-get from-rev)
+                (wikipedia--cache-put from-rev
+                                      (wp--get-revision-content title from-rev)))
+              (unless (wikipedia--cache-get to-rev)
+                (wikipedia--cache-put to-rev
+                                      (wp--get-revision-content title to-rev))))
+          (error nil))
+        (setq wikipedia--prefetch-in-progress nil))))
+  (unless wikipedia--prefetch-queue
+    (wikipedia--stop-prefetch-timer)))
+
+(defun wikipedia--prefetch-watchlist-diffs (entries)
+  "Queue prefetching of diffs for all watchlist ENTRIES."
+  (dolist (entry entries)
+    (let ((title (alist-get 'title entry))
+          (revid (alist-get 'revid entry))
+          (old-revid (alist-get 'old_revid entry)))
+      (when (and title revid old-revid)
+        (wikipedia--prefetch-diff title old-revid revid)))))
+
 ;;;; Diff follow mode
 
 (defvar-local wikipedia-diff-follow-mode nil
@@ -135,13 +250,55 @@ Returns a plist with :from-rev, :to-rev, and :title, or nil."
 
 (defun wikipedia-diff-follow--fetch-and-display (from-rev to-rev title)
   "Fetch and display diff between FROM-REV and TO-REV for TITLE."
-  (let* ((from-content (wp--get-revision-content title from-rev))
-         (to-content (wp--get-revision-content title to-rev))
-         (from-file (wikipedia--write-temp-file from-content from-rev))
+  (let ((from-content (wikipedia--cache-get from-rev))
+        (to-content (wikipedia--cache-get to-rev))
+        (source-window (selected-window)))
+    (if (and from-content to-content)
+        (wikipedia-diff-follow--render-diff from-content to-content
+                                            from-rev to-rev title source-window)
+      (wikipedia-diff-follow--show-loading title from-rev to-rev source-window)
+      (wikipedia-diff-follow--fetch-async from-rev to-rev title source-window))))
+
+(defun wikipedia-diff-follow--show-loading (title from-rev to-rev source-window)
+  "Show loading message in diff buffer for TITLE."
+  (let ((buf (get-buffer-create wikipedia-diff-follow--buffer-name)))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert "Loading diff..."))
+      (setq buffer-read-only t)
+      (setq header-line-format
+            (format " %s: %d → %d (loading...)" title from-rev to-rev)))
+    (wikipedia-diff-follow--display-buffer buf source-window)))
+
+(defun wikipedia-diff-follow--fetch-async (from-rev to-rev title source-window)
+  "Fetch revisions asynchronously and display diff when ready."
+  (let ((from-content nil)
+        (to-content nil)
+        (expected-revid wikipedia-diff-follow--last-revid))
+    (wikipedia--prefetch-revision
+     title from-rev
+     (lambda (content)
+       (setq from-content content)
+       (when (and from-content to-content
+                  (eq expected-revid wikipedia-diff-follow--last-revid))
+         (wikipedia-diff-follow--render-diff from-content to-content
+                                             from-rev to-rev title source-window))))
+    (wikipedia--prefetch-revision
+     title to-rev
+     (lambda (content)
+       (setq to-content content)
+       (when (and from-content to-content
+                  (eq expected-revid wikipedia-diff-follow--last-revid))
+         (wikipedia-diff-follow--render-diff from-content to-content
+                                             from-rev to-rev title source-window))))))
+
+(defun wikipedia-diff-follow--render-diff (from-content to-content from-rev to-rev title source-window)
+  "Render diff between FROM-CONTENT and TO-CONTENT in the diff buffer."
+  (let* ((from-file (wikipedia--write-temp-file from-content from-rev))
          (to-file (wikipedia--write-temp-file to-content to-rev))
          (diff-output (wikipedia--generate-unified-diff from-file to-file from-rev to-rev))
-         (buf (get-buffer-create wikipedia-diff-follow--buffer-name))
-         (source-window (selected-window)))
+         (buf (get-buffer-create wikipedia-diff-follow--buffer-name)))
     (delete-file from-file)
     (delete-file to-file)
     (with-current-buffer buf
@@ -153,8 +310,7 @@ Returns a plist with :from-rev, :to-rev, and :title, or nil."
       (setq buffer-read-only t)
       (setq header-line-format
             (format " %s: %d → %d" title from-rev to-rev)))
-    (wikipedia-diff-follow--display-buffer buf source-window)
-    (select-window source-window)))
+    (wikipedia-diff-follow--display-buffer buf source-window)))
 
 (defun wikipedia-diff-follow--display-buffer (buffer source-window)
   "Display BUFFER for diff follow mode, reusing other window if available.
