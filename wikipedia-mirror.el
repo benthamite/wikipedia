@@ -227,17 +227,13 @@
         (user-error "No content stored for parent revision %d" parentid))
       (wikipedia-mirror--show-local-diff old-content new-content parentid revid))))
 
+(declare-function wikipedia--show-diff-contents "wikipedia-common")
+
 (defun wikipedia-mirror--show-local-diff (old-content new-content old-rev new-rev)
   "Show diff between OLD-CONTENT and NEW-CONTENT (revisions OLD-REV and NEW-REV)."
-  (let ((old-buf (generate-new-buffer (format "*WP r%d*" old-rev)))
-        (new-buf (generate-new-buffer (format "*WP r%d*" new-rev))))
-    (with-current-buffer old-buf
-      (insert old-content)
-      (setq buffer-read-only t))
-    (with-current-buffer new-buf
-      (insert new-content)
-      (setq buffer-read-only t))
-    (ediff-buffers old-buf new-buf)))
+  (require 'wikipedia-common)
+  (wikipedia--show-diff-contents old-content new-content old-rev new-rev
+                                 wikipedia-mirror-history--page-title))
 
 (provide 'wikipedia-mirror)
 

@@ -47,12 +47,69 @@
 
 ;;;; Diff utilities
 
-(defun wikipedia--show-ediff (from-rev to-rev title)
-  "Display ediff between FROM-REV and TO-REV for TITLE."
-  (let* ((from-content (wp--get-revision-content title from-rev))
-         (to-content (wp--get-revision-content title to-rev))
-         (from-buffer (wikipedia--create-revision-buffer title from-rev from-content))
-         (to-buffer (wikipedia--create-revision-buffer title to-rev to-content)))
+(defvar wikipedia-diff-function)
+
+(defun wikipedia--show-diff (from-rev to-rev title)
+  "Display diff between FROM-REV and TO-REV for TITLE.
+Uses `wikipedia-diff-function' to determine the diff style."
+  (let ((from-content (wp--get-revision-content title from-rev))
+        (to-content (wp--get-revision-content title to-rev)))
+    (wikipedia--show-diff-contents from-content to-content from-rev to-rev title)))
+
+(defun wikipedia--show-diff-contents (from-content to-content from-rev to-rev title)
+  "Display diff between FROM-CONTENT and TO-CONTENT.
+FROM-REV and TO-REV are the revision IDs, TITLE is the page title.
+Uses `wikipedia-diff-function' to determine the diff style."
+  (pcase wikipedia-diff-function
+    ('unified (wikipedia--show-diff-unified
+               from-content to-content from-rev to-rev title))
+    ('ediff (wikipedia--show-diff-ediff
+             from-content to-content from-rev to-rev title))
+    (_ (error "Unknown diff function: %s" wikipedia-diff-function))))
+
+(defun wikipedia--show-diff-unified (from-content to-content from-rev to-rev title)
+  "Display unified diff between FROM-CONTENT and TO-CONTENT.
+FROM-REV and TO-REV are the revision IDs, TITLE is the page title."
+  (let* ((from-file (wikipedia--write-temp-file from-content from-rev))
+         (to-file (wikipedia--write-temp-file to-content to-rev))
+         (diff-output (wikipedia--generate-unified-diff from-file to-file from-rev to-rev))
+         (buf (get-buffer-create (format "*WP Diff: %s (%d → %d)*" title from-rev to-rev))))
+    (delete-file from-file)
+    (delete-file to-file)
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert diff-output)
+        (goto-char (point-min)))
+      (diff-mode)
+      (setq buffer-read-only t))
+    (pop-to-buffer buf)))
+
+(defun wikipedia--write-temp-file (content revid)
+  "Write CONTENT to a temporary file named after REVID."
+  (let ((file (make-temp-file (format "wp-rev-%d-" revid))))
+    (with-temp-file file
+      (insert (or content "")))
+    file))
+
+(defun wikipedia--generate-unified-diff (from-file to-file from-rev to-rev)
+  "Generate unified diff output between FROM-FILE and TO-FILE.
+FROM-REV and TO-REV are used for the diff header labels."
+  (with-temp-buffer
+    (let ((exit-code (call-process "diff" nil t nil
+                                   "-u"
+                                   (format "--label=Revision %d" from-rev)
+                                   (format "--label=Revision %d" to-rev)
+                                   from-file to-file)))
+      (if (> exit-code 1)
+          (error "Diff command failed with exit code %d" exit-code)
+        (buffer-string)))))
+
+(defun wikipedia--show-diff-ediff (from-content to-content from-rev to-rev title)
+  "Display ediff between FROM-CONTENT and TO-CONTENT.
+FROM-REV and TO-REV are the revision IDs, TITLE is the page title."
+  (let ((from-buffer (wikipedia--create-revision-buffer title from-rev from-content))
+        (to-buffer (wikipedia--create-revision-buffer title to-rev to-content)))
     (ediff-buffers from-buffer to-buffer)))
 
 (defun wikipedia--create-revision-buffer (title revid content)

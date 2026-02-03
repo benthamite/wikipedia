@@ -426,7 +426,7 @@
     (unless (and revid old-revid)
       (error "Cannot determine revisions for diff"))
     (wikipedia-watchlist--mark-at-point-read)
-    (wikipedia--show-ediff old-revid revid title)))
+    (wikipedia--show-diff old-revid revid title)))
 
 (defun wikipedia-watchlist-show-history ()
   "Show the history for the page at point."

@@ -132,7 +132,7 @@
       (error "No contribution at point"))
     (unless parentid
       (error "This revision has no parent"))
-    (wikipedia--show-ediff parentid revid title)))
+    (wikipedia--show-diff parentid revid title)))
 
 (defun wikipedia-user-contributions-view-revision ()
   "View the wikitext of the revision at point."

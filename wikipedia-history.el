@@ -153,7 +153,7 @@ This is equivalent to Wikipedia \"prev\"."
       (error "No revision at point"))
     (unless parentid
       (error "This revision has no parent"))
-    (wikipedia--show-ediff parentid revid wikipedia-history--page-title)))
+    (wikipedia--show-diff parentid revid wikipedia-history--page-title)))
 
 (defun wikipedia-history-diff-to-current ()
   "Show diff between revision at point and the current revision.
@@ -167,7 +167,7 @@ This is equivalent to Wikipedia's \"cur\"."
       (error "No revision at point"))
     (when (= revid current-revid)
       (error "Already at the current revision"))
-    (wikipedia--show-ediff revid current-revid wikipedia-history--page-title)))
+    (wikipedia--show-diff revid current-revid wikipedia-history--page-title)))
 
 (defun wikipedia-history-browse-revision ()
   "Open the revision at point in an external browser."
@@ -184,7 +184,7 @@ This is equivalent to Wikipedia's \"cur\"."
   (interactive)
   (let* ((from (read-number "From revision: "))
          (to (read-number "To revision: ")))
-    (wikipedia--show-ediff from to wikipedia-history--page-title)))
+    (wikipedia--show-diff from to wikipedia-history--page-title)))
 
 (provide 'wikipedia-history)
 

@@ -56,6 +56,14 @@
   :group 'external
   :prefix "wikipedia-")
 
+(defcustom wikipedia-diff-function 'unified
+  "Function to use for displaying diffs.
+When set to `unified', show diffs in a single buffer using `diff-mode'.
+When set to `ediff', use `ediff-buffers' with side-by-side comparison."
+  :type '(choice (const :tag "Unified diff (single buffer)" unified)
+                 (const :tag "Ediff (side-by-side)" ediff))
+  :group 'wikipedia)
+
 (defvar wikipedia-edit-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c C-p") #'wikipedia-preview)
