@@ -95,7 +95,7 @@ CALLBACK is called with non-nil on success, nil on failure."
          (when callback-arg
            (funcall callback-arg success))))
      (list callback)
-     t t)))
+     t nil)))
 
 (defun wp--open-page-buffer (title)
   "Open TITLE for editing in a buffer.
