@@ -18,6 +18,7 @@
 ;;; Code:
 
 (require 'mediawiki)
+(require 'mm-url)
 
 (declare-function mediawiki-make-api-url "mediawiki-api")
 (declare-function url-http-post "mediawiki-http")
@@ -82,11 +83,8 @@ CALLBACK is called with non-nil on success, nil on failure."
                                    (cons "action" action))))
          (url-request-method "POST")
          (url-request-extra-headers
-          '(("Content-Type" . "application/x-www-form-urlencoded")))
-         (url-request-data (url-build-query-string
-                            (mapcar (lambda (pair)
-                                      (list (car pair) (cdr pair)))
-                                    all-params))))
+          '(("Content-Type" . "application/x-www-form-urlencoded; charset=utf-8")))
+         (url-request-data (mm-url-encode-www-form-urlencoded all-params)))
     (url-retrieve
      url
      (lambda (status callback-arg)
