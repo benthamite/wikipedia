@@ -83,7 +83,10 @@ CALLBACK is called with non-nil on success, nil on failure."
          (url-request-method "POST")
          (url-request-extra-headers
           '(("Content-Type" . "application/x-www-form-urlencoded")))
-         (url-request-data (url-build-query-string all-params)))
+         (url-request-data (url-build-query-string
+                            (mapcar (lambda (pair)
+                                      (list (car pair) (cdr pair)))
+                                    all-params))))
     (url-retrieve
      url
      (lambda (status callback-arg)
