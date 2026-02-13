@@ -10,6 +10,7 @@
 ;;; Code:
 
 (require 'transient)
+(require 'mediawiki-draft)
 (require 'wikipedia-page)
 (require 'wikipedia-watchlist)
 (require 'wikipedia-history)
@@ -24,10 +25,14 @@
   "Wikipedia commands."
   [["Page"
     ("o" "Open page" wikipedia-open)
-    ("s" "Save page" wikipedia-save)
+    ("P" "Publish page" wikipedia-publish)
     ("p" "Preview" wikipedia-preview)
     ("b" "Browse page" wikipedia-browse)
     ("l" "Login" wikipedia-login)]
+   ["Draft"
+    ("d s" "Save draft" wikipedia-draft-save)
+    ("d v" "View drafts" mediawiki-draft-view-draft)
+    ("d o" "Open draft buffer" mediawiki-draft)]
    ["Watchlist"
     ("w w" "Watchlist" wikipedia-watchlist)
     ("w a" "Watch page" wikipedia-watchlist-watch)

@@ -31,7 +31,7 @@
 ;;
 ;; Main entry points:
 ;;   `wikipedia-open' - Open a Wikipedia page for editing
-;;   `wikipedia-save' - Save the current buffer to Wikipedia
+;;   `wikipedia-publish' - Publish the current buffer to Wikipedia
 ;;   `wikipedia-watchlist' - Browse your watchlist
 ;;   `wikipedia-history' - Browse page revision history
 ;;

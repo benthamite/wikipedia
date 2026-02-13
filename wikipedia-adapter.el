@@ -13,7 +13,7 @@
 ;;   `wp--login' - Establish a session with a wiki site
 ;;   `wp--api-call' - Make API requests to the wiki
 ;;   `wp--open-page-buffer' - Open a page in a buffer for editing
-;;   `wp--save-page-buffer' - Save the current buffer to the wiki
+;;   `wp--publish-page-buffer' - Publish the current buffer to the wiki
 
 ;;; Code:
 
@@ -101,8 +101,8 @@ Returns the buffer containing the page content."
   (let ((mediawiki-site (wp--get-site)))
     (mediawiki-open title)))
 
-(defun wp--save-page-buffer (&optional summary)
-  "Save the current buffer to the wiki.
+(defun wp--publish-page-buffer (&optional summary)
+  "Publish the current buffer to the wiki.
 SUMMARY is the edit summary.  If nil, the user will be prompted."
   (mediawiki-save summary))
 

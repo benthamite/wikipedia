@@ -34,7 +34,7 @@ machine en.wikipedia.org login YourUsername password YourBotPassword
 2. **Open a page**: `M-x wikipedia-open` and enter the page title
 3. **Edit** the wikitext in the buffer
 4. **Preview**: `M-x wikipedia-preview` to see rendered HTML
-5. **Save**: `M-x wikipedia-save` (or `C-x C-s` in the page buffer)
+5. **Publish**: `M-x wikipedia-publish` (or `C-x C-s` in the page buffer)
 
 ### Revision history
 
@@ -115,7 +115,7 @@ Database utilities:
 
 - `wikipedia.el` - Main entry point and customization group
 - `wikipedia-adapter.el` - Adapter layer isolating mediawiki.el dependency
-- `wikipedia-page.el` - Page operations (open, save, preview)
+- `wikipedia-page.el` - Page operations (open, publish, preview, drafts)
 - `wikipedia-history.el` - Revision history browsing and diffs
 - `wikipedia-watchlist.el` - Watchlist browsing
 - `wikipedia-db.el` - SQLite storage layer
@@ -158,7 +158,7 @@ Integration with `gptel.el` for edit suggestions, summaries, and explanations.
 
 1. **Adapter layer** (`wikipedia-adapter.el`)
    - Isolates dependency on mediawiki.el
-   - Provides: `wp--login`, `wp--api-call`, `wp--open-page-buffer`, `wp--save-page-buffer`
+   - Provides: `wp--login`, `wp--api-call`, `wp--open-page-buffer`, `wp--publish-page-buffer`
    - Can be replaced to use a different backend
 
 2. **Domain layer** (`wikipedia-page.el`, `wikipedia-history.el`)
@@ -182,7 +182,7 @@ Requires Emacs 29.1+ (for built-in SQLite and modern JSON support).
 
 ## Roadmap
 
-- [x] Phase 1: Minimal online workflow (open, edit, save)
+- [x] Phase 1: Minimal online workflow (open, edit, publish)
 - [x] Phase 2: Preview
 - [x] Phase 3: Diffs and history browsing
 - [x] Phase 4: Watchlist UI

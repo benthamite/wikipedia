@@ -11,6 +11,7 @@
 
 (require 'wikipedia-adapter)
 (require 'wikipedia-common)
+(require 'mediawiki-draft)
 (require 'shr)
 
 ;;;###autoload
@@ -34,14 +35,22 @@ When called interactively, prompts for the page title."
   (wp--open-page-buffer title))
 
 ;;;###autoload
-(defun wikipedia-save (&optional summary)
-  "Save the current buffer to Wikipedia.
+(defun wikipedia-publish (&optional summary)
+  "Publish the current buffer to Wikipedia.
 SUMMARY is the edit summary.  When called interactively, prompts
 for the summary if the current value is empty."
   (interactive)
   (wp--ensure-logged-in)
-  (wp--save-page-buffer summary)
-  (message "Saved %s" (or (wp--current-page-title) "page")))
+  (wp--publish-page-buffer summary)
+  (message "Published %s" (or (wp--current-page-title) "page")))
+
+(defalias 'wikipedia-save #'wikipedia-publish)
+
+;;;###autoload
+(defun wikipedia-draft-save ()
+  "Save the current buffer content as a local draft."
+  (interactive)
+  (mediawiki-draft-region (point-min) (point-max)))
 
 ;;;###autoload
 (defun wikipedia-browse (title)
