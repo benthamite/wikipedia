@@ -70,6 +70,30 @@ to see the classification details."
         (concat "chrome/pangram.com/" (getenv "PERSONAL_EMAIL")))
       (error "Pangram API key not found in pass store")))
 
+(defun wikipedia-pangram--encode-request-body (text)
+  "Encode TEXT as a JSON request body safe for `url-retrieve'.
+Escapes non-ASCII characters as \\uXXXX sequences so the result
+is pure ASCII, avoiding multibyte issues in `url-http-create-request'."
+  (let ((json (decode-coding-string
+               (json-serialize (list :text text))
+               'utf-8)))
+    (replace-regexp-in-string
+     "[^[:ascii:]]"
+     (lambda (s)
+       (wikipedia-pangram--escape-unicode-char (aref s 0)))
+     json t t)))
+
+(defun wikipedia-pangram--escape-unicode-char (char)
+  "Return CHAR as a JSON \\uXXXX escape sequence.
+Characters outside the Basic Multilingual Plane are encoded as
+surrogate pairs."
+  (if (<= char #xFFFF)
+      (format "\\u%04X" char)
+    (let* ((cp (- char #x10000))
+           (hi (+ #xD800 (ash cp -10)))
+           (lo (+ #xDC00 (logand cp #x3FF))))
+      (format "\\u%04X\\u%04X" hi lo))))
+
 (defun wikipedia-pangram--api-call (text callback)
   "Send TEXT to the Pangram API.
 CALLBACK is called with the parsed JSON response."
@@ -79,7 +103,7 @@ CALLBACK is called with the parsed JSON response."
           `(("Content-Type" . "application/json")
             ("x-api-key" . ,api-key)))
          (url-request-data
-          (json-serialize (list :text text))))
+          (wikipedia-pangram--encode-request-body text)))
     (url-retrieve
      wikipedia-pangram-api-url
      (lambda (status cb)
