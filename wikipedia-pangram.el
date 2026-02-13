@@ -79,7 +79,7 @@ CALLBACK is called with the parsed JSON response."
           `(("Content-Type" . "application/json")
             ("x-api-key" . ,api-key)))
          (url-request-data
-          (encode-coding-string (json-encode `((text . ,text))) 'utf-8)))
+          (json-serialize (list :text text))))
     (url-retrieve
      wikipedia-pangram-api-url
      (lambda (status cb)
