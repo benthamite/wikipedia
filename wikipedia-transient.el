@@ -10,7 +10,7 @@
 ;;; Code:
 
 (require 'transient)
-(require 'mediawiki-draft)
+(require 'wikipedia-draft)
 (require 'wikipedia-page)
 (require 'wikipedia-watchlist)
 (require 'wikipedia-history)
@@ -31,8 +31,8 @@
     ("l" "Login" wikipedia-login)]
    ["Draft"
     ("d s" "Save draft" wikipedia-draft-save)
-    ("d v" "View drafts" mediawiki-draft-view-draft)
-    ("d o" "New draft buffer" mediawiki-draft)]
+    ("d o" "Open draft" wikipedia-draft-open)
+    ("d k" "Delete draft" wikipedia-draft-delete)]
    ["Watchlist"
     ("w w" "Watchlist" wikipedia-watchlist)
     ("w a" "Watch page" wikipedia-watchlist-watch)

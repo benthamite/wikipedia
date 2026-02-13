@@ -36,6 +36,16 @@ machine en.wikipedia.org login YourUsername password YourBotPassword
 4. **Preview**: `M-x wikipedia-preview` to see rendered HTML
 5. **Publish**: `M-x wikipedia-publish` (or `C-x C-s` in the page buffer)
 
+### Drafts
+
+Save page edits locally and resume them later:
+
+- `M-x wikipedia-draft-save` (`d s`) - save current buffer as a local draft
+- `M-x wikipedia-draft-open` (`d o`) - pick a draft to resume editing
+- `M-x wikipedia-draft-delete` (`d k`) - delete a draft
+
+Drafts are stored as individual `.wiki` files in `wikipedia-draft-directory` (defaults to `wikipedia-drafts/` inside your Emacs directory). Opening a draft sets up the buffer so that `wikipedia-publish` works normally.
+
 ### Revision history
 
 From a page buffer or anywhere after logging in:
@@ -115,7 +125,8 @@ Database utilities:
 
 - `wikipedia.el` - Main entry point and customization group
 - `wikipedia-adapter.el` - Adapter layer isolating mediawiki.el dependency
-- `wikipedia-page.el` - Page operations (open, publish, preview, drafts)
+- `wikipedia-draft.el` - Per-page local draft system
+- `wikipedia-page.el` - Page operations (open, publish, preview)
 - `wikipedia-history.el` - Revision history browsing and diffs
 - `wikipedia-watchlist.el` - Watchlist browsing
 - `wikipedia-db.el` - SQLite storage layer

@@ -42,6 +42,7 @@
 
 (require 'wikipedia-adapter)
 (require 'wikipedia-common)
+(require 'wikipedia-draft)
 (require 'wikipedia-page)
 (require 'wikipedia-history)
 (require 'wikipedia-watchlist)
