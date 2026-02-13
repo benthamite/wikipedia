@@ -32,7 +32,7 @@
    ["Draft"
     ("d s" "Save draft" wikipedia-draft-save)
     ("d v" "View drafts" mediawiki-draft-view-draft)
-    ("d o" "Open draft buffer" mediawiki-draft)]
+    ("d o" "New draft buffer" mediawiki-draft)]
    ["Watchlist"
     ("w w" "Watchlist" wikipedia-watchlist)
     ("w a" "Watch page" wikipedia-watchlist-watch)
