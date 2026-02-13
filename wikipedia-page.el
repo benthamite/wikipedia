@@ -50,7 +50,14 @@ for the summary if the current value is empty."
 (defun wikipedia-draft-save ()
   "Save the current buffer content as a local draft."
   (interactive)
+  (wikipedia-draft-save--validate-data-file)
   (mediawiki-draft-region (point-min) (point-max)))
+
+(defun wikipedia-draft-save--validate-data-file ()
+  "Signal an error if `mediawiki-draft-data-file' is not a valid file path."
+  (let ((file (expand-file-name mediawiki-draft-data-file)))
+    (when (file-directory-p file)
+      (error "`mediawiki-draft-data-file' points to a directory: %s" file))))
 
 ;;;###autoload
 (defun wikipedia-browse (title)
