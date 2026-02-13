@@ -51,6 +51,7 @@
 (require 'wikipedia-mirror)
 (require 'wikipedia-xtools)
 (require 'wikipedia-user)
+(require 'wikipedia-pangram)
 
 (defgroup wikipedia nil
   "Emacs interface for Wikipedia editing."
