@@ -51,7 +51,6 @@
 (require 'wikipedia-mirror)
 (require 'wikipedia-xtools)
 (require 'wikipedia-user)
-(require 'wikipedia-pangram)
 
 (defvar wikipedia-edit-mode-map
   (let ((map (make-sparse-keymap)))
