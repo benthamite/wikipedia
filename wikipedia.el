@@ -4,7 +4,7 @@
 
 ;; Author: Pablo Stafforini
 ;; Version: 0.1.0
-;; Package-Requires: ((emacs "29.1") (mediawiki "2.4.9"))
+;; Package-Requires: ((emacs "29.1") (mediawiki "2.4.9") (pangram "0.1.0"))
 ;; Keywords: wiki, wikipedia, mediawiki
 ;; URL: https://github.com/your/wikipedia-el
 
