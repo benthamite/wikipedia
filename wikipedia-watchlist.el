@@ -321,7 +321,7 @@
         (car (alist-get title wikipedia-watchlist--grouped-entries nil nil #'equal))))
      ((and (consp id) (eq (car id) 'child))
       (let ((revid (cddr id)))
-        (seq-find (lambda (e) (eq (alist-get 'revid e) revid))
+        (seq-find (lambda (e) (eql (alist-get 'revid e) revid))
                   wikipedia-watchlist--entries)))
      (t nil))))
 
@@ -470,7 +470,7 @@
   "Add page TITLE to the watchlist."
   (interactive (list (wikipedia--read-page-title)))
   (wp--ensure-logged-in)
-  (let ((in-watchlist-mode (derived-mode-p 'wikipedia-watchlist-mode)))
+  (let ((source-buffer (current-buffer)))
     (message "Adding \"%s\" to watchlist..." title)
     (wp--watch-page-async
      title
@@ -478,15 +478,18 @@
        (if success
            (progn
              (message "Added \"%s\" to watchlist" title)
-             (when in-watchlist-mode
-               (wikipedia-watchlist-refresh)))
+             (when (buffer-live-p source-buffer)
+               (with-current-buffer source-buffer
+                 (when (derived-mode-p 'wikipedia-watchlist-mode)
+                   (wikipedia-watchlist-refresh)))))
          (message "Failed to watch page \"%s\"" title))))))
 
 (defun wikipedia-watchlist-unwatch (title)
   "Remove page TITLE from the watchlist."
   (interactive (list (wikipedia--read-page-title)))
+  (wp--ensure-logged-in)
   (when (yes-or-no-p (format "Remove \"%s\" from watchlist? " title))
-    (let ((in-watchlist-mode (derived-mode-p 'wikipedia-watchlist-mode)))
+    (let ((source-buffer (current-buffer)))
       (message "Removing \"%s\" from watchlist..." title)
       (wp--unwatch-page-async
        title
@@ -494,8 +497,10 @@
          (if success
              (progn
                (message "Removed \"%s\" from watchlist" title)
-               (when in-watchlist-mode
-                 (wikipedia-watchlist-refresh)))
+               (when (buffer-live-p source-buffer)
+                 (with-current-buffer source-buffer
+                   (when (derived-mode-p 'wikipedia-watchlist-mode)
+                     (wikipedia-watchlist-refresh)))))
            (message "Failed to unwatch page \"%s\"" title)))))))
 
 (provide 'wikipedia-watchlist)

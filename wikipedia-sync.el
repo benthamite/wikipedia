@@ -70,11 +70,19 @@
          (titles (delete-dups (mapcar (lambda (e) (alist-get 'title e)) entries))))
     (dolist (title titles)
       (wikipedia-db-set-watched title t))
-    (message "Syncing %d watched pages..." (length titles))
-    (dolist (title titles)
-      (wikipedia-sync-page title)
-      (sit-for 0.5))
-    (message "Sync complete!")))
+    (let ((failed nil))
+      (message "Syncing %d watched pages..." (length titles))
+      (dolist (title titles)
+        (condition-case err
+            (wikipedia-sync-page title)
+          (error
+           (push title failed)
+           (message "Failed to sync %s: %s" title (error-message-string err))))
+        (sit-for 0.5))
+      (if failed
+          (message "Sync complete with %d failures: %s"
+                   (length failed) (string-join (nreverse failed) ", "))
+        (message "Sync complete!")))))
 
 ;;;###autoload
 (defun wikipedia-sync-update ()
@@ -84,12 +92,19 @@
   (let ((watched (wikipedia-db-get-watched-pages)))
     (if (null watched)
         (message "No watched pages in database. Run M-x wikipedia-sync-watchlist first.")
-      (message "Updating %d watched pages..." (length watched))
-      (dolist (row watched)
-        (let ((title (nth 1 row)))
-          (wikipedia-sync-page title)
-          (sit-for 0.5)))
-      (message "Update complete!"))))
+      (let ((failed nil))
+        (message "Updating %d watched pages..." (length watched))
+        (dolist (row watched)
+          (let ((title (nth 1 row)))
+            (condition-case err
+                (wikipedia-sync-page title)
+              (error
+               (push title failed)
+               (message "Failed to sync %s: %s" title (error-message-string err))))
+            (sit-for 0.5)))
+        (if failed
+            (message "Update complete with %d failures" (length failed))
+          (message "Update complete!"))))))
 
 (provide 'wikipedia-sync)
 

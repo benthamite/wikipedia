@@ -65,6 +65,12 @@ When set to `ediff', use `ediff-buffers' with side-by-side comparison."
 (defvar wikipedia--revision-cache (make-hash-table :test 'eql)
   "Cache of revision content, keyed by revision ID.")
 
+(defvar wikipedia--revision-cache-keys nil
+  "List of revision IDs in cache, oldest first (for LRU eviction).")
+
+(defvar wikipedia--revision-cache-max-size 200
+  "Maximum number of revisions to keep in the cache.")
+
 (defvar wikipedia--prefetch-in-flight (make-hash-table :test 'eql)
   "Revision IDs currently being fetched.")
 
@@ -73,8 +79,23 @@ When set to `ediff', use `ediff-buffers' with side-by-side comparison."
   (gethash revid wikipedia--revision-cache))
 
 (defun wikipedia--cache-put (revid content)
-  "Store CONTENT in cache for REVID."
+  "Store CONTENT in cache for REVID, evicting old entries if needed."
+  (unless (gethash revid wikipedia--revision-cache)
+    (push revid wikipedia--revision-cache-keys)
+    (when (> (hash-table-count wikipedia--revision-cache)
+             wikipedia--revision-cache-max-size)
+      (wikipedia--cache-evict)))
   (puthash revid content wikipedia--revision-cache))
+
+(defun wikipedia--cache-evict ()
+  "Evict oldest entries from the revision cache."
+  (let ((target (/ wikipedia--revision-cache-max-size 2)))
+    (while (and wikipedia--revision-cache-keys
+                (> (hash-table-count wikipedia--revision-cache) target))
+      (let ((old-key (car (last wikipedia--revision-cache-keys))))
+        (remhash old-key wikipedia--revision-cache)
+        (setq wikipedia--revision-cache-keys
+              (nbutlast wikipedia--revision-cache-keys))))))
 
 (defun wikipedia--get-revision-content-cached (title revid)
   "Get revision content for TITLE at REVID, using cache if available."
@@ -132,27 +153,58 @@ The content is always stored in the cache."
       (url-retrieve
        url
        (lambda (status revid-arg callback-arg)
-         (remhash revid-arg wikipedia--prefetch-in-flight)
-         (unless (plist-get status :error)
-           (let ((content (wikipedia--parse-async-revision-response)))
-             (when content
-               (wikipedia--cache-put revid-arg content))
-             (when callback-arg
-               (funcall callback-arg content))))
-         (kill-buffer))
+         (unwind-protect
+             (progn
+               (remhash revid-arg wikipedia--prefetch-in-flight)
+               (unless (plist-get status :error)
+                 (condition-case nil
+                     (let ((content (wikipedia--parse-async-revision-response)))
+                       (when content
+                         (wikipedia--cache-put revid-arg content))
+                       (when callback-arg
+                         (funcall callback-arg content)))
+                   (error nil))))
+           (when (buffer-live-p (current-buffer))
+             (kill-buffer (current-buffer)))))
        (list revid callback)
        t t))))
 
+(defvar wikipedia--prefetch-queue nil
+  "Queue of (TITLE . REVID) pairs pending prefetch.")
+
+(defvar wikipedia--prefetch-max-concurrent 10
+  "Maximum number of concurrent prefetch requests.")
+
 (defun wikipedia--prefetch-watchlist-diffs (entries)
   "Prefetch revision content for all watchlist ENTRIES asynchronously.
-This fetches in the background without blocking Emacs."
+This fetches in the background without blocking Emacs, throttled to
+`wikipedia--prefetch-max-concurrent' concurrent requests."
+  (setq wikipedia--prefetch-queue nil)
   (dolist (entry entries)
     (let ((title (alist-get 'title entry))
           (revid (alist-get 'revid entry))
           (old-revid (alist-get 'old_revid entry)))
       (when (and title revid old-revid)
-        (wikipedia--fetch-revision-async title old-revid)
-        (wikipedia--fetch-revision-async title revid)))))
+        (unless (or (wikipedia--cache-get old-revid)
+                    (gethash old-revid wikipedia--prefetch-in-flight))
+          (push (cons title old-revid) wikipedia--prefetch-queue))
+        (unless (or (wikipedia--cache-get revid)
+                    (gethash revid wikipedia--prefetch-in-flight))
+          (push (cons title revid) wikipedia--prefetch-queue)))))
+  (setq wikipedia--prefetch-queue (nreverse wikipedia--prefetch-queue))
+  (wikipedia--prefetch-drain-queue))
+
+(defun wikipedia--prefetch-drain-queue ()
+  "Start prefetch requests up to the concurrency limit."
+  (while (and wikipedia--prefetch-queue
+              (< (hash-table-count wikipedia--prefetch-in-flight)
+                 wikipedia--prefetch-max-concurrent))
+    (let* ((item (pop wikipedia--prefetch-queue))
+           (title (car item))
+           (revid (cdr item)))
+      (wikipedia--fetch-revision-async
+       title revid
+       (lambda (_) (wikipedia--prefetch-drain-queue))))))
 
 ;;;; Diff follow mode
 
@@ -268,6 +320,7 @@ SOURCE-WINDOW is preserved for later use."
 FROM-REV and TO-REV are revision IDs, TITLE is the page title.
 SOURCE-WINDOW is preserved for display."
   (let ((expected-revid wikipedia-diff-follow--last-revid)
+        (source-buffer (current-buffer))
         (pending 2)
         (from-content (wikipedia--cache-get from-rev))
         (to-content (wikipedia--cache-get to-rev)))
@@ -278,7 +331,9 @@ SOURCE-WINDOW is preserved for display."
                   (setq from-content (or from-content (wikipedia--cache-get from-rev)))
                   (setq to-content (or to-content (wikipedia--cache-get to-rev)))
                   (when (and from-content to-content
-                             (eq expected-revid wikipedia-diff-follow--last-revid))
+                             (buffer-live-p source-buffer)
+                             (with-current-buffer source-buffer
+                               (eq expected-revid wikipedia-diff-follow--last-revid)))
                     (wikipedia-diff-follow--render-diff
                      from-content to-content from-rev to-rev title source-window)))))
       (if from-content
@@ -296,10 +351,11 @@ FROM-REV and TO-REV are revision IDs, TITLE is the page title.
 SOURCE-WINDOW is the window to avoid when displaying the diff."
   (let* ((from-file (wikipedia--write-temp-file from-content from-rev))
          (to-file (wikipedia--write-temp-file to-content to-rev))
-         (diff-output (wikipedia--generate-unified-diff from-file to-file from-rev to-rev))
+         (diff-output (unwind-protect
+                          (wikipedia--generate-unified-diff from-file to-file from-rev to-rev)
+                        (delete-file from-file)
+                        (delete-file to-file)))
          (buf (get-buffer-create wikipedia-diff-follow--buffer-name)))
-    (delete-file from-file)
-    (delete-file to-file)
     (with-current-buffer buf
       (let ((inhibit-read-only t))
         (erase-buffer)
@@ -347,10 +403,10 @@ Only works with unified diff mode, not ediff."
   :lighter " Follow"
   :variable wikipedia-diff-follow-mode
   (if wikipedia-diff-follow-mode
-      (progn
-        (when (eq wikipedia-diff-function 'ediff)
-          (message "Diff follow mode requires unified diff, not ediff")
-          (setq wikipedia-diff-follow-mode nil))
+      (if (eq wikipedia-diff-function 'ediff)
+          (progn
+            (message "Diff follow mode requires unified diff, not ediff")
+            (setq wikipedia-diff-follow-mode nil))
         (add-hook 'post-command-hook #'wikipedia-diff-follow--show nil t))
     (remove-hook 'post-command-hook #'wikipedia-diff-follow--show t)
     (wikipedia-diff-follow--cleanup)))
@@ -378,10 +434,11 @@ Uses `wikipedia-diff-function' to determine the diff style."
 FROM-REV and TO-REV are the revision IDs, TITLE is the page title."
   (let* ((from-file (wikipedia--write-temp-file from-content from-rev))
          (to-file (wikipedia--write-temp-file to-content to-rev))
-         (diff-output (wikipedia--generate-unified-diff from-file to-file from-rev to-rev))
+         (diff-output (unwind-protect
+                          (wikipedia--generate-unified-diff from-file to-file from-rev to-rev)
+                        (delete-file from-file)
+                        (delete-file to-file)))
          (buf (get-buffer-create (format "*WP Diff: %s (%d → %d)*" title from-rev to-rev))))
-    (delete-file from-file)
-    (delete-file to-file)
     (with-current-buffer buf
       (let ((inhibit-read-only t))
         (erase-buffer)
@@ -412,12 +469,23 @@ FROM-REV and TO-REV are used for the diff header labels."
           (error "Diff command failed with exit code %d" exit-code)
         (buffer-string)))))
 
+(defvar ediff-buffer-A)
+(defvar ediff-buffer-B)
+
 (defun wikipedia--show-diff-ediff (from-content to-content from-rev to-rev title)
   "Display ediff between FROM-CONTENT and TO-CONTENT.
 FROM-REV and TO-REV are the revision IDs, TITLE is the page title."
   (let ((from-buffer (wikipedia--create-revision-buffer title from-rev from-content))
         (to-buffer (wikipedia--create-revision-buffer title to-rev to-content)))
-    (ediff-buffers from-buffer to-buffer)))
+    (ediff-buffers from-buffer to-buffer
+                   (list (lambda ()
+                           (let ((a ediff-buffer-A)
+                                 (b ediff-buffer-B))
+                             (add-hook 'ediff-quit-hook
+                                       (lambda ()
+                                         (when (buffer-live-p a) (kill-buffer a))
+                                         (when (buffer-live-p b) (kill-buffer b)))
+                                       nil t)))))))
 
 (defun wikipedia--create-revision-buffer (title revid content)
   "Create a buffer for TITLE at REVID with CONTENT."

@@ -82,18 +82,22 @@ Signal an error if DRAFTS is empty."
 
 (defun wikipedia-draft--encode-title (title)
   "Encode TITLE into a safe filename.
-Characters not matching [a-zA-Z0-9 .-] are replaced with _XX
-where XX is the hex code of the character."
+Characters not matching [a-zA-Z0-9 .-] are escaped as their UTF-8
+byte representation: each byte becomes _XX (2 hex digits).  Since
+underscore is not in the safe set, _XX sequences are unambiguous."
   (mapconcat
    (lambda (char)
      (if (string-match-p "[a-zA-Z0-9 .-]" (char-to-string char))
          (char-to-string char)
-       (format "_%02X" char)))
+       (mapconcat (lambda (byte) (format "_%02X" byte))
+                  (encode-coding-string (char-to-string char) 'utf-8)
+                  "")))
    title ""))
 
 (defun wikipedia-draft--decode-title (encoded)
   "Decode ENCODED filename back into a page title.
-Reverses the encoding done by `wikipedia-draft--encode-title'."
+Reverses the encoding done by `wikipedia-draft--encode-title'.
+Consecutive _XX sequences are collected and decoded as UTF-8 bytes."
   (let ((result "")
         (i 0)
         (len (length encoded)))
@@ -102,12 +106,20 @@ Reverses the encoding done by `wikipedia-draft--encode-title'."
                (<= (+ i 3) len)
                (string-match-p "\\`[0-9A-Fa-f][0-9A-Fa-f]\\'"
                                (substring encoded (1+ i) (+ i 3))))
-          (progn
-            (setq result (concat result (char-to-string
-                                         (string-to-number
-                                          (substring encoded (1+ i) (+ i 3))
-                                          16))))
-            (setq i (+ i 3)))
+          (let ((bytes nil))
+            (while (and (< i len)
+                        (= (aref encoded i) ?_)
+                        (<= (+ i 3) len)
+                        (string-match-p "\\`[0-9A-Fa-f][0-9A-Fa-f]\\'"
+                                        (substring encoded (1+ i) (+ i 3))))
+              (push (string-to-number (substring encoded (1+ i) (+ i 3)) 16)
+                    bytes)
+              (setq i (+ i 3)))
+            (setq result
+                  (concat result
+                          (decode-coding-string
+                           (apply #'unibyte-string (nreverse bytes))
+                           'utf-8))))
         (setq result (concat result (char-to-string (aref encoded i))))
         (setq i (1+ i))))
     result))
@@ -141,7 +153,7 @@ enables `wikipedia-edit-mode'."
     (unless (file-exists-p file)
       (error "Draft file not found for \"%s\"" title))
     (when (yes-or-no-p (format "Delete draft for \"%s\"?" title))
-      (delete-file file)
+      (delete-file file t)
       (message "Draft deleted for \"%s\"" title))))
 
 (provide 'wikipedia-draft)

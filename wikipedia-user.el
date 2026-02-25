@@ -98,7 +98,7 @@
 (defun wikipedia-user--format-timestamp (timestamp)
   "Format TIMESTAMP for display."
   (if timestamp
-      (replace-regexp-in-string "T" " " (substring timestamp 0 16))
+      (replace-regexp-in-string "T" " " (substring timestamp 0 (min 16 (length timestamp))))
     ""))
 
 (defun wikipedia-user--format-size-change (sizediff)
@@ -119,7 +119,7 @@
   "Return the contribution at point."
   (let ((revid (tabulated-list-get-id)))
     (when revid
-      (seq-find (lambda (c) (eq (alist-get 'revid c) revid))
+      (seq-find (lambda (c) (eql (alist-get 'revid c) revid))
                 wikipedia-user--contributions))))
 
 (defun wikipedia-user-contributions-view-diff ()

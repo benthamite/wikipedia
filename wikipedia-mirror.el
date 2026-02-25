@@ -70,7 +70,7 @@
            (if last-synced
                (format-time-string "%Y-%m-%d %H:%M" last-synced)
              "Never")
-           (if (= watched 1) "Yes" "No")))))
+           (if (eql watched 1) "Yes" "No")))))
 
 (defun wikipedia-mirror--page-id-at-point ()
   "Get page ID at point."

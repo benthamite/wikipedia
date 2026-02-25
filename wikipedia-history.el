@@ -100,14 +100,14 @@
 (defun wikipedia-history--format-timestamp (timestamp)
   "Format TIMESTAMP for display."
   (if timestamp
-      (replace-regexp-in-string "T" " " (substring timestamp 0 16))
+      (replace-regexp-in-string "T" " " (substring timestamp 0 (min 16 (length timestamp))))
     ""))
 
 (defun wikipedia-history--revision-at-point ()
   "Return the revision alist at point."
   (let ((revid (tabulated-list-get-id)))
     (when revid
-      (seq-find (lambda (r) (eq (alist-get 'revid r) revid))
+      (seq-find (lambda (r) (eql (alist-get 'revid r) revid))
                 wikipedia-history--revisions))))
 
 (defun wikipedia-history--revid-at-point ()

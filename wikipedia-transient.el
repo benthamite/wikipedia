@@ -47,7 +47,7 @@
     ("u p" "User page" wikipedia-user-page)
     ("u t" "User talk" wikipedia-user-talk)
     ("u b" "Browse user" wikipedia-user-browse)
-    ("u t" "Thank user" wikipedia-thank)]
+    ("u T" "Thank user" wikipedia-thank)]
    ["XTools"
     ("x u" "User stats" wikipedia-xtools-user-stats)
     ("x p" "Page stats" wikipedia-xtools-page-stats)

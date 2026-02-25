@@ -129,9 +129,10 @@ Returns the parsed HTML as a string."
   "Extract HTML string from TEXT-ELEMENT returned by parse API."
   (when text-element
     (let ((content (cddr text-element)))
-      (if (stringp (car content))
-          (car content)
-        (car (last text-element))))))
+      (cond
+       ((stringp (car content)) (car content))
+       ((stringp (car (last text-element))) (car (last text-element)))
+       (t nil)))))
 
 (defun wp--ensure-logged-in ()
   "Ensure we have an active session, prompting for login if needed."

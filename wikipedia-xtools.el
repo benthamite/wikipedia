@@ -29,13 +29,17 @@
   :group 'wikipedia-xtools)
 
 (defun wikipedia-xtools--api-call (endpoint)
-  "Make an XTools API call to ENDPOINT and return parsed JSON."
+  "Make an XTools API call to ENDPOINT and return parsed JSON.
+Returns nil on error."
   (let* ((url-request-method "GET")
          (url (concat wikipedia-xtools-base-url "/" endpoint))
-         (buffer (url-retrieve-synchronously url t)))
+         (buffer (url-retrieve-synchronously url t 30)))
     (when buffer
       (unwind-protect
           (with-current-buffer buffer
+            (goto-char (point-min))
+            (unless (re-search-forward "HTTP/[0-9.]+ 200" (line-end-position) t)
+              (error "XTools API returned non-200 status for %s" endpoint))
             (goto-char (point-min))
             (re-search-forward "^$" nil t)
             (forward-char)
@@ -101,16 +105,18 @@ Returns an alist with top edited pages."
   "Display XTools statistics for USERNAME."
   (interactive (list (wikipedia--read-username)))
   (message "Fetching statistics for %s..." username)
-  (let* ((endpoint (format "user/simple_editcount/%s/%s"
-                           wikipedia-xtools-project
-                           (url-hexify-string username)))
-         (xtools-data (wikipedia-xtools--api-call endpoint))
-         (mw-data (wikipedia-xtools--get-mediawiki-user-info username))
-         (top-edits-data (wikipedia-xtools--get-top-edits username))
-         (combined-data (append xtools-data mw-data top-edits-data)))
-    (if combined-data
-        (wikipedia-xtools--display-user-stats username combined-data)
-      (error "Failed to fetch XTools data for %s" username))))
+  (condition-case err
+      (let* ((endpoint (format "user/simple_editcount/%s/%s"
+                               wikipedia-xtools-project
+                               (url-hexify-string username)))
+             (xtools-data (wikipedia-xtools--api-call endpoint))
+             (mw-data (wikipedia-xtools--get-mediawiki-user-info username))
+             (top-edits-data (wikipedia-xtools--get-top-edits username))
+             (combined-data (append xtools-data mw-data top-edits-data)))
+        (if combined-data
+            (wikipedia-xtools--display-user-stats username combined-data)
+          (error "Failed to fetch XTools data for %s" username)))
+    (error (message "XTools error for %s: %s" username (error-message-string err)))))
 
 (defun wikipedia-xtools--display-user-stats (username data)
   "Display user stats for USERNAME from DATA."
@@ -163,16 +169,12 @@ Returns an alist with top edited pages."
           (when (or local-groups global-groups)
             (insert "\n" (propertize "User Groups\n" 'face 'bold))
             (when local-groups
-              (let ((groups-str (if (sequencep local-groups)
-                                    (mapconcat #'identity local-groups ", ")
-                                  local-groups)))
-                (when (and (stringp groups-str) (not (string-empty-p groups-str)))
+              (let ((groups-str (wikipedia-xtools--format-groups local-groups)))
+                (when (and groups-str (not (string-empty-p groups-str)))
                   (wikipedia-xtools--insert-stat "Local groups" groups-str))))
             (when global-groups
-              (let ((groups-str (if (sequencep global-groups)
-                                    (mapconcat #'identity global-groups ", ")
-                                  global-groups)))
-                (when (and (stringp groups-str) (not (string-empty-p groups-str)))
+              (let ((groups-str (wikipedia-xtools--format-groups global-groups)))
+                (when (and groups-str (not (string-empty-p groups-str)))
                   (wikipedia-xtools--insert-stat "Global groups" groups-str))))))
         
         ;; Top edits
@@ -203,14 +205,25 @@ TIMESTAMP is expected to be in ISO 8601 format from MediaWiki API."
       (replace-regexp-in-string "T" " " (substring timestamp 0 (min 19 (length timestamp))))
     ""))
 
+(defun wikipedia-xtools--format-groups (groups)
+  "Format GROUPS (vector, list, or string) as a comma-separated string.
+Handles both string and symbol elements from JSON parsing."
+  (cond
+   ((stringp groups) groups)
+   ((sequencep groups)
+    (mapconcat (lambda (g) (if (stringp g) g (format "%s" g)))
+               groups ", "))
+   (t (format "%s" groups))))
+
 (defun wikipedia-xtools--is-admin (groups)
   "Check if GROUPS contains admin/sysop privileges.
-GROUPS can be a vector or list of group names."
+GROUPS can be a vector or list of group names (strings or symbols)."
   (when groups
     (let ((groups-list (if (sequencep groups)
-                          (append groups nil)
-                        (list groups))))
-      (seq-some (lambda (group) (member group '("sysop" "bureaucrat"))) 
+                          (mapcar (lambda (g) (if (stringp g) g (format "%s" g)))
+                                  (append groups nil))
+                        (list (if (stringp groups) groups (format "%s" groups))))))
+      (seq-some (lambda (group) (member group '("sysop" "bureaucrat")))
                 groups-list))))
 
 (defun wikipedia-xtools--insert-stat (label value)
@@ -222,13 +235,15 @@ GROUPS can be a vector or list of group names."
 (defun wikipedia-xtools-page-stats (title)
   "Display XTools page statistics for TITLE."
   (interactive (list (wikipedia--read-page-title)))
-  (let* ((endpoint (format "page/articleinfo/%s/%s"
-                           wikipedia-xtools-project
-                           (url-hexify-string title)))
-         (data (wikipedia-xtools--api-call endpoint)))
-    (if data
-        (wikipedia-xtools--display-page-stats title data)
-      (error "Failed to fetch XTools data for %s" title))))
+  (condition-case err
+      (let* ((endpoint (format "page/articleinfo/%s/%s"
+                               wikipedia-xtools-project
+                               (url-hexify-string title)))
+             (data (wikipedia-xtools--api-call endpoint)))
+        (if data
+            (wikipedia-xtools--display-page-stats title data)
+          (error "Failed to fetch XTools data for %s" title)))
+    (error (message "XTools error for %s: %s" title (error-message-string err)))))
 
 (defun wikipedia-xtools--display-page-stats (title data)
   "Display page stats for TITLE from DATA."
@@ -262,13 +277,15 @@ GROUPS can be a vector or list of group names."
 (defun wikipedia-xtools-top-editors (title)
   "Display top editors for page TITLE."
   (interactive (list (wikipedia--read-page-title)))
-  (let* ((endpoint (format "page/top_editors/%s/%s"
-                           wikipedia-xtools-project
-                           (url-hexify-string title)))
-         (data (wikipedia-xtools--api-call endpoint)))
-    (if data
-        (wikipedia-xtools--display-top-editors title data)
-      (error "Failed to fetch XTools data for %s" title))))
+  (condition-case err
+      (let* ((endpoint (format "page/top_editors/%s/%s"
+                               wikipedia-xtools-project
+                               (url-hexify-string title)))
+             (data (wikipedia-xtools--api-call endpoint)))
+        (if data
+            (wikipedia-xtools--display-top-editors title data)
+          (error "Failed to fetch XTools data for %s" title)))
+    (error (message "XTools error for %s: %s" title (error-message-string err)))))
 
 (defun wikipedia-xtools--display-top-editors (title data)
   "Display top editors for TITLE from DATA."
