@@ -19,7 +19,7 @@
 (require 'wikipedia-sync)
 (require 'wikipedia-mirror)
 (require 'wikipedia-common)
-(require 'pangram)
+(require 'pangram nil t)
 
 ;;;###autoload (autoload 'wikipedia-transient "wikipedia-transient" nil t)
 (transient-define-prefix wikipedia-transient ()
@@ -58,6 +58,7 @@
     ("S u" "Sync update" wikipedia-sync-update)
     ("m" "Mirror" wikipedia-mirror)]
    ["AI Detection"
+    :if (lambda () (featurep 'pangram))
     ("a d" "Detect AI" pangram-detect)
     ("a c" "Clear overlays" pangram-clear)]])
 
