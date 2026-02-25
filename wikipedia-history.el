@@ -99,9 +99,7 @@
 
 (defun wikipedia-history--format-timestamp (timestamp)
   "Format TIMESTAMP for display."
-  (if timestamp
-      (replace-regexp-in-string "T" " " (substring timestamp 0 (min 16 (length timestamp))))
-    ""))
+  (wikipedia--format-timestamp timestamp))
 
 (defun wikipedia-history--revision-at-point ()
   "Return the revision alist at point."

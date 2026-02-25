@@ -95,7 +95,7 @@
       (let ((failed nil))
         (message "Updating %d watched pages..." (length watched))
         (dolist (row watched)
-          (let ((title (nth 1 row)))
+          (pcase-let ((`(,_id ,title ,_last-synced) row))
             (condition-case err
                 (wikipedia-sync-page title)
               (error

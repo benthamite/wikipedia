@@ -60,13 +60,32 @@ When set to `ediff', use `ediff-buffers' with side-by-side comparison."
                  (const :tag "Ediff (side-by-side)" ediff))
   :group 'wikipedia)
 
+;;;; Display utilities
+
+(defun wikipedia--format-timestamp (timestamp &optional length)
+  "Format ISO 8601 TIMESTAMP for display.
+Truncate to LENGTH characters (default 16, giving \"YYYY-MM-DD HH:MM\";
+use 19 to include seconds: \"YYYY-MM-DD HH:MM:SS\")."
+  (if timestamp
+      (let ((len (or length 16)))
+        (replace-regexp-in-string
+         "T" " " (substring timestamp 0 (min len (length timestamp)))))
+    ""))
+
+(defun wikipedia--size-change-face (diff)
+  "Return the face for a size change of DIFF bytes."
+  (cond
+   ((> diff 0) 'success)
+   ((< diff 0) 'error)
+   (t 'default)))
+
 ;;;; Revision content cache
 
 (defvar wikipedia--revision-cache (make-hash-table :test 'eql)
   "Cache of revision content, keyed by revision ID.")
 
 (defvar wikipedia--revision-cache-keys nil
-  "List of revision IDs in cache, oldest first (for LRU eviction).")
+  "List of revision IDs in cache, newest first (FIFO eviction).")
 
 (defvar wikipedia--revision-cache-max-size 200
   "Maximum number of revisions to keep in the cache.")
@@ -349,20 +368,10 @@ SOURCE-WINDOW is preserved for display."
   "Render diff between FROM-CONTENT and TO-CONTENT in the diff buffer.
 FROM-REV and TO-REV are revision IDs, TITLE is the page title.
 SOURCE-WINDOW is the window to avoid when displaying the diff."
-  (let* ((from-file (wikipedia--write-temp-file from-content from-rev))
-         (to-file (wikipedia--write-temp-file to-content to-rev))
-         (diff-output (unwind-protect
-                          (wikipedia--generate-unified-diff from-file to-file from-rev to-rev)
-                        (delete-file from-file)
-                        (delete-file to-file)))
-         (buf (get-buffer-create wikipedia-diff-follow--buffer-name)))
+  (let ((buf (wikipedia--render-unified-diff
+              from-content to-content from-rev to-rev
+              wikipedia-diff-follow--buffer-name)))
     (with-current-buffer buf
-      (let ((inhibit-read-only t))
-        (erase-buffer)
-        (insert diff-output)
-        (goto-char (point-min)))
-      (diff-mode)
-      (setq buffer-read-only t)
       (setq header-line-format
             (format " %s: %d → %d" title from-rev to-rev)))
     (wikipedia-diff-follow--display-buffer buf source-window)))
@@ -429,16 +438,17 @@ Uses `wikipedia-diff-function' to determine the diff style."
              from-content to-content from-rev to-rev title))
     (_ (error "Unknown diff function: %s" wikipedia-diff-function))))
 
-(defun wikipedia--show-diff-unified (from-content to-content from-rev to-rev title)
-  "Display unified diff between FROM-CONTENT and TO-CONTENT.
-FROM-REV and TO-REV are the revision IDs, TITLE is the page title."
+(defun wikipedia--render-unified-diff (from-content to-content from-rev to-rev buffer-name)
+  "Render unified diff between FROM-CONTENT and TO-CONTENT into BUFFER-NAME.
+FROM-REV and TO-REV are revision IDs for diff labels.
+Returns the diff buffer."
   (let* ((from-file (wikipedia--write-temp-file from-content from-rev))
          (to-file (wikipedia--write-temp-file to-content to-rev))
          (diff-output (unwind-protect
                           (wikipedia--generate-unified-diff from-file to-file from-rev to-rev)
                         (delete-file from-file)
                         (delete-file to-file)))
-         (buf (get-buffer-create (format "*WP Diff: %s (%d → %d)*" title from-rev to-rev))))
+         (buf (get-buffer-create buffer-name)))
     (with-current-buffer buf
       (let ((inhibit-read-only t))
         (erase-buffer)
@@ -446,7 +456,15 @@ FROM-REV and TO-REV are the revision IDs, TITLE is the page title."
         (goto-char (point-min)))
       (diff-mode)
       (setq buffer-read-only t))
-    (pop-to-buffer buf)))
+    buf))
+
+(defun wikipedia--show-diff-unified (from-content to-content from-rev to-rev title)
+  "Display unified diff between FROM-CONTENT and TO-CONTENT.
+FROM-REV and TO-REV are the revision IDs, TITLE is the page title."
+  (pop-to-buffer
+   (wikipedia--render-unified-diff
+    from-content to-content from-rev to-rev
+    (format "*WP Diff: %s (%d → %d)*" title from-rev to-rev))))
 
 (defun wikipedia--write-temp-file (content revid)
   "Write CONTENT to a temporary file named after REVID."

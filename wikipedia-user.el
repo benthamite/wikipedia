@@ -97,9 +97,7 @@
 
 (defun wikipedia-user--format-timestamp (timestamp)
   "Format TIMESTAMP for display."
-  (if timestamp
-      (replace-regexp-in-string "T" " " (substring timestamp 0 (min 16 (length timestamp))))
-    ""))
+  (wikipedia--format-timestamp timestamp))
 
 (defun wikipedia-user--format-size-change (sizediff)
   "Format SIZEDIFF as a size change string with face."
@@ -110,10 +108,7 @@
 
 (defun wikipedia-user--size-change-face (diff)
   "Return the face for a size change of DIFF characters."
-  (cond
-   ((> diff 0) 'success)
-   ((< diff 0) 'error)
-   (t 'default)))
+  (wikipedia--size-change-face diff))
 
 (defun wikipedia-user--contrib-at-point ()
   "Return the contribution at point."

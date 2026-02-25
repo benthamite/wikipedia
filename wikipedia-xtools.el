@@ -201,9 +201,7 @@ Returns an alist with top edited pages."
 (defun wikipedia-xtools--format-timestamp (timestamp)
   "Format TIMESTAMP for display.
 TIMESTAMP is expected to be in ISO 8601 format from MediaWiki API."
-  (if timestamp
-      (replace-regexp-in-string "T" " " (substring timestamp 0 (min 19 (length timestamp))))
-    ""))
+  (wikipedia--format-timestamp timestamp 19))
 
 (defun wikipedia-xtools--format-groups (groups)
   "Format GROUPS (vector, list, or string) as a comma-separated string.

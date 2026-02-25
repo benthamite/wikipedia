@@ -167,7 +167,8 @@
     (nreverse result)))
 
 (defun wikipedia-watchlist--make-group-entry (title entries)
-  "Create a group header entry for TITLE with ENTRIES."
+  "Create a group header entry for TITLE with ENTRIES.
+The entry ID is (group . TITLE)."
   (let* ((count (length entries))
          (latest (car entries))
          (timestamp (alist-get 'timestamp latest))
@@ -209,7 +210,8 @@
     row))
 
 (defun wikipedia-watchlist--make-child-entry (entry)
-  "Create a child entry for individual ENTRY."
+  "Create a child entry for individual ENTRY.
+The entry ID is (child TITLE . REVID)."
   (let* ((title (alist-get 'title entry))
          (timestamp (alist-get 'timestamp entry))
          (user (alist-get 'user entry))
@@ -276,10 +278,7 @@
 
 (defun wikipedia-watchlist--size-change-face (diff)
   "Return the face for a size change of DIFF characters."
-  (cond
-   ((> diff 0) 'success)
-   ((< diff 0) 'error)
-   (t 'default)))
+  (wikipedia--size-change-face diff))
 
 (defun wikipedia-watchlist--format-timestamp (timestamp)
   "Format TIMESTAMP for display as relative time."
@@ -313,7 +312,9 @@
      (t (format "%d month%s ago" (floor months) (if (< months 2) "" "s"))))))
 
 (defun wikipedia-watchlist--entry-at-point ()
-  "Return the watchlist entry at point."
+  "Return the watchlist entry at point.
+Entry IDs are tagged cons cells: (group . TITLE) for group headers,
+\(child TITLE . REVID) for individual entries."
   (let ((id (tabulated-list-get-id)))
     (cond
      ((and (consp id) (eq (car id) 'group))

@@ -57,12 +57,9 @@
       (tabulated-list-print t))))
 
 (defun wikipedia-mirror--format-entry (row)
-  "Format ROW as a tabulated list entry."
-  (let ((id (nth 0 row))
-        (title (nth 1 row))
-        (last-synced (nth 2 row))
-        (watched (nth 3 row))
-        (rev-count (nth 4 row)))
+  "Format ROW as a tabulated list entry.
+ROW columns: id, title, last_synced, watched, rev_count."
+  (pcase-let ((`(,id ,title ,last-synced ,watched ,rev-count) row))
     (list id
           (vector
            title
@@ -164,13 +161,10 @@
     (tabulated-list-print t)))
 
 (defun wikipedia-mirror-history--format-entry (row)
-  "Format revision ROW as a tabulated list entry."
-  (let ((row-id (nth 0 row))
-        (revid (nth 1 row))
-        (user (nth 3 row))
-        (timestamp (nth 4 row))
-        (comment (nth 5 row))
-        (size (nth 6 row)))
+  "Format revision ROW as a tabulated list entry.
+ROW columns from `wikipedia-db-get-revisions':
+id, revid, parentid, user, timestamp, comment, size."
+  (pcase-let ((`(,row-id ,revid ,_parentid ,user ,timestamp ,comment ,size) row))
     (list row-id
           (vector
            (number-to-string revid)
@@ -213,19 +207,19 @@
   (interactive)
   (let* ((row-id (wikipedia-mirror-history--row-id-at-point))
          (revid (wikipedia-mirror-history--revid-at-point))
-         (rev-data (wikipedia-db-get-revision-by-revid revid))
-         (parentid (nth 3 rev-data))
          (new-content (wikipedia-db-get-content row-id)))
     (unless new-content
       (user-error "No content stored for revision %d" revid))
-    (unless parentid
-      (user-error "This is the first revision (no parent)"))
-    (let* ((parent-data (wikipedia-db-get-revision-by-revid parentid))
-           (parent-row-id (nth 0 parent-data))
-           (old-content (wikipedia-db-get-content parent-row-id)))
-      (unless old-content
-        (user-error "No content stored for parent revision %d" parentid))
-      (wikipedia-mirror--show-local-diff old-content new-content parentid revid))))
+    ;; rev-data columns from `wikipedia-db-get-revision-by-revid':
+    ;; id, page_id, revid, parentid, user, timestamp, comment, size, title
+    (pcase-let ((`(,_id ,_page-id ,_revid ,parentid . ,_) (wikipedia-db-get-revision-by-revid revid)))
+      (unless parentid
+        (user-error "This is the first revision (no parent)"))
+      (pcase-let ((`(,parent-row-id . ,_) (wikipedia-db-get-revision-by-revid parentid)))
+        (let ((old-content (wikipedia-db-get-content parent-row-id)))
+          (unless old-content
+            (user-error "No content stored for parent revision %d" parentid))
+          (wikipedia-mirror--show-local-diff old-content new-content parentid revid))))))
 
 (declare-function wikipedia--show-diff-contents "wikipedia-common")
 
