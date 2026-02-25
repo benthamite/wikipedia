@@ -22,9 +22,11 @@ Wikipedia and other MediaWiki sites.  It builds on top of =mediawiki.el=,
 which handles the low-level protocol details, and adds higher-level
 workflows for editing, reviewing, and managing Wikipedia content.
 
-The package requires Emacs 29.1 or later, =mediawiki.el= for the
-underlying API communication, and =pangram.el= for AI-generated text
-detection.  Before using any commands, you must configure at least one
+The package requires Emacs 29.1 or later and =mediawiki.el= for the
+underlying API communication.  Optionally, =pangram.el= can be
+installed for AI-generated text detection; when available, an "AI
+Detection" group appears in the transient menu ([[#h:transient-menu][Transient menu]]).
+Before using any commands, you must configure at least one
 wiki site via =mediawiki-site-alist= and establish a session with
 ~wikipedia-login~ ([[#h:session-management][Session management]]).
 
@@ -710,8 +712,9 @@ groups:
 - *XTools*: user stats, page stats, and top editors.
 - *Sync & Mirror*: sync page, sync watchlist, sync update, and mirror
   browser.
-- *AI Detection*: detect AI-generated text and clear overlays (via
-  =pangram.el=).
+- *AI Detection* (requires =pangram.el=): detect AI-generated text and
+  clear overlays.  This group is only shown when =pangram.el= is
+  installed.
 
 Bind ~wikipedia-transient~ to a convenient key for quick access to any
 command in the package.
