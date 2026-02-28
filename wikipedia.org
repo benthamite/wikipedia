@@ -17,10 +17,10 @@ This manual describes the features and customization options for the Emacs Lisp 
 :CUSTOM_ID: h:overview
 :END:
 
-The =wikipedia.el= package provides a comprehensive Emacs interface for
-Wikipedia and other MediaWiki sites.  It builds on top of =mediawiki.el=,
-which handles the low-level protocol details, and adds higher-level
-workflows for editing, reviewing, and managing Wikipedia content.
+The =wikipedia.el= package provides a comprehensive Emacs interface for Wikipedia.
+It builds on top of =mediawiki.el=, which handles the low-level protocol details,
+and adds higher-level workflows for editing, reviewing, and managing Wikipedia
+content.
 
 The package requires Emacs 29.1 or later and =mediawiki.el= for the
 underlying API communication.  Optionally, =pangram.el= can be
