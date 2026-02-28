@@ -54,7 +54,7 @@
         [("Rev" 10 t)
          ("Date" 20 t)
          ("User" 20 t)
-         ("Size" 8 t :right-align t)
+         ("Change" 8 t)
          ("Summary" 0 nil)])
   (setq tabulated-list-padding 2)
   (setq tabulated-list-sort-key '("Date" . t))
@@ -76,17 +76,30 @@
   "Refresh the history list."
   (interactive)
   (let ((revisions (wp--get-page-history wikipedia-history--page-title)))
-    (setq wikipedia-history--revisions revisions)
+    (setq wikipedia-history--revisions
+          (wikipedia-history--annotate-diffs revisions))
     (setq tabulated-list-entries
-          (mapcar #'wikipedia-history--make-entry revisions))
+          (mapcar #'wikipedia-history--make-entry wikipedia-history--revisions))
     (tabulated-list-print t)))
+
+(defun wikipedia-history--annotate-diffs (revisions)
+  "Add sizediff to each revision by comparing consecutive REVISIONS.
+REVISIONS are in reverse chronological order (newest first)."
+  (let ((result nil)
+        (prev-size nil))
+    (dolist (rev (reverse revisions))
+      (let* ((size (alist-get 'size rev))
+             (diff (when (and size prev-size) (- size prev-size))))
+        (push (cons (cons 'sizediff diff) rev) result)
+        (setq prev-size size)))
+    result))
 
 (defun wikipedia-history--make-entry (rev)
   "Create a tabulated list entry from revision REV."
   (let ((revid (alist-get 'revid rev))
         (timestamp (alist-get 'timestamp rev))
         (user (alist-get 'user rev))
-        (size (alist-get 'size rev))
+        (sizediff (alist-get 'sizediff rev))
         (comment (alist-get 'comment rev))
         (minor (alist-get 'minor rev)))
     (list revid
@@ -94,7 +107,7 @@
            (number-to-string revid)
            (wikipedia-history--format-timestamp timestamp)
            (or user "")
-           (if size (number-to-string size) "")
+           (wikipedia--format-size-change sizediff)
            (concat (if minor "m " "") (or comment ""))))))
 
 (defun wikipedia-history--format-timestamp (timestamp)

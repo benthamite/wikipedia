@@ -92,23 +92,12 @@
           (vector
            (wikipedia-user--format-timestamp timestamp)
            (or title "")
-           (wikipedia-user--format-size-change sizediff)
+           (wikipedia--format-size-change sizediff)
            (or comment "")))))
 
 (defun wikipedia-user--format-timestamp (timestamp)
   "Format TIMESTAMP for display."
   (wikipedia--format-timestamp timestamp))
-
-(defun wikipedia-user--format-size-change (sizediff)
-  "Format SIZEDIFF as a size change string with face."
-  (if sizediff
-      (propertize (format "%+d" sizediff)
-                  'face (wikipedia-user--size-change-face sizediff))
-    ""))
-
-(defun wikipedia-user--size-change-face (diff)
-  "Return the face for a size change of DIFF characters."
-  (wikipedia--size-change-face diff))
 
 (defun wikipedia-user--contrib-at-point ()
   "Return the contribution at point."

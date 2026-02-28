@@ -79,6 +79,14 @@ use 19 to include seconds: \"YYYY-MM-DD HH:MM:SS\")."
    ((< diff 0) 'error)
    (t 'default)))
 
+(defun wikipedia--format-size-change (diff)
+  "Format DIFF as a size change string with face.
+If DIFF is nil, return an empty string."
+  (if diff
+      (propertize (format "%+d" diff)
+                  'face (wikipedia--size-change-face diff))
+    ""))
+
 ;;;; Revision content cache
 
 (defvar wikipedia--revision-cache (make-hash-table :test 'eql)

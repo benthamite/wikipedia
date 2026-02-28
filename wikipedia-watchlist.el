@@ -188,7 +188,7 @@ The entry ID is (group . TITLE)."
             (wikipedia-watchlist--format-title-with-count title count)
             (wikipedia-watchlist--format-timestamp timestamp)
             users
-            (wikipedia-watchlist--format-size-change-value total-change)
+            (wikipedia--format-size-change total-change)
             (or comment ""))
            unread-p))))
 
@@ -227,7 +227,8 @@ The entry ID is (child TITLE . REVID)."
             (concat "  " (wikipedia-watchlist--format-timestamp timestamp))
             ""
             (or user "")
-            (wikipedia-watchlist--format-size-change oldlen newlen)
+            (wikipedia--format-size-change (when (and oldlen newlen)
+                                             (- newlen oldlen)))
             (or comment ""))
            unread-p))))
 
@@ -262,23 +263,6 @@ The entry ID is (child TITLE . REVID)."
         (when (and oldlen newlen)
           (setq total (+ total (- newlen oldlen))))))
     total))
-
-(defun wikipedia-watchlist--format-size-change-value (diff)
-  "Format DIFF as a size change string with face."
-  (propertize (format "%+d" diff)
-              'face (wikipedia-watchlist--size-change-face diff)))
-
-(defun wikipedia-watchlist--format-size-change (oldlen newlen)
-  "Format the size change from OLDLEN to NEWLEN."
-  (if (and oldlen newlen)
-      (let ((diff (- newlen oldlen)))
-        (propertize (format "%+d" diff)
-                    'face (wikipedia-watchlist--size-change-face diff)))
-    ""))
-
-(defun wikipedia-watchlist--size-change-face (diff)
-  "Return the face for a size change of DIFF characters."
-  (wikipedia--size-change-face diff))
 
 (defun wikipedia-watchlist--format-timestamp (timestamp)
   "Format TIMESTAMP for display as relative time."
