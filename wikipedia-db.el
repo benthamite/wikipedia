@@ -37,10 +37,11 @@
     (sqlite-execute db "
       CREATE TABLE IF NOT EXISTS pages (
         id INTEGER PRIMARY KEY,
-        title TEXT NOT NULL UNIQUE,
+        title TEXT NOT NULL,
         site TEXT NOT NULL DEFAULT 'en.wikipedia.org',
         last_synced INTEGER,
-        watched INTEGER DEFAULT 0
+        watched INTEGER DEFAULT 0,
+        UNIQUE(title, site)
       )")
     (sqlite-execute db "
       CREATE TABLE IF NOT EXISTS revisions (
