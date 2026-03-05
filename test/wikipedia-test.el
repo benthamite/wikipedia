@@ -54,6 +54,7 @@
 (require 'wikipedia-watchlist)
 (require 'wikipedia-history)
 (require 'wikipedia-xtools)
+(require 'wikipedia-user)
 (require 'wikipedia-mirror)
 
 ;; Conditionally load database module (requires SQLite support)
@@ -942,17 +943,15 @@
         (wikipedia-db-update-page-synced pid)
         (should (numberp (nth 3 (wikipedia-db-get-page "Test")))))))
 
-  (ert-deftest db/multiple-sites-same-title ()
-    "Same title from different sites shares one record.
-BUG: The `pages' schema uses UNIQUE(title) instead of UNIQUE(title, site),
-so inserting the same title for a different site is silently ignored.
-This test documents the current (incorrect) behavior."
+  (ert-deftest db/multiple-sites ()
+    "Same title from different sites creates separate records."
     (wikipedia-test--with-db
       (wikipedia-db-insert-page "Test" "en.wikipedia.org")
       (wikipedia-db-insert-page "Test" "es.wikipedia.org")
-      ;; Second insert is ignored; only the en record exists
       (should (wikipedia-db-get-page "Test" "en.wikipedia.org"))
-      (should-not (wikipedia-db-get-page "Test" "es.wikipedia.org"))))
+      (should (wikipedia-db-get-page "Test" "es.wikipedia.org"))
+      (should-not (= (car (wikipedia-db-get-page "Test" "en.wikipedia.org"))
+                     (car (wikipedia-db-get-page "Test" "es.wikipedia.org"))))))
 
   (ert-deftest db/stats ()
     (wikipedia-test--with-db
@@ -994,6 +993,327 @@ This test documents the current (incorrect) behavior."
              (rid (wikipedia-db-insert-revision pid 100 nil nil nil nil nil)))
         (wikipedia-db-insert-content rid nil)
         (should-not (wikipedia-db-has-content-p rid))))))
+
+
+;;;; ================================================================
+;;;; 11. USEFUL: Diff utility tests
+;;;; ================================================================
+
+;;; wikipedia--write-temp-file
+
+(ert-deftest write-temp-file/basic ()
+  "Write content to temp file and verify."
+  (let ((file (wikipedia--write-temp-file "hello world" 42)))
+    (unwind-protect
+        (progn
+          (should (file-exists-p file))
+          (should (string-match-p "wp-rev-42" file))
+          (should (equal (with-temp-buffer
+                           (insert-file-contents file)
+                           (buffer-string))
+                         "hello world")))
+      (delete-file file))))
+
+(ert-deftest write-temp-file/nil-content ()
+  "Nil content writes empty string."
+  (let ((file (wikipedia--write-temp-file nil 1)))
+    (unwind-protect
+        (should (equal (with-temp-buffer
+                         (insert-file-contents file)
+                         (buffer-string))
+                       ""))
+      (delete-file file))))
+
+(ert-deftest write-temp-file/unicode ()
+  "Unicode content is preserved."
+  (let ((file (wikipedia--write-temp-file "日本語テスト" 99)))
+    (unwind-protect
+        (let ((coding-system-for-read 'utf-8))
+          (should (equal (with-temp-buffer
+                           (insert-file-contents file)
+                           (buffer-string))
+                         "日本語テスト")))
+      (delete-file file))))
+
+;;; wikipedia--generate-unified-diff
+
+(ert-deftest generate-unified-diff/identical-files ()
+  "Identical content produces empty diff."
+  (let ((f1 (wikipedia--write-temp-file "same content" 1))
+        (f2 (wikipedia--write-temp-file "same content" 2)))
+    (unwind-protect
+        (should (equal (wikipedia--generate-unified-diff f1 f2 1 2) ""))
+      (delete-file f1)
+      (delete-file f2))))
+
+(ert-deftest generate-unified-diff/different-files ()
+  "Different content produces non-empty diff with revision labels."
+  (let ((f1 (wikipedia--write-temp-file "line one\n" 10))
+        (f2 (wikipedia--write-temp-file "line one\nline two\n" 11)))
+    (unwind-protect
+        (let ((diff (wikipedia--generate-unified-diff f1 f2 10 11)))
+          (should (> (length diff) 0))
+          (should (string-match-p "Revision 10" diff))
+          (should (string-match-p "Revision 11" diff))
+          (should (string-match-p "\\+line two" diff)))
+      (delete-file f1)
+      (delete-file f2))))
+
+(ert-deftest generate-unified-diff/deletion ()
+  "Removing lines shows - prefix."
+  (let ((f1 (wikipedia--write-temp-file "keep\nremove\n" 1))
+        (f2 (wikipedia--write-temp-file "keep\n" 2)))
+    (unwind-protect
+        (let ((diff (wikipedia--generate-unified-diff f1 f2 1 2)))
+          (should (string-match-p "-remove" diff)))
+      (delete-file f1)
+      (delete-file f2))))
+
+
+;;;; ================================================================
+;;;; 12. USEFUL: Buffer creation tests
+;;;; ================================================================
+
+(ert-deftest create-revision-buffer/basic ()
+  "Create a read-only buffer with content."
+  (let ((buf (wikipedia--create-revision-buffer "Test" 42 "== Section ==")))
+    (unwind-protect
+        (with-current-buffer buf
+          (should (string-match-p "WP Rev 42" (buffer-name)))
+          (should buffer-read-only)
+          (should (equal (buffer-substring-no-properties (point-min) (point-max))
+                         "== Section ==")))
+      (kill-buffer buf))))
+
+(ert-deftest create-revision-buffer/nil-content ()
+  "Nil content produces empty buffer."
+  (let ((buf (wikipedia--create-revision-buffer "Test" 1 nil)))
+    (unwind-protect
+        (with-current-buffer buf
+          (should (equal (buffer-substring-no-properties (point-min) (point-max))
+                         "")))
+      (kill-buffer buf))))
+
+(ert-deftest create-revision-buffer/point-at-beginning ()
+  "Point is at beginning of buffer."
+  (let ((buf (wikipedia--create-revision-buffer "T" 1 "content")))
+    (unwind-protect
+        (with-current-buffer buf
+          (should (= (point) (point-min))))
+      (kill-buffer buf))))
+
+
+;;;; ================================================================
+;;;; 13. USEFUL: Tabulated list entry formatting
+;;;; ================================================================
+
+;;; wikipedia-history--make-entry
+
+(ert-deftest history-make-entry/basic ()
+  "Format a history entry with all fields."
+  (let* ((rev '((revid . 12345)
+                (timestamp . "2024-06-15T08:30:00Z")
+                (user . "Editor")
+                (sizediff . 42)
+                (comment . "Added intro")
+                (minor . nil)))
+         (entry (wikipedia-history--make-entry rev))
+         (cols (cadr entry)))
+    (should (= (car entry) 12345))
+    (should (equal (aref cols 0) "12345"))
+    (should (equal (aref cols 2) "Editor"))
+    ;; Comment should not have "m " prefix since minor is nil
+    (should (equal (aref cols 4) "Added intro"))))
+
+(ert-deftest history-make-entry/minor-edit ()
+  "Minor edit comment has 'm ' prefix."
+  (let* ((rev '((revid . 1) (timestamp . "2024-01-01T00:00:00Z")
+                (user . "U") (sizediff . 0) (comment . "Fix")
+                (minor . (minor))))
+         (entry (wikipedia-history--make-entry rev))
+         (cols (cadr entry)))
+    (should (string-prefix-p "m " (aref cols 4)))))
+
+(ert-deftest history-make-entry/nil-user ()
+  "Nil user shows empty string."
+  (let* ((rev '((revid . 1) (timestamp . "2024-01-01T00:00:00Z")
+                (user . nil) (sizediff . nil) (comment . nil) (minor . nil)))
+         (cols (cadr (wikipedia-history--make-entry rev))))
+    (should (equal (aref cols 2) ""))))
+
+;;; wikipedia-user--make-contrib-entry
+
+(ert-deftest user-make-contrib-entry/basic ()
+  "Format a user contribution entry."
+  (let* ((contrib '((revid . 555)
+                    (title . "Some Article")
+                    (timestamp . "2024-03-15T12:00:00Z")
+                    (comment . "Expanded")
+                    (sizediff . 200)))
+         (entry (wikipedia-user--make-contrib-entry contrib))
+         (cols (cadr entry)))
+    (should (= (car entry) 555))
+    (should (equal (aref cols 1) "Some Article"))
+    (should (equal (aref cols 3) "Expanded"))))
+
+(ert-deftest user-make-contrib-entry/nil-fields ()
+  "Nil fields produce empty strings."
+  (let* ((contrib '((revid . 1) (title . nil) (timestamp . nil)
+                    (comment . nil) (sizediff . nil)))
+         (cols (cadr (wikipedia-user--make-contrib-entry contrib))))
+    (should (equal (aref cols 1) ""))
+    (should (equal (aref cols 3) ""))))
+
+;;; wikipedia-mirror-history--format-entry
+
+(ert-deftest mirror-history-format-entry/basic ()
+  "Format a local history revision row."
+  (let* ((row '(1 42 41 "Editor" "2024-01-15T10:30:00Z" "Fixed typo" 5000))
+         (entry (wikipedia-mirror-history--format-entry row))
+         (cols (cadr entry)))
+    (should (= (car entry) 1))
+    (should (equal (aref cols 0) "42"))
+    (should (equal (aref cols 2) "Editor"))
+    (should (equal (aref cols 3) "5000"))
+    (should (equal (aref cols 4) "Fixed typo"))))
+
+(ert-deftest mirror-history-format-entry/nil-fields ()
+  "Nil fields produce empty strings."
+  (let* ((row '(1 100 nil nil nil nil nil))
+         (cols (cadr (wikipedia-mirror-history--format-entry row))))
+    (should (equal (aref cols 2) ""))
+    (should (equal (aref cols 3) ""))
+    (should (equal (aref cols 4) ""))))
+
+
+;;;; ================================================================
+;;;; 14. USEFUL: Watchlist display helper tests
+;;;; ================================================================
+
+;;; wikipedia-watchlist--apply-unread-face
+
+(ert-deftest watchlist-apply-unread-face/unread ()
+  "Unread rows get bold face applied to string cells."
+  (let* ((row (vector ">" "Title" "12:00" "User" "+10" "comment"))
+         (result (wikipedia-watchlist--apply-unread-face row t)))
+    ;; Each string cell should have the unread face
+    (should (eq (get-text-property 0 'face (aref result 1))
+                'wikipedia-watchlist-unread))))
+
+(ert-deftest watchlist-apply-unread-face/read ()
+  "Read rows are returned unchanged."
+  (let* ((row (vector ">" "Title" "12:00" "User" "+10" "comment"))
+         (result (wikipedia-watchlist--apply-unread-face row nil)))
+    (should (eq result row))))
+
+;;; wikipedia-watchlist--build-format
+
+(ert-deftest watchlist-build-format/basic ()
+  "Build column format vector."
+  (let ((result (wikipedia-watchlist--build-format
+                 '(2 40 20 20 8) '(1 30 15 10 6))))
+    (should (vectorp result))
+    (should (= (length result) 6))
+    ;; Each column width should be min of max and actual
+    (should (= (nth 1 (aref result 1)) 30))   ; Page: min(40,30)=30
+    (should (= (nth 1 (aref result 3)) 10))   ; User: min(20,10)=10
+    ;; Last column (Summary) always has width 0
+    (should (= (nth 1 (aref result 5)) 0))))
+
+(ert-deftest watchlist-build-format/actual-exceeds-max ()
+  "When actual width exceeds max, max is used."
+  (let ((result (wikipedia-watchlist--build-format
+                 '(2 40 20 20 8) '(3 50 25 25 12))))
+    (should (= (nth 1 (aref result 1)) 40))   ; min(40,50)=40
+    (should (= (nth 1 (aref result 4)) 8))))  ; min(8,12)=8
+
+;;; wikipedia-watchlist--group-has-unread-p
+
+(ert-deftest watchlist-group-has-unread-p/all-unread ()
+  "Group with no read entries is unread."
+  (let ((wikipedia-watchlist--read (make-hash-table :test 'eql))
+        (entries '(((revid . 1)) ((revid . 2)))))
+    (should (wikipedia-watchlist--group-has-unread-p entries))))
+
+(ert-deftest watchlist-group-has-unread-p/all-read ()
+  "Group with all read entries is read."
+  (let ((wikipedia-watchlist--read (make-hash-table :test 'eql))
+        (entries '(((revid . 1)) ((revid . 2)))))
+    (puthash 1 t wikipedia-watchlist--read)
+    (puthash 2 t wikipedia-watchlist--read)
+    (should-not (wikipedia-watchlist--group-has-unread-p entries))))
+
+(ert-deftest watchlist-group-has-unread-p/partial ()
+  "Group with some unread entries is unread."
+  (let ((wikipedia-watchlist--read (make-hash-table :test 'eql))
+        (entries '(((revid . 1)) ((revid . 2)))))
+    (puthash 1 t wikipedia-watchlist--read)
+    (should (wikipedia-watchlist--group-has-unread-p entries))))
+
+
+;;;; ================================================================
+;;;; 15. USEFUL: Render unified diff (integration test)
+;;;; ================================================================
+
+(ert-deftest render-unified-diff/produces-diff-mode-buffer ()
+  "Render diff creates a read-only diff-mode buffer."
+  (let ((buf (wikipedia--render-unified-diff
+              "old content\n" "new content\n"
+              100 101 "*test-diff*")))
+    (unwind-protect
+        (with-current-buffer buf
+          (should buffer-read-only)
+          (should (derived-mode-p 'diff-mode))
+          (should (string-match-p "Revision 100" (buffer-string)))
+          (should (string-match-p "Revision 101" (buffer-string))))
+      (kill-buffer buf))))
+
+(ert-deftest render-unified-diff/identical-content ()
+  "Identical content produces an empty-ish diff buffer."
+  (let ((buf (wikipedia--render-unified-diff
+              "same\n" "same\n" 1 2 "*test-diff-empty*")))
+    (unwind-protect
+        (with-current-buffer buf
+          ;; No +/- lines since content is the same
+          (should-not (string-match-p "^[-+]same" (buffer-string))))
+      (kill-buffer buf))))
+
+
+;;;; ================================================================
+;;;; 16. USEFUL: Prefetch queue logic tests
+;;;; ================================================================
+
+(ert-deftest prefetch-watchlist-diffs/builds-queue ()
+  "Prefetch populates queue with uncached revisions."
+  (wikipedia-test--with-cache
+    ;; Mock the drain function to not actually fetch
+    (cl-letf (((symbol-function 'wikipedia--prefetch-drain-queue) #'ignore))
+      (let ((entries '(((title . "A") (revid . 10) (old_revid . 9))
+                       ((title . "B") (revid . 20) (old_revid . 19)))))
+        (wikipedia--prefetch-watchlist-diffs entries)
+        ;; Should have 4 items: revid 9, 10, 19, 20
+        (should (= (length wikipedia--prefetch-queue) 4))))))
+
+(ert-deftest prefetch-watchlist-diffs/skips-cached ()
+  "Already-cached revisions are not queued."
+  (wikipedia-test--with-cache
+    (cl-letf (((symbol-function 'wikipedia--prefetch-drain-queue) #'ignore))
+      ;; Pre-cache revision 10
+      (wikipedia--cache-put 10 "cached content")
+      (let ((entries '(((title . "A") (revid . 10) (old_revid . 9)))))
+        (wikipedia--prefetch-watchlist-diffs entries)
+        ;; Should only queue revision 9 (10 is cached)
+        (should (= (length wikipedia--prefetch-queue) 1))
+        (should (= (cdr (car wikipedia--prefetch-queue)) 9))))))
+
+(ert-deftest prefetch-watchlist-diffs/skips-nil-revids ()
+  "Entries with nil revids are skipped entirely."
+  (wikipedia-test--with-cache
+    (cl-letf (((symbol-function 'wikipedia--prefetch-drain-queue) #'ignore))
+      (let ((entries '(((title . "A") (revid . nil) (old_revid . nil)))))
+        (wikipedia--prefetch-watchlist-diffs entries)
+        (should (= (length wikipedia--prefetch-queue) 0))))))
+
 
 (provide 'wikipedia-test)
 
