@@ -12,13 +12,9 @@
 (require 'wikipedia-common)
 (require 'tabulated-list)
 
-(declare-function wikipedia-thank "wikipedia-user")
-(declare-function wikipedia-user-at-point "wikipedia-user")
+(declare-function wikipedia--show-diff "wikipedia-diff")
 (declare-function wikipedia-open "wikipedia-page")
 (declare-function wikipedia-browse "wikipedia-page")
-(declare-function wikipedia-xtools-user-stats "wikipedia-xtools")
-(declare-function wikipedia-watchlist-watch "wikipedia-watchlist")
-(declare-function wikipedia-watchlist-unwatch "wikipedia-watchlist")
 
 (defvar-local wikipedia-history--page-title nil
   "The page title for this history buffer.")
@@ -28,22 +24,15 @@
 
 (defvar wikipedia-history-mode-map
   (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map wikipedia-list-mode-map)
     (define-key map (kbd "RET") #'wikipedia-history-view-revision)
     (define-key map "o" #'wikipedia-open)
     (define-key map "v" #'wikipedia-history-view-revision)
     (define-key map "d" #'wikipedia-history-diff-to-previous)
     (define-key map "c" #'wikipedia-history-diff-to-current)
     (define-key map "D" #'wikipedia-history-diff-revisions)
-    (define-key map "f" #'wikipedia-diff-follow-mode)
     (define-key map "b" #'wikipedia-history-browse-revision)
-    (define-key map "B" #'wikipedia-browse)
     (define-key map "g" #'wikipedia-history-refresh)
-    (define-key map "t" #'wikipedia-thank)
-    (define-key map "u" #'wikipedia-user-at-point)
-    (define-key map "s" #'wikipedia-xtools-user-stats)
-    (define-key map "w" #'wikipedia-watchlist-watch)
-    (define-key map "x" #'wikipedia-watchlist-unwatch)
-    (define-key map "q" #'quit-window)
     map)
   "Keymap for `wikipedia-history-mode'.")
 
@@ -105,14 +94,10 @@ REVISIONS are in reverse chronological order (newest first)."
     (list revid
           (vector
            (number-to-string revid)
-           (wikipedia-history--format-timestamp timestamp)
+           (wikipedia--format-timestamp timestamp)
            (or user "")
            (wikipedia--format-size-change sizediff)
            (concat (if minor "m " "") (or comment ""))))))
-
-(defun wikipedia-history--format-timestamp (timestamp)
-  "Format TIMESTAMP for display."
-  (wikipedia--format-timestamp timestamp))
 
 (defun wikipedia-history--revision-at-point ()
   "Return the revision alist at point."
@@ -138,21 +123,10 @@ REVISIONS are in reverse chronological order (newest first)."
          (revid (alist-get 'revid rev)))
     (unless revid
       (error "No revision at point"))
-    (let* ((content (wp--get-revision-content
-                     wikipedia-history--page-title revid))
-           (buffer (get-buffer-create
-                    (format "*Wikipedia Rev %d: %s*"
-                            revid wikipedia-history--page-title))))
-      (with-current-buffer buffer
-        (let ((inhibit-read-only t))
-          (erase-buffer)
-          (insert (or content "(empty)"))
-          (goto-char (point-min)))
-        (special-mode)
-        (setq-local header-line-format
-                    (format "Revision %d of %s"
-                            revid wikipedia-history--page-title)))
-      (pop-to-buffer buffer))))
+    (let ((content (wp--get-revision-content
+                    wikipedia-history--page-title revid)))
+      (wikipedia--display-revision-buffer
+       wikipedia-history--page-title revid content))))
 
 (defun wikipedia-history-diff-to-previous ()
   "Show diff between revision at point and its parent.

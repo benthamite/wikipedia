@@ -6,7 +6,7 @@
 ;; Version: 0.1.0
 ;; Package-Requires: ((emacs "29.1") (mediawiki "2.4.9"))
 ;; Keywords: wiki, wikipedia, mediawiki
-;; URL: https://github.com/your/wikipedia-el
+;; URL: https://github.com/pablostafforini/wikipedia.el
 
 ;; This file is not part of GNU Emacs.
 
@@ -40,8 +40,15 @@
 
 ;;; Code:
 
+(defgroup wikipedia nil
+  "Emacs interface for Wikipedia editing."
+  :group 'external
+  :prefix "wikipedia-")
+
 (require 'wikipedia-adapter)
+(require 'wikipedia-cache)
 (require 'wikipedia-common)
+(require 'wikipedia-diff)
 (require 'wikipedia-draft)
 (require 'wikipedia-page)
 (require 'wikipedia-history)

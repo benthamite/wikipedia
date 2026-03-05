@@ -49,7 +49,9 @@
   (add-to-list 'load-path (expand-file-name ".." dir)))
 
 (require 'wikipedia-adapter)
+(require 'wikipedia-cache)
 (require 'wikipedia-common)
+(require 'wikipedia-diff)
 (require 'wikipedia-draft)
 (require 'wikipedia-watchlist)
 (require 'wikipedia-history)
@@ -291,7 +293,7 @@
 ;;; wp--format-timestamp-for-api
 
 (ert-deftest wp-format-timestamp-for-api/known-value ()
-  "Format epoch 1704067200 → 2024-01-01T00:00:00Z."
+  "Format epoch 1704067200 -> 2024-01-01T00:00:00Z."
   (should (equal (wp--format-timestamp-for-api 1704067200)
                  "2024-01-01T00:00:00Z")))
 
@@ -552,7 +554,7 @@
 (ert-deftest draft-write-unicode-content ()
   "Draft preserves Unicode content."
   (wikipedia-test--with-draft-dir
-    (let ((content "日本語 with émojis and accénts"))
+    (let ((content "日本語 with emojis and accents"))
       (wikipedia-draft--write "日本語" content)
       (let ((coding-system-for-read 'utf-8)
             (read-back (with-temp-buffer
@@ -740,7 +742,7 @@
                      ((revid . 2) (size . 250))
                      ((revid . 1) (size . 100)))))
     (let ((annotated (wikipedia-history--annotate-diffs revisions)))
-      ;; Oldest (revid 1) has no previous → nil diff
+      ;; Oldest (revid 1) has no previous -> nil diff
       (should (null (alist-get 'sizediff (nth 2 annotated))))
       ;; revid 2: 250 - 100 = 150
       (should (= (alist-get 'sizediff (nth 1 annotated)) 150))
@@ -762,9 +764,9 @@
   (let ((annotated (wikipedia-history--annotate-diffs
                     '(((revid . 2) (size . nil))
                       ((revid . 1) (size . 100))))))
-    ;; revid 1: no prev → nil
+    ;; revid 1: no prev -> nil
     (should (null (alist-get 'sizediff (nth 1 annotated))))
-    ;; revid 2: size is nil → nil diff
+    ;; revid 2: size is nil -> nil diff
     (should (null (alist-get 'sizediff (nth 0 annotated))))))
 
 (ert-deftest history-annotate-diffs/preserves-original-fields ()

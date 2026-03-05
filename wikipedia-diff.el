@@ -1,0 +1,320 @@
+;;; wikipedia-diff.el --- Diff engine and follow mode for wikipedia.el -*- lexical-binding: t; -*-
+
+;; Copyright (C) 2025
+
+;;; Commentary:
+
+;; This module provides the diff engine (unified and ediff) and the
+;; diff-follow minor mode for wikipedia.el.
+
+;;; Code:
+
+(require 'wikipedia-adapter)
+(require 'wikipedia-cache)
+
+(defcustom wikipedia-diff-function 'unified
+  "Function to use for displaying diffs.
+When set to `unified', show diffs in a single buffer using `diff-mode'.
+When set to `ediff', use `ediff-buffers' with side-by-side comparison."
+  :type '(choice (const :tag "Unified diff (single buffer)" unified)
+                 (const :tag "Ediff (side-by-side)" ediff))
+  :group 'wikipedia)
+
+;;;; Diff follow mode
+
+(defvar-local wikipedia-diff-follow-mode nil
+  "Non-nil if diff follow mode is enabled in this buffer.")
+
+(defvar-local wikipedia-diff-follow--last-revid nil
+  "The last revision ID for which a diff was shown in follow mode.")
+
+(defvar wikipedia-diff-follow--buffer-name "*WP Diff*"
+  "Buffer name for diff follow mode output.")
+
+(defvar wikipedia-history--page-title)
+
+(declare-function wikipedia--revid-at-point "wikipedia-common")
+(declare-function wikipedia-history--revision-at-point "wikipedia-history")
+(declare-function wikipedia-watchlist--entry-at-point "wikipedia-watchlist")
+(declare-function wikipedia-watchlist--mark-at-point-read "wikipedia-watchlist")
+(declare-function wikipedia-user--contrib-at-point "wikipedia-user")
+
+(defun wikipedia-diff-follow--show ()
+  "Show diff for the entry at point if it changed."
+  (when (and wikipedia-diff-follow-mode
+             (not (eq wikipedia-diff-function 'ediff)))
+    (let ((revid (wikipedia--revid-at-point)))
+      (when (and revid (not (equal revid wikipedia-diff-follow--last-revid)))
+        (setq wikipedia-diff-follow--last-revid revid)
+        (wikipedia-diff-follow--display-diff)
+        (wikipedia-diff-follow--mark-read)))))
+
+(defun wikipedia-diff-follow--display-diff ()
+  "Display the diff for the current entry in the follow buffer."
+  (condition-case err
+      (let ((diff-info (wikipedia-diff-follow--get-diff-info)))
+        (when diff-info
+          (let ((from-rev (plist-get diff-info :from-rev))
+                (to-rev (plist-get diff-info :to-rev))
+                (title (plist-get diff-info :title)))
+            (when (and from-rev to-rev title)
+              (wikipedia-diff-follow--fetch-and-display
+               from-rev to-rev title)))))
+    (error (message "Diff follow: %s" (error-message-string err)))))
+
+(defun wikipedia-diff-follow--get-diff-info ()
+  "Get diff info for the entry at point.
+Returns a plist with :from-rev, :to-rev, and :title, or nil."
+  (cond
+   ((derived-mode-p 'wikipedia-history-mode)
+    (wikipedia-diff-follow--history-info))
+   ((derived-mode-p 'wikipedia-watchlist-mode)
+    (wikipedia-diff-follow--watchlist-info))
+   ((derived-mode-p 'wikipedia-user-contributions-mode)
+    (wikipedia-diff-follow--contributions-info))
+   (t nil)))
+
+(defun wikipedia-diff-follow--history-info ()
+  "Get diff info for history mode."
+  (let* ((rev (wikipedia-history--revision-at-point))
+         (revid (alist-get 'revid rev))
+         (parentid (alist-get 'parentid rev)))
+    (when (and revid parentid)
+      (list :from-rev parentid
+            :to-rev revid
+            :title wikipedia-history--page-title))))
+
+(defun wikipedia-diff-follow--watchlist-info ()
+  "Get diff info for watchlist mode."
+  (let* ((entry (wikipedia-watchlist--entry-at-point))
+         (title (alist-get 'title entry))
+         (revid (alist-get 'revid entry))
+         (old-revid (alist-get 'old_revid entry)))
+    (when (and title revid old-revid)
+      (list :from-rev old-revid
+            :to-rev revid
+            :title title))))
+
+(defun wikipedia-diff-follow--contributions-info ()
+  "Get diff info for user contributions mode."
+  (let* ((contrib (wikipedia-user--contrib-at-point))
+         (revid (alist-get 'revid contrib))
+         (parentid (alist-get 'parentid contrib))
+         (title (alist-get 'title contrib)))
+    (when (and revid parentid title)
+      (list :from-rev parentid
+            :to-rev revid
+            :title title))))
+
+(defun wikipedia-diff-follow--fetch-and-display (from-rev to-rev title)
+  "Fetch and display diff between FROM-REV and TO-REV for TITLE."
+  (let ((from-content (wikipedia--cache-get from-rev))
+        (to-content (wikipedia--cache-get to-rev))
+        (source-window (selected-window)))
+    (if (and from-content to-content)
+        (wikipedia-diff-follow--render-diff from-content to-content
+                                            from-rev to-rev title source-window)
+      (wikipedia-diff-follow--show-loading title from-rev to-rev source-window)
+      (wikipedia-diff-follow--fetch-both-async
+       from-rev to-rev title source-window))))
+
+(defun wikipedia-diff-follow--show-loading (title from-rev to-rev source-window)
+  "Show loading message in diff buffer for TITLE (FROM-REV to TO-REV).
+SOURCE-WINDOW is preserved for later use."
+  (let ((buf (get-buffer-create wikipedia-diff-follow--buffer-name)))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert "Loading diff..."))
+      (setq buffer-read-only t)
+      (setq header-line-format
+            (format " %s: %d → %d (loading...)" title from-rev to-rev)))
+    (wikipedia-diff-follow--display-buffer buf source-window)))
+
+(defun wikipedia-diff-follow--fetch-both-async (from-rev to-rev title source-window)
+  "Fetch both revisions async and display diff when both are ready.
+FROM-REV and TO-REV are revision IDs, TITLE is the page title.
+SOURCE-WINDOW is preserved for display."
+  (let ((expected-revid wikipedia-diff-follow--last-revid)
+        (source-buffer (current-buffer))
+        (pending 2)
+        (from-content (wikipedia--cache-get from-rev))
+        (to-content (wikipedia--cache-get to-rev)))
+    (cl-flet ((maybe-render
+                ()
+                (cl-decf pending)
+                (when (zerop pending)
+                  (setq from-content (or from-content (wikipedia--cache-get from-rev)))
+                  (setq to-content (or to-content (wikipedia--cache-get to-rev)))
+                  (when (and from-content to-content
+                             (buffer-live-p source-buffer)
+                             (with-current-buffer source-buffer
+                               (eq expected-revid wikipedia-diff-follow--last-revid)))
+                    (wikipedia-diff-follow--render-diff
+                     from-content to-content from-rev to-rev title source-window)))))
+      (if from-content
+          (maybe-render)
+        (wikipedia--fetch-revision-async
+         title from-rev (lambda (_) (maybe-render))))
+      (if to-content
+          (maybe-render)
+        (wikipedia--fetch-revision-async
+         title to-rev (lambda (_) (maybe-render)))))))
+
+(defun wikipedia-diff-follow--render-diff (from-content to-content from-rev to-rev title source-window)
+  "Render diff between FROM-CONTENT and TO-CONTENT in the diff buffer.
+FROM-REV and TO-REV are revision IDs, TITLE is the page title.
+SOURCE-WINDOW is the window to avoid when displaying the diff."
+  (let ((buf (wikipedia--render-unified-diff
+              from-content to-content from-rev to-rev
+              wikipedia-diff-follow--buffer-name)))
+    (with-current-buffer buf
+      (setq header-line-format
+            (format " %s: %d → %d" title from-rev to-rev)))
+    (wikipedia-diff-follow--display-buffer buf source-window)))
+
+(defun wikipedia-diff-follow--display-buffer (buffer source-window)
+  "Display BUFFER for diff follow mode, reusing other window if available.
+SOURCE-WINDOW is the window to avoid displaying in."
+  (let ((other-window (wikipedia-diff-follow--find-other-window source-window)))
+    (if other-window
+        (set-window-buffer other-window buffer)
+      (display-buffer buffer
+                      '((display-buffer-reuse-window
+                         display-buffer-use-some-window)
+                        (inhibit-same-window . t))))))
+
+(defun wikipedia-diff-follow--find-other-window (source-window)
+  "Find another window to display the diff, excluding SOURCE-WINDOW.
+Returns nil if no suitable window is found."
+  (let ((windows (window-list nil 'no-minibuf)))
+    (when (> (length windows) 1)
+      (seq-find (lambda (w) (not (eq w source-window))) windows))))
+
+(defun wikipedia-diff-follow--mark-read ()
+  "Mark the current entry as read if in watchlist mode."
+  (when (derived-mode-p 'wikipedia-watchlist-mode)
+    (wikipedia-watchlist--mark-at-point-read)))
+
+(defun wikipedia-diff-follow--cleanup ()
+  "Clean up diff follow mode state."
+  (setq wikipedia-diff-follow--last-revid nil))
+
+;;;###autoload
+(define-minor-mode wikipedia-diff-follow-mode
+  "Minor mode to automatically show diffs when navigating entries.
+When enabled, moving to a different entry in history, watchlist, or
+contributions buffers will automatically display the diff in another window.
+Only works with unified diff mode, not ediff."
+  :lighter " Follow"
+  :variable wikipedia-diff-follow-mode
+  (if wikipedia-diff-follow-mode
+      (if (eq wikipedia-diff-function 'ediff)
+          (progn
+            (message "Diff follow mode requires unified diff, not ediff")
+            (setq wikipedia-diff-follow-mode nil))
+        (add-hook 'post-command-hook #'wikipedia-diff-follow--show nil t))
+    (remove-hook 'post-command-hook #'wikipedia-diff-follow--show t)
+    (wikipedia-diff-follow--cleanup)))
+
+;;;; Diff engine
+
+(defun wikipedia--show-diff (from-rev to-rev title)
+  "Display diff between FROM-REV and TO-REV for TITLE.
+Uses `wikipedia-diff-function' to determine the diff style."
+  (let ((from-content (wp--get-revision-content title from-rev))
+        (to-content (wp--get-revision-content title to-rev)))
+    (wikipedia--show-diff-contents from-content to-content from-rev to-rev title)))
+
+(defun wikipedia--show-diff-contents (from-content to-content from-rev to-rev title)
+  "Display diff between FROM-CONTENT and TO-CONTENT.
+FROM-REV and TO-REV are the revision IDs, TITLE is the page title.
+Uses `wikipedia-diff-function' to determine the diff style."
+  (pcase wikipedia-diff-function
+    ('unified (wikipedia--show-diff-unified
+               from-content to-content from-rev to-rev title))
+    ('ediff (wikipedia--show-diff-ediff
+             from-content to-content from-rev to-rev title))
+    (_ (error "Unknown diff function: %s" wikipedia-diff-function))))
+
+(defun wikipedia--render-unified-diff (from-content to-content from-rev to-rev buffer-name)
+  "Render unified diff between FROM-CONTENT and TO-CONTENT into BUFFER-NAME.
+FROM-REV and TO-REV are revision IDs for diff labels.
+Returns the diff buffer."
+  (let* ((from-file (wikipedia--write-temp-file from-content from-rev))
+         (to-file (wikipedia--write-temp-file to-content to-rev))
+         (diff-output (unwind-protect
+                          (wikipedia--generate-unified-diff from-file to-file from-rev to-rev)
+                        (delete-file from-file)
+                        (delete-file to-file)))
+         (buf (get-buffer-create buffer-name)))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert diff-output)
+        (goto-char (point-min)))
+      (diff-mode)
+      (setq buffer-read-only t))
+    buf))
+
+(defun wikipedia--show-diff-unified (from-content to-content from-rev to-rev title)
+  "Display unified diff between FROM-CONTENT and TO-CONTENT.
+FROM-REV and TO-REV are the revision IDs, TITLE is the page title."
+  (pop-to-buffer
+   (wikipedia--render-unified-diff
+    from-content to-content from-rev to-rev
+    (format "*WP Diff: %s (%d → %d)*" title from-rev to-rev))))
+
+(defun wikipedia--write-temp-file (content revid)
+  "Write CONTENT to a temporary file named after REVID."
+  (let ((file (make-temp-file (format "wp-rev-%d-" revid)))
+        (coding-system-for-write 'utf-8))
+    (with-temp-file file
+      (insert (or content "")))
+    file))
+
+(defun wikipedia--generate-unified-diff (from-file to-file from-rev to-rev)
+  "Generate unified diff output between FROM-FILE and TO-FILE.
+FROM-REV and TO-REV are used for the diff header labels."
+  (with-temp-buffer
+    (let ((exit-code (call-process "diff" nil t nil
+                                   "-u"
+                                   (format "--label=Revision %d" from-rev)
+                                   (format "--label=Revision %d" to-rev)
+                                   from-file to-file)))
+      (if (> exit-code 1)
+          (error "Diff command failed with exit code %d" exit-code)
+        (buffer-string)))))
+
+(defvar ediff-buffer-A)
+(defvar ediff-buffer-B)
+
+(defun wikipedia--show-diff-ediff (from-content to-content from-rev to-rev title)
+  "Display ediff between FROM-CONTENT and TO-CONTENT.
+FROM-REV and TO-REV are the revision IDs, TITLE is the page title."
+  (let ((from-buffer (wikipedia--create-revision-buffer title from-rev from-content))
+        (to-buffer (wikipedia--create-revision-buffer title to-rev to-content)))
+    (ediff-buffers from-buffer to-buffer
+                   (list (lambda ()
+                           (let ((a ediff-buffer-A)
+                                 (b ediff-buffer-B))
+                             (add-hook 'ediff-quit-hook
+                                       (lambda ()
+                                         (when (buffer-live-p a) (kill-buffer a))
+                                         (when (buffer-live-p b) (kill-buffer b)))
+                                       nil t)))))))
+
+(defun wikipedia--create-revision-buffer (title revid content)
+  "Create a buffer for TITLE at REVID with CONTENT."
+  (let ((buffer (get-buffer-create (format "*WP Rev %d: %s*" revid title))))
+    (with-current-buffer buffer
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert (or content ""))
+        (goto-char (point-min)))
+      (setq buffer-read-only t))
+    buffer))
+
+(provide 'wikipedia-diff)
+
+;;; wikipedia-diff.el ends here

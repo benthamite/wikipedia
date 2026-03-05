@@ -22,29 +22,20 @@
 
 ;;; User contributions mode
 
-
+(declare-function wikipedia--show-diff "wikipedia-diff")
 (declare-function wikipedia-history "wikipedia-history")
 (declare-function wikipedia-browse "wikipedia-page")
-(declare-function wikipedia-watchlist-watch "wikipedia-watchlist")
-(declare-function wikipedia-watchlist-unwatch "wikipedia-watchlist")
 
 (defvar wikipedia-user-contributions-mode-map
   (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map wikipedia-list-mode-map)
     (define-key map (kbd "RET") #'wikipedia-user-contributions-view-diff)
     (define-key map "o" #'wikipedia-user-contributions-open-page)
     (define-key map "v" #'wikipedia-user-contributions-view-revision)
     (define-key map "d" #'wikipedia-user-contributions-view-diff)
-    (define-key map "f" #'wikipedia-diff-follow-mode)
     (define-key map "h" #'wikipedia-user-contributions-show-history)
     (define-key map "b" #'wikipedia-user-contributions-browse)
-    (define-key map "B" #'wikipedia-browse)
     (define-key map "g" #'wikipedia-user-contributions-refresh)
-    (define-key map "t" #'wikipedia-user-contributions-thank)
-    (define-key map "u" #'wikipedia-user-at-point)
-    (define-key map "s" #'wikipedia-user-stats)
-    (define-key map "w" #'wikipedia-watchlist-watch)
-    (define-key map "x" #'wikipedia-watchlist-unwatch)
-    (define-key map "q" #'quit-window)
     map)
   "Keymap for `wikipedia-user-contributions-mode'.")
 
@@ -90,14 +81,10 @@
         (sizediff (alist-get 'sizediff contrib)))
     (list revid
           (vector
-           (wikipedia-user--format-timestamp timestamp)
+           (wikipedia--format-timestamp timestamp)
            (or title "")
            (wikipedia--format-size-change sizediff)
            (or comment "")))))
-
-(defun wikipedia-user--format-timestamp (timestamp)
-  "Format TIMESTAMP for display."
-  (wikipedia--format-timestamp timestamp))
 
 (defun wikipedia-user--contrib-at-point ()
   "Return the contribution at point."
@@ -127,17 +114,8 @@
          (title (alist-get 'title contrib)))
     (unless revid
       (error "No contribution at point"))
-    (let* ((content (wp--get-revision-content title revid))
-           (buffer (get-buffer-create (format "*Wikipedia Rev %d: %s*" revid title))))
-      (with-current-buffer buffer
-        (let ((inhibit-read-only t))
-          (erase-buffer)
-          (insert (or content "(empty)"))
-          (goto-char (point-min)))
-        (special-mode)
-        (setq-local header-line-format
-                    (format "Revision %d of %s" revid title)))
-      (pop-to-buffer buffer))))
+    (let ((content (wp--get-revision-content title revid)))
+      (wikipedia--display-revision-buffer title revid content))))
 
 (defun wikipedia-user-contributions-open-page ()
   "Open the page at point for editing."
@@ -167,22 +145,6 @@
     (unless title
       (error "No contribution at point"))
     (wikipedia-history title)))
-
-(defun wikipedia-user-contributions-thank ()
-  "Thank the user for the contribution at point."
-  (interactive)
-  (let* ((contrib (wikipedia-user--contrib-at-point))
-         (revid (alist-get 'revid contrib)))
-    (unless revid
-      (error "No contribution at point"))
-    (wikipedia-thank revid wikipedia-user--username)))
-
-;;; User stats
-
-(defun wikipedia-user-stats (username)
-  "Display statistics for USERNAME."
-  (interactive (list (wikipedia--read-username)))
-  (wikipedia-xtools-user-stats username))
 
 ;;; User page commands
 

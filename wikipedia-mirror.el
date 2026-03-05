@@ -11,6 +11,9 @@
 (require 'wikipedia-db)
 (require 'tabulated-list)
 
+(declare-function wp--ensure-logged-in "wikipedia-adapter")
+(declare-function wp--open-page-buffer "wikipedia-adapter")
+
 (defvar wikipedia-mirror-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "RET") #'wikipedia-mirror-open-page)
@@ -183,24 +186,20 @@ id, revid, parentid, user, timestamp, comment, size."
     (when entry
       (string-to-number (aref entry 0)))))
 
+(declare-function wikipedia--display-revision-buffer "wikipedia-common")
+
 (defun wikipedia-mirror-history-view ()
   "View content of revision at point."
   (interactive)
   (let* ((row-id (wikipedia-mirror-history--row-id-at-point))
          (revid (wikipedia-mirror-history--revid-at-point))
          (content (wikipedia-db-get-content row-id)))
-    (if content
-        (let ((buf (get-buffer-create
-                    (format "*WP Local: %s (r%d)*"
-                            wikipedia-mirror-history--page-title revid))))
-          (with-current-buffer buf
-            (let ((inhibit-read-only t))
-              (erase-buffer)
-              (insert content)
-              (goto-char (point-min)))
-            (special-mode))
-          (pop-to-buffer buf))
-      (user-error "No content stored for revision %d" revid))))
+    (unless content
+      (user-error "No content stored for revision %d" revid))
+    (wikipedia--display-revision-buffer
+     wikipedia-mirror-history--page-title revid content)))
+
+(declare-function wikipedia--show-diff-contents "wikipedia-diff")
 
 (defun wikipedia-mirror-history-diff ()
   "Show diff between revision at point and its parent."
@@ -219,15 +218,9 @@ id, revid, parentid, user, timestamp, comment, size."
         (let ((old-content (wikipedia-db-get-content parent-row-id)))
           (unless old-content
             (user-error "No content stored for parent revision %d" parentid))
-          (wikipedia-mirror--show-local-diff old-content new-content parentid revid))))))
-
-(declare-function wikipedia--show-diff-contents "wikipedia-common")
-
-(defun wikipedia-mirror--show-local-diff (old-content new-content old-rev new-rev)
-  "Show diff between OLD-CONTENT and NEW-CONTENT (revisions OLD-REV and NEW-REV)."
-  (require 'wikipedia-common)
-  (wikipedia--show-diff-contents old-content new-content old-rev new-rev
-                                 wikipedia-mirror-history--page-title))
+          (require 'wikipedia-diff)
+          (wikipedia--show-diff-contents old-content new-content parentid revid
+                                         wikipedia-mirror-history--page-title))))))
 
 (provide 'wikipedia-mirror)
 

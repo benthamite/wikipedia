@@ -23,6 +23,11 @@
 (declare-function mediawiki-make-api-url "mediawiki-api")
 (declare-function url-http-post "mediawiki-http")
 
+;; Dynamic variables from url.el used in `wp--api-call-async'
+(defvar url-request-method)
+(defvar url-request-extra-headers)
+(defvar url-request-data)
+
 (defvar wp--current-site nil
   "The currently active wiki site name.")
 
@@ -426,6 +431,16 @@ Returns a list of contribution alists."
       (comment . ,(or (cdr (assq 'comment attrs)) ""))
       (sizediff . ,(wp--parse-number (cdr (assq 'sizediff attrs))))
       (minor . ,(assq 'minor attrs)))))
+
+;;;; Editing mode helpers
+
+(defun wp--activate-editing-mode ()
+  "Activate the wiki editing major mode in the current buffer."
+  (mediawiki-mode))
+
+(defun wp--set-page-title (title)
+  "Set the page title for the current buffer to TITLE."
+  (setq mediawiki-page-title title))
 
 (provide 'wikipedia-adapter)
 

@@ -11,7 +11,7 @@
 
 ;;; Code:
 
-(require 'mediawiki)
+(require 'wikipedia-adapter)
 
 (defcustom wikipedia-draft-directory
   (expand-file-name "wikipedia-drafts" user-emacs-directory)
@@ -52,7 +52,7 @@ Prompts for a draft to delete from the list of saved drafts."
 (defun wikipedia-draft--require-title ()
   "Return the page title for the current buffer.
 Signal an error if no page title is set."
-  (or (bound-and-true-p mediawiki-page-title)
+  (or (wp--current-page-title)
       (error "No page title set in this buffer")))
 
 (defun wikipedia-draft--read-draft (prompt drafts)
@@ -137,14 +137,14 @@ Consecutive _XX sequences are collected and decoded as UTF-8 bytes."
 
 (defun wikipedia-draft--open-file (title)
   "Open the draft file for TITLE and set up the editing environment.
-Activates `mediawiki-mode', sets `mediawiki-page-title', and
+Activates the wiki editing mode, sets the page title, and
 enables `wikipedia-edit-mode'."
   (let ((file (wikipedia-draft--file-for-title title)))
     (unless (file-exists-p file)
       (error "Draft file not found for \"%s\"" title))
     (find-file file)
-    (mediawiki-mode)
-    (setq mediawiki-page-title title)
+    (wp--activate-editing-mode)
+    (wp--set-page-title title)
     (wikipedia-edit-mode 1)))
 
 (defun wikipedia-draft--delete-file (title)
