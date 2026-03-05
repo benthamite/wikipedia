@@ -1,6 +1,6 @@
 ;;; wikipedia-history.el --- Revision history  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2025
+;; Copyright (C) 2025-2026 Pablo Stafforini
 
 ;;; Commentary:
 

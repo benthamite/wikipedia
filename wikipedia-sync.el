@@ -1,6 +1,6 @@
 ;;; wikipedia-sync.el --- Sync Wikipedia pages to local database -*- lexical-binding: t -*-
 
-;; Copyright (C) 2025
+;; Copyright (C) 2025-2026 Pablo Stafforini
 
 ;;; Commentary:
 

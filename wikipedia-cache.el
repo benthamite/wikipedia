@@ -1,6 +1,6 @@
 ;;; wikipedia-cache.el --- Revision cache and prefetch for wikipedia.el -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2025
+;; Copyright (C) 2025-2026 Pablo Stafforini
 
 ;;; Commentary:
 

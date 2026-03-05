@@ -1,6 +1,6 @@
 ;;; wikipedia-transient.el --- Transient menu for wikipedia.el -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2025
+;; Copyright (C) 2025-2026 Pablo Stafforini
 
 ;;; Commentary:
 
