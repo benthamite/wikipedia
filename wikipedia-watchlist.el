@@ -393,12 +393,28 @@ Entry IDs are tagged cons cells: (group . TITLE) for group headers,
     (tabulated-list-print t)))
 
 (defun wikipedia-watchlist-show-diff ()
-  "Show the diff for the change at point."
+  "Show the diff for the change at point.
+For group headers with multiple changes, show the consolidated diff
+spanning from the oldest base revision to the newest revision."
   (interactive)
-  (let* ((entry (wikipedia-watchlist--entry-at-point))
-         (title (alist-get 'title entry))
-         (revid (alist-get 'revid entry))
-         (old-revid (alist-get 'old_revid entry)))
+  (let* ((id (tabulated-list-get-id))
+         title revid old-revid)
+    (cond
+     ;; Group header: diff from oldest old_revid to newest revid
+     ((and (consp id) (eq (car id) 'group))
+      (setq title (cdr id))
+      (let ((entries (alist-get title wikipedia-watchlist--grouped-entries
+                                nil nil #'equal)))
+        (setq revid (apply #'max (mapcar (lambda (e) (alist-get 'revid e))
+                                         entries)))
+        (setq old-revid (apply #'min (mapcar (lambda (e) (alist-get 'old_revid e))
+                                             entries)))))
+     ;; Child entry: use the entry's own revisions
+     (t
+      (let ((entry (wikipedia-watchlist--entry-at-point)))
+        (setq title (alist-get 'title entry))
+        (setq revid (alist-get 'revid entry))
+        (setq old-revid (alist-get 'old_revid entry)))))
     (unless title
       (error "No entry at point"))
     (unless (and revid old-revid)
