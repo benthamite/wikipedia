@@ -55,4 +55,4 @@ After installing, configure your wiki site credentials via `mediawiki-site-alist
 
 ## Documentation
 
-For a comprehensive description of all user options, commands, and functions, see the [manual](readme.org).
+For a comprehensive description of all user options, commands, and functions, see the [manual](README.org).
