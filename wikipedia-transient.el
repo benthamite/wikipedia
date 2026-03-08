@@ -20,6 +20,7 @@
 (require 'wikipedia-mirror)
 (require 'wikipedia-common)
 (require 'pangram nil t)
+(require 'wikipedia-ai)
 
 ;;;###autoload (autoload 'wikipedia-transient "wikipedia-transient" nil t)
 (transient-define-prefix wikipedia-transient ()
@@ -60,7 +61,10 @@
    ["AI Detection"
     :if (lambda () (featurep 'pangram))
     ("a d" "Detect AI" pangram-detect)
-    ("a c" "Clear overlays" pangram-clear)]])
+    ("a c" "Clear overlays" pangram-clear)]
+   ["AI Editing"
+    :if (lambda () (featurep 'gptel))
+    ("c" "Generate citation" wikipedia-ai-cite)]])
 
 (provide 'wikipedia-transient)
 
