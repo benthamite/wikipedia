@@ -19,7 +19,6 @@ All commands are accessible through a unified transient menu via `wikipedia-tran
 **Dependencies:**
 
 - [`mediawiki`](https://github.com/hexmode/mediawiki-el) (>= 2.4.9) -- required for MediaWiki API communication
-- [`pangram`](https://github.com/benthamite/pangram) -- optional, enables AI-generated text detection commands in the transient menu
 
 ### package-vc (built-in since Emacs 30)
 
