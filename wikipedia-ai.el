@@ -10,14 +10,36 @@
 
 ;;; Code:
 
+(require 'cl-lib)
 (require 'wikipedia-common)
 
 (declare-function gptel-request "gptel-request")
+(declare-function gptel-get-backend "gptel")
+(declare-function gptel-backend-models "gptel-openai")
+
+(defvar gptel-backend)
+(defvar gptel-model)
+(defvar gptel--known-backends)
 
 (defgroup wikipedia-ai nil
   "AI-powered Wikipedia editing commands."
   :group 'wikipedia
   :prefix "wikipedia-ai-")
+
+(defcustom wikipedia-ai-backend nil
+  "The gptel backend name for AI commands, e.g. \"Gemini\" or \"Claude\".
+When nil, the backend is inferred from `wikipedia-ai-model', falling
+back to `gptel-backend'."
+  :type '(choice (const :tag "Infer from model or use gptel default" nil)
+                 (string :tag "Backend name"))
+  :group 'wikipedia-ai)
+
+(defcustom wikipedia-ai-model nil
+  "The gptel model for AI commands, e.g. `claude-sonnet-4-5-20250514'.
+When nil, defaults to `gptel-model'."
+  :type '(choice (const :tag "Use gptel default" nil)
+                 (symbol :tag "Model name"))
+  :group 'wikipedia-ai)
 
 (defcustom wikipedia-ai-citation-system-prompt
   "You are a Wikipedia citation expert.  Your task is to generate a \
@@ -40,6 +62,26 @@ explanation, or markup fences.
   :type 'string
   :group 'wikipedia-ai)
 
+(defun wikipedia-ai--find-backend-for-model (model)
+  "Return the gptel backend that provides MODEL, or nil."
+  (cl-loop for (_name . backend) in gptel--known-backends
+           when (member model (gptel-backend-models backend))
+           return backend))
+
+(defun wikipedia-ai--resolve-backend-and-model ()
+  "Return (backend . model) for AI commands.
+Resolves `wikipedia-ai-backend' and `wikipedia-ai-model', inferring the
+backend from the model when needed."
+  (let* ((model (or wikipedia-ai-model gptel-model))
+         (backend (cond
+                   (wikipedia-ai-backend
+                    (gptel-get-backend wikipedia-ai-backend))
+                   (wikipedia-ai-model
+                    (or (wikipedia-ai--find-backend-for-model wikipedia-ai-model)
+                        gptel-backend))
+                   (t gptel-backend))))
+    (cons backend model)))
+
 ;;;###autoload
 (defun wikipedia-ai-cite (input)
   "Generate a Wikipedia citation from INPUT and insert it at point.
@@ -52,8 +94,11 @@ Requires the `gptel' package."
     (user-error "This command requires the `gptel' package"))
   (when (string-empty-p (string-trim input))
     (user-error "Input cannot be empty"))
-  (let ((buf (current-buffer))
-        (pos (point-marker)))
+  (let* ((resolved (wikipedia-ai--resolve-backend-and-model))
+         (gptel-backend (car resolved))
+         (gptel-model (cdr resolved))
+         (buf (current-buffer))
+         (pos (point-marker)))
     (message "Generating citation...")
     (gptel-request
      (format "Generate a Wikipedia citation for: %s\n\nToday's date is %s."
