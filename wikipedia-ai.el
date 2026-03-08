@@ -19,6 +19,8 @@
 
 (defvar gptel-backend)
 (defvar gptel-model)
+(defvar gptel-use-tools)
+(defvar gptel-use-context)
 (defvar gptel--known-backends)
 
 (defgroup wikipedia-ai nil
@@ -97,6 +99,8 @@ Requires the `gptel' package."
   (let* ((resolved (wikipedia-ai--resolve-backend-and-model))
          (gptel-backend (car resolved))
          (gptel-model (cdr resolved))
+         (gptel-use-tools nil)
+         (gptel-use-context nil)
          (buf (current-buffer))
          (pos (point-marker)))
     (message "Generating citation...")
@@ -105,7 +109,7 @@ Requires the `gptel' package."
              input
              (format-time-string "%Y-%m-%d"))
      :system wikipedia-ai-citation-system-prompt
-     :stream nil
+     :transforms nil
      :callback
      (lambda (response info)
        (if (not (stringp response))
