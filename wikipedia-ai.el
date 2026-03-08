@@ -37,8 +37,9 @@ back to `gptel-backend'."
   :group 'wikipedia-ai)
 
 (defcustom wikipedia-ai-model nil
-  "The gptel model for AI commands, e.g. `claude-sonnet-4-5-20250514'.
-When nil, defaults to `gptel-model'."
+  "The gptel model for AI commands.
+A fast model is recommended, such as `gemini-flash-lite-latest'. When nil,
+defaults to `gptel-model'."
   :type '(choice (const :tag "Use gptel default" nil)
                  (symbol :tag "Model name"))
   :group 'wikipedia-ai)
