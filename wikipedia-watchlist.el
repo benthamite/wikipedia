@@ -9,7 +9,10 @@
 ;;; Code:
 
 (require 'wikipedia-adapter)
+(require 'wikipedia-cache)
 (require 'wikipedia-common)
+(require 'wikipedia-diff)
+(require 'wikipedia-history)
 (require 'tabulated-list)
 (require 'iso8601)
 
@@ -28,10 +31,6 @@
 (defface wikipedia-watchlist-unread
   '((t :weight bold))
   "Face for unread watchlist entries.")
-
-(declare-function wikipedia--prefetch-watchlist-diffs "wikipedia-cache")
-(declare-function wikipedia--show-diff "wikipedia-diff")
-(declare-function wikipedia-history "wikipedia-history")
 
 (defvar wikipedia-watchlist-mode-map
   (let ((map (make-sparse-keymap)))
