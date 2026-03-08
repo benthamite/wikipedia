@@ -4,6 +4,8 @@
 
 `wikipedia` provides a comprehensive Emacs interface for editing, reviewing, and managing Wikipedia content. It builds on top of `mediawiki.el`, which handles the low-level MediaWiki API communication, and adds higher-level workflows on top: page editing with live HTML preview, a grouped and expandable watchlist with unread tracking, full revision history browsing with arbitrary diffs, user contribution inspection, XTools statistics integration, and a local SQLite mirror for offline access.
 
+![wikipedia.el screenshot](screenshot.png)
+
 The package is aimed at Wikipedia editors who want to work from within Emacs. You can open any page for editing, preview rendered HTML without leaving Emacs, save local drafts that persist across sessions, and publish changes back to the wiki. The watchlist buffer groups recent changes by page, prefetches diffs in the background, and supports a "diff follow" mode that automatically displays diffs as you navigate entries.
 
 Beyond editing, `wikipedia` offers tools for reviewing other editors' work: browse user contributions, send thank notifications, and look up detailed editing statistics via the XTools API. For power users, a synchronization system can mirror your entire watchlist into a local SQLite database for offline browsing and faster access.
