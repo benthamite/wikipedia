@@ -1,0 +1,1042 @@
+This is wikipedia.info, produced by makeinfo version 7.2 from
+wikipedia.texi.
+
+INFO-DIR-SECTION Emacs misc features
+START-INFO-DIR-ENTRY
+* Wikipedia: (wikipedia). Emacs interface for Wikipedia editing.
+END-INFO-DIR-ENTRY
+
+
+File: wikipedia.info,  Node: Top,  Next: Overview,  Up: (dir)
+
+wikipedia.el: Emacs interface for Wikipedia editing
+***************************************************
+
+This manual describes the features and customization options for the
+Emacs Lisp package ‘wikipedia.el’.
+
+* Menu:
+
+* Overview::
+* User options::
+* Commands::
+* Indices::
+
+-- The Detailed Node Listing --
+
+User options
+
+* Diff display::
+* Draft storage::
+* XTools integration::
+* Local database::
+* Synchronization::
+
+Commands
+
+* Session management::
+* Page editing::
+* Preview::
+* Draft management::
+* Watchlist::
+* Revision history::
+* User inspection::
+* XTools statistics::
+* Synchronization and local mirror::
+* Diff follow mode::
+* Transient menu::
+
+Watchlist
+
+* Navigation::
+* Actions::
+* Unread tracking::
+* Managing watched pages::
+* Full keybinding reference::
+
+Revision history
+
+* Viewing and comparing revisions::
+* Full keybinding reference: Full keybinding reference (1).
+
+User inspection
+
+* Contribution actions::
+* User page and profile commands::
+* Sending thanks::
+* Full keybinding reference: Full keybinding reference (2).
+
+XTools statistics
+
+* User statistics::
+* Page statistics::
+
+Synchronization and local mirror
+
+* Synchronizing pages::
+* Browsing the local mirror::
+* Local revision history::
+* Database management::
+
+Indices
+
+* Function index::
+* Variable index::
+
+
+File: wikipedia.info,  Node: Overview,  Next: User options,  Prev: Top,  Up: Top
+
+1 Overview
+**********
+
+The ‘wikipedia.el’ package provides a comprehensive Emacs interface for
+Wikipedia.
+It builds on top of ‘mediawiki.el’, which handles the low-level protocol
+details,
+and adds higher-level workflows for editing, reviewing, and managing
+Wikipedia
+content.
+
+   The package requires Emacs 29.1 or later and ‘mediawiki.el’ for the
+underlying API communication.  Optionally, ‘pangram.el’ can be
+installed for AI-generated text detection; when available, an "AI
+Detection" group appears in the transient menu (*note Transient menu::).
+
+Before using any commands, you must configure at least one
+wiki site via ‘mediawiki-site-alist’ and establish a session with
+‘wikipedia-login’ (*note Session management::).
+
+   The package is organized around several core workflows:
+
+   • *Page editing*: open pages for editing in ‘mediawiki-mode’ buffers,
+
+     preview rendered HTML, and publish changes back to the wiki
+     (*note Page editing::).
+
+   • *Draft management*: save work-in-progress edits as local files that
+
+     persist across sessions (*note Draft management::).
+
+   • *Watchlist*: browse your watchlist with a grouped, expandable
+     interface that shows recent changes organized by page, with unread
+     tracking and background prefetching of diffs
+     (*note Watchlist::).
+
+   • *Revision history*: inspect the full revision history of any page,
+     view diffs between arbitrary revisions, and navigate between
+     historical snapshots (*note Revision history::).
+
+   • *User inspection*: view user contributions, visit user pages, send
+     thanks, and look up detailed editing statistics via XTools
+     (*note User inspection::, *note XTools statistics::).
+
+   • *Local mirror*: synchronize watched pages to a local SQLite
+     database
+     for offline browsing and faster access (*note Synchronization and
+     local mirror::).
+
+   • *Diff follow mode*: automatically display diffs as you navigate
+     entries in the watchlist, history, or contributions buffers
+     (*note Diff follow mode::).
+
+   All commands are accessible through a unified transient menu
+(*note Transient menu::).
+
+
+File: wikipedia.info,  Node: User options,  Next: Commands,  Prev: Overview,  Up: Top
+
+2 User options
+**************
+
+* Menu:
+
+* Diff display::
+* Draft storage::
+* XTools integration::
+* Local database::
+* Synchronization::
+
+
+File: wikipedia.info,  Node: Diff display,  Next: Draft storage,  Up: User options
+
+2.1 Diff display
+================
+
+The user option ‘wikipedia-diff-function’ controls how diffs are
+displayed throughout the package.  It accepts two values:
+
+   • ‘unified’ (the default): show diffs in a single buffer using
+     Emacs's
+     built-in ‘diff-mode’.  This is compact and integrates well with the
+
+     diff follow mode (*note Diff follow mode::).
+
+   • ‘ediff’: use ‘ediff-buffers’ for side-by-side comparison.  This
+     gives
+     a richer interactive experience but opens multiple windows and is
+     incompatible with diff follow mode.
+
+   Change this option if you prefer side-by-side comparison and do not
+use
+diff follow mode.
+
+
+File: wikipedia.info,  Node: Draft storage,  Next: XTools integration,  Prev: Diff display,  Up: User options
+
+2.2 Draft storage
+=================
+
+The user option ‘wikipedia-draft-directory’ specifies the directory
+where local drafts are stored.  Each draft is saved as a ‘.wiki’ file
+named after the page title, using a byte-level encoding scheme for
+filesystem safety.  The default value is ‘wikipedia-drafts/’ inside
+‘user-emacs-directory’.
+
+   Change this if you want drafts stored in a different location, for
+example a directory that is synchronized across machines.
+
+
+File: wikipedia.info,  Node: XTools integration,  Next: Local database,  Prev: Draft storage,  Up: User options
+
+2.3 XTools integration
+======================
+
+The user option ‘wikipedia-xtools-base-url’ specifies the base URL for
+the XTools API.  The default value is ‘https://xtools.wmcloud.org/api’.
+
+You would only change this if the XTools service moves to a different
+URL.
+
+   The user option ‘wikipedia-xtools-project’ specifies the default
+project
+for XTools queries.  The default value is ‘en.wikipedia.org’.  Change
+this if you primarily edit a different Wikipedia language edition or
+another MediaWiki project (e.g., ‘de.wikipedia.org’ or
+‘commons.wikimedia.org’).
+
+
+File: wikipedia.info,  Node: Local database,  Next: Synchronization,  Prev: XTools integration,  Up: User options
+
+2.4 Local database
+==================
+
+The user option ‘wikipedia-db-file’ specifies the path to the SQLite
+database file used for local page storage.  The default value is
+‘wikipedia.db’ inside ‘user-emacs-directory’.  Change this if you want
+the database stored elsewhere, for example to keep it separate from
+your Emacs configuration.
+
+
+File: wikipedia.info,  Node: Synchronization,  Prev: Local database,  Up: User options
+
+2.5 Synchronization
+===================
+
+The user option ‘wikipedia-sync-revision-limit’ controls the maximum
+number of revisions to synchronize per page.  The default value is 20.
+Increase this if you want deeper local history; decrease it if
+synchronization is too slow.
+
+   The user option ‘wikipedia-sync-fetch-content’ controls whether full
+revision content (wikitext) is fetched during synchronization.  When
+non-nil (the default), the content of the most recent revision is
+downloaded and stored locally, enabling offline viewing and local diffs.
+
+Set this to ‘nil’ if you only want revision metadata without the actual
+page content.
+
+
+File: wikipedia.info,  Node: Commands,  Next: Indices,  Prev: User options,  Up: Top
+
+3 Commands
+**********
+
+* Menu:
+
+* Session management::
+* Page editing::
+* Preview::
+* Draft management::
+* Watchlist::
+* Revision history::
+* User inspection::
+* XTools statistics::
+* Synchronization and local mirror::
+* Diff follow mode::
+* Transient menu::
+
+
+File: wikipedia.info,  Node: Session management,  Next: Page editing,  Up: Commands
+
+3.1 Session management
+======================
+
+The command ‘wikipedia-login’ establishes a session with a wiki site.
+When called interactively, it prompts for a site name from those
+configured in ‘mediawiki-site-alist’.  You must call this command (or
+let it be called implicitly) before using any other ‘wikipedia.el’
+commands.  Most commands call ‘wp--ensure-logged-in’ internally, which
+will prompt you to select a site if no session is active.
+
+
+File: wikipedia.info,  Node: Page editing,  Next: Preview,  Prev: Session management,  Up: Commands
+
+3.2 Page editing
+================
+
+The command ‘wikipedia-open’ opens a Wikipedia page for editing in a
+‘mediawiki-mode’ buffer.  When called interactively, it prompts for the
+page title, defaulting to the title at point if available (for example,
+when invoked from a watchlist or history buffer).
+
+   The command ‘wikipedia-publish’ saves the current buffer's content
+back
+to the wiki.  It accepts an optional edit summary; when called
+interactively, ‘mediawiki.el’ prompts for one if needed.  The alias
+‘wikipedia-save’ is provided for discoverability.
+
+   The command ‘wikipedia-browse’ opens the page in an external web
+browser
+via ‘browse-url’.  Like ‘wikipedia-open’, it defaults to the title at
+point.
+
+   The minor mode ‘wikipedia-edit-mode’ provides additional keybindings
+when
+editing a wiki page.  It displays ‘WP’ in the mode line lighter and
+binds ‘C-c C-p’ to ‘wikipedia-preview’.
+
+
+File: wikipedia.info,  Node: Preview,  Next: Draft management,  Prev: Page editing,  Up: Commands
+
+3.3 Preview
+===========
+
+The command ‘wikipedia-preview’ sends the current buffer's wikitext to
+the MediaWiki parse API and displays the rendered HTML in a dedicated
+preview buffer.  The preview uses ‘shr-render-region’ to display the
+HTML as formatted text within Emacs.
+
+   The preview buffer uses ‘wikipedia-preview-mode’, which provides the
+following keybindings:
+
+Key   Command                       Description
+------------------------------------------------------------------------
+‘e’   ‘wikipedia-preview-edit’      Switch back to the source buffer
+‘g’   ‘wikipedia-preview-refresh’   Re-render the preview from source
+‘q’   ‘quit-window’                 Close the preview window
+
+   The preview buffer supports ‘revert-buffer’ (bound to ‘g’ in
+‘special-mode’), which re-fetches the preview from the source buffer.
+
+
+File: wikipedia.info,  Node: Draft management,  Next: Watchlist,  Prev: Preview,  Up: Commands
+
+3.4 Draft management
+====================
+
+Drafts allow you to save work-in-progress edits locally before
+publishing them to the wiki.  Each draft is a ‘.wiki’ file stored in
+‘wikipedia-draft-directory’ (*note Draft storage::).
+
+   The command ‘wikipedia-draft-save’ saves the current buffer's content
+as
+a local draft.  It requires the buffer to have a page title set (as is
+the case when editing a page opened via ‘wikipedia-open’).  Saving a
+draft for the same page overwrites the previous draft.
+
+   The command ‘wikipedia-draft-open’ prompts you to select a draft from
+
+the list of saved drafts, then opens it in a ‘mediawiki-mode’ buffer
+with ‘wikipedia-edit-mode’ enabled.  From there, you can continue
+editing and eventually publish with ‘wikipedia-publish’.
+
+   The command ‘wikipedia-draft-delete’ prompts for a draft to delete,
+with
+a confirmation prompt before removing the file.
+
+   Page titles are encoded into safe filenames using a byte-level escape
+
+scheme: characters outside ‘[a-zA-Z0-9 .-]’ are replaced with ‘_XX’
+sequences (where ‘XX’ is the hexadecimal byte value of each UTF-8
+byte).  This ensures filenames are portable across operating systems
+while remaining mostly human-readable for ASCII titles.
+
+
+File: wikipedia.info,  Node: Watchlist,  Next: Revision history,  Prev: Draft management,  Up: Commands
+
+3.5 Watchlist
+=============
+
+The command ‘wikipedia-watchlist’ opens a buffer displaying your
+Wikipedia watchlist.  Entries are grouped by page title: each page
+appears as a collapsible group header showing the most recent change
+summary, the contributing users, and the total size change.  Pages with
+multiple recent changes display a count (e.g., "Article name (3
+changes)").
+
+   The watchlist fetches unseen changes from the last 30 days, excluding
+
+bot edits and minor edits.  After loading, it asynchronously prefetches
+revision content in the background so that diffs can be displayed
+instantly when you navigate to an entry.
+
+* Menu:
+
+* Navigation::
+* Actions::
+* Unread tracking::
+* Managing watched pages::
+* Full keybinding reference::
+
+
+File: wikipedia.info,  Node: Navigation,  Next: Actions,  Up: Watchlist
+
+3.5.1 Navigation
+----------------
+
+Group headers with more than one change can be expanded and collapsed.
+The command ‘wikipedia-watchlist-toggle-expand’, bound to ‘TAB’ and
+‘SPC’, toggles the group at point.  Expanded groups show individual
+entries indented below the header, with per-edit timestamps, users, size
+
+changes, and summaries.  The indicators ‘▶’ (collapsed) and ‘▼’
+(expanded) show the current state.
+
+   The commands ‘wikipedia-watchlist-expand-all’ (‘e’) and
+‘wikipedia-watchlist-collapse-all’ (‘c’) expand or collapse every group
+at once.
+
+
+File: wikipedia.info,  Node: Actions,  Next: Unread tracking,  Prev: Navigation,  Up: Watchlist
+
+3.5.2 Actions
+-------------
+
+The command ‘wikipedia-watchlist-open-page’ (‘RET’, ‘o’) opens the page
+at point for editing, marking it as read.  The command
+‘wikipedia-watchlist-show-diff’ (‘d’, ‘v’) displays the diff for the
+change at point, using the method specified by ‘wikipedia-diff-function’
+
+(*note Diff display::).  The command
+‘wikipedia-watchlist-show-history’ (‘h’) opens the full revision history
+
+for the page.  The command ‘wikipedia-watchlist-browse’ (‘b’) opens the
+page in an external browser.
+
+
+File: wikipedia.info,  Node: Unread tracking,  Next: Managing watched pages,  Prev: Actions,  Up: Watchlist
+
+3.5.3 Unread tracking
+---------------------
+
+Unread entries are displayed in bold (using the
+‘wikipedia-watchlist-unread’
+face).  Opening a page or viewing its diff marks it as read, both
+locally and on the server.  The command
+‘wikipedia-watchlist-mark-all-read’
+(‘m’ or ‘!’) marks every entry as read.
+
+
+File: wikipedia.info,  Node: Managing watched pages,  Next: Full keybinding reference,  Prev: Unread tracking,  Up: Watchlist
+
+3.5.4 Managing watched pages
+----------------------------
+
+The command ‘wikipedia-watchlist-watch’ (‘w’) adds a page to your
+watchlist.  The command ‘wikipedia-watchlist-unwatch’ (‘x’) removes a
+page, after confirmation.  Both commands default to the title at point
+and send the request asynchronously.
+
+
+File: wikipedia.info,  Node: Full keybinding reference,  Prev: Managing watched pages,  Up: Watchlist
+
+3.5.5 Full keybinding reference
+-------------------------------
+
+Key     Command                               Description
+------------------------------------------------------------------------
+‘RET’   ‘wikipedia-watchlist-open-page’       Open page for editing
+‘TAB’   ‘wikipedia-watchlist-toggle-expand’   Toggle group expansion
+‘SPC’   ‘wikipedia-watchlist-toggle-expand’   Toggle group expansion
+‘d’     ‘wikipedia-watchlist-show-diff’       Show diff for entry
+‘v’     ‘wikipedia-watchlist-show-diff’       Show diff for entry
+‘f’     ‘wikipedia-diff-follow-mode’          Toggle diff follow mode
+‘h’     ‘wikipedia-watchlist-show-history’    Show page history
+‘b’     ‘wikipedia-watchlist-browse’          Open in browser
+‘B’     ‘wikipedia-browse’                    Browse any page
+‘e’     ‘wikipedia-watchlist-expand-all’      Expand all groups
+‘c’     ‘wikipedia-watchlist-collapse-all’    Collapse all groups
+‘m’     ‘wikipedia-watchlist-mark-all-read’   Mark all as read
+‘!’     ‘wikipedia-watchlist-mark-all-read’   Mark all as read
+‘o’     ‘wikipedia-watchlist-open-page’       Open page for editing
+‘t’     ‘wikipedia-thank’                     Thank user for edit
+‘u’     ‘wikipedia-user-at-point’             Inspect user at point
+‘s’     ‘wikipedia-xtools-user-stats’         User stats via XTools
+‘w’     ‘wikipedia-watchlist-watch’           Watch a page
+‘x’     ‘wikipedia-watchlist-unwatch’         Unwatch a page
+‘g’     ‘wikipedia-watchlist-refresh’         Refresh the watchlist
+‘q’     ‘quit-window’                         Close the window
+
+
+File: wikipedia.info,  Node: Revision history,  Next: User inspection,  Prev: Watchlist,  Up: Commands
+
+3.6 Revision history
+====================
+
+The command ‘wikipedia-history’ opens a buffer displaying the revision
+history of a page.  When called interactively, it prompts for the page
+title.  The history buffer shows each revision's ID, date, author,
+size, and edit summary in a tabulated list, sorted by date (newest
+first).
+
+* Menu:
+
+* Viewing and comparing revisions::
+* Full keybinding reference: Full keybinding reference (1).
+
+
+File: wikipedia.info,  Node: Viewing and comparing revisions,  Next: Full keybinding reference (1),  Up: Revision history
+
+3.6.1 Viewing and comparing revisions
+-------------------------------------
+
+The command ‘wikipedia-history-view-revision’ (‘RET’, ‘v’) fetches and
+displays the full wikitext of the revision at point in a read-only
+buffer.
+
+   The command ‘wikipedia-history-diff-to-previous’ (‘d’) shows the diff
+
+between the revision at point and its parent revision.  This corresponds
+
+to Wikipedia's "prev" link.  The command
+‘wikipedia-history-diff-to-current’ (‘c’) shows the diff between the
+revision at point and the most recent revision, corresponding to
+Wikipedia's "cur" link.
+
+   The command ‘wikipedia-history-diff-revisions’ (‘D’) prompts for two
+revision IDs and displays the diff between them.  This is useful for
+comparing non-adjacent revisions.
+
+   The command ‘wikipedia-history-browse-revision’ (‘b’) opens the
+revision
+at point in an external browser.
+
+
+File: wikipedia.info,  Node: Full keybinding reference (1),  Prev: Viewing and comparing revisions,  Up: Revision history
+
+3.6.2 Full keybinding reference
+-------------------------------
+
+Key     Command                                Description
+--------------------------------------------------------------------------
+‘RET’   ‘wikipedia-history-view-revision’      View revision wikitext
+‘v’     ‘wikipedia-history-view-revision’      View revision wikitext
+‘d’     ‘wikipedia-history-diff-to-previous’   Diff to parent (prev)
+‘c’     ‘wikipedia-history-diff-to-current’    Diff to latest (cur)
+‘D’     ‘wikipedia-history-diff-revisions’     Diff arbitrary revisions
+‘f’     ‘wikipedia-diff-follow-mode’           Toggle diff follow mode
+‘b’     ‘wikipedia-history-browse-revision’    Open revision in browser
+‘B’     ‘wikipedia-browse’                     Browse any page
+‘o’     ‘wikipedia-open’                       Open page for editing
+‘t’     ‘wikipedia-thank’                      Thank user for edit
+‘u’     ‘wikipedia-user-at-point’              Inspect user at point
+‘s’     ‘wikipedia-xtools-user-stats’          User stats via XTools
+‘w’     ‘wikipedia-watchlist-watch’            Watch this page
+‘x’     ‘wikipedia-watchlist-unwatch’          Unwatch this page
+‘g’     ‘wikipedia-history-refresh’            Refresh history
+‘q’     ‘quit-window’                          Close the window
+
+
+File: wikipedia.info,  Node: User inspection,  Next: XTools statistics,  Prev: Revision history,  Up: Commands
+
+3.7 User inspection
+===================
+
+The command ‘wikipedia-user-contributions’ opens a buffer displaying a
+user's recent contributions.  When called interactively, it prompts for
+the username, defaulting to the user at point when available (e.g., when
+
+invoked from a watchlist or history buffer).  The contributions buffer
+shows each edit's timestamp, page title, size change, and edit summary.
+
+* Menu:
+
+* Contribution actions::
+* User page and profile commands::
+* Sending thanks::
+* Full keybinding reference: Full keybinding reference (2).
+
+
+File: wikipedia.info,  Node: Contribution actions,  Next: User page and profile commands,  Up: User inspection
+
+3.7.1 Contribution actions
+--------------------------
+
+The command ‘wikipedia-user-contributions-view-diff’ (‘RET’, ‘d’) shows
+the diff between the contribution at point and its parent revision.  The
+
+command ‘wikipedia-user-contributions-view-revision’ (‘v’) displays the
+full wikitext.  The command ‘wikipedia-user-contributions-open-page’
+(‘o’) opens the page for editing.
+
+   The command ‘wikipedia-user-contributions-browse’ (‘b’) opens the
+revision in an external browser.  The command
+‘wikipedia-user-contributions-show-history’ (‘h’) opens the full page
+history.  The command ‘wikipedia-user-contributions-thank’ (‘t’) sends a
+
+thank notification for the edit.
+
+
+File: wikipedia.info,  Node: User page and profile commands,  Next: Sending thanks,  Prev: Contribution actions,  Up: User inspection
+
+3.7.2 User page and profile commands
+------------------------------------
+
+The command ‘wikipedia-user-page’ opens the user page (‘User:USERNAME’)
+for editing.  The command ‘wikipedia-user-talk’ opens the user's talk
+page.  The command ‘wikipedia-user-browse’ opens the user page in an
+external browser.
+
+   The command ‘wikipedia-user-at-point’ inspects the user at point in
+any
+of the list buffers (watchlist, history, contributions), opening their
+contributions.
+
+   The command ‘wikipedia-user-stats’ is a convenience wrapper that
+calls
+‘wikipedia-xtools-user-stats’ (*note XTools statistics::).
+
+
+File: wikipedia.info,  Node: Sending thanks,  Next: Full keybinding reference (2),  Prev: User page and profile commands,  Up: User inspection
+
+3.7.3 Sending thanks
+--------------------
+
+The command ‘wikipedia-thank’ sends a thank notification to the author
+of the revision at point.  It prompts for confirmation before sending.
+This command works from any buffer where a revision ID is available
+(history, watchlist, or contributions).
+
+
+File: wikipedia.info,  Node: Full keybinding reference (2),  Prev: Sending thanks,  Up: User inspection
+
+3.7.4 Full keybinding reference
+-------------------------------
+
+Key     Command                                        Description
+---------------------------------------------------------------------------------
+‘RET’   ‘wikipedia-user-contributions-view-diff’       Show diff
+‘d’     ‘wikipedia-user-contributions-view-diff’       Show diff
+‘v’     ‘wikipedia-user-contributions-view-revision’   View wikitext
+‘o’     ‘wikipedia-user-contributions-open-page’       Open page for editing
+‘h’     ‘wikipedia-user-contributions-show-history’    Show page history
+‘b’     ‘wikipedia-user-contributions-browse’          Open in browser
+‘B’     ‘wikipedia-browse’                             Browse any page
+‘f’     ‘wikipedia-diff-follow-mode’                   Toggle diff follow mode
+‘t’     ‘wikipedia-user-contributions-thank’           Thank for this edit
+‘u’     ‘wikipedia-user-at-point’                      Inspect user at point
+‘s’     ‘wikipedia-user-stats’                         User stats via XTools
+‘w’     ‘wikipedia-watchlist-watch’                    Watch this page
+‘x’     ‘wikipedia-watchlist-unwatch’                  Unwatch this page
+‘g’     ‘wikipedia-user-contributions-refresh’         Refresh contributions
+‘q’     ‘quit-window’                                  Close the window
+
+
+File: wikipedia.info,  Node: XTools statistics,  Next: Synchronization and local mirror,  Prev: User inspection,  Up: Commands
+
+3.8 XTools statistics
+=====================
+
+The XTools commands fetch and display editing statistics from the
+XTools API (https://www.mediawiki.org/wiki/XTools/API), a service that
+provides detailed analysis of editing
+activity on MediaWiki projects.  These commands supplement the
+information available through the MediaWiki API with data such as top
+edited pages and detailed edit breakdowns.
+
+* Menu:
+
+* User statistics::
+* Page statistics::
+
+
+File: wikipedia.info,  Node: User statistics,  Next: Page statistics,  Up: XTools statistics
+
+3.8.1 User statistics
+---------------------
+
+The command ‘wikipedia-xtools-user-stats’ displays comprehensive
+statistics for a user.  The output includes:
+
+   • Basic information: user ID, registration date, project.
+   • Admin status (highlighted if the user is a sysop or bureaucrat).
+   • Edit counts: live edits, deleted edits, total, and pages created.
+   • Activity period: first edit and most recent edit timestamps.
+   • User group memberships (local and global).
+   • Top 10 most-edited pages in the article namespace.
+
+   The command combines data from both the XTools API (edit counts) and
+the
+MediaWiki API (registration, groups, contribution timestamps) to present
+
+a unified view.
+
+
+File: wikipedia.info,  Node: Page statistics,  Prev: User statistics,  Up: XTools statistics
+
+3.8.2 Page statistics
+---------------------
+
+The command ‘wikipedia-xtools-page-stats’ displays statistics for a
+page, including revision count, number of editors, minor edit count,
+average edit size, page size, creation date, and top editors.
+
+   The command ‘wikipedia-xtools-top-editors’ displays a detailed list
+of
+the top editors for a page, showing each editor's edit count, minor edit
+
+count, and the date range of their activity.
+
+
+File: wikipedia.info,  Node: Synchronization and local mirror,  Next: Diff follow mode,  Prev: XTools statistics,  Up: Commands
+
+3.9 Synchronization and local mirror
+====================================
+
+The synchronization and mirror system stores Wikipedia pages and their
+revision history in a local SQLite database, enabling offline browsing
+and faster access to frequently visited pages.
+
+* Menu:
+
+* Synchronizing pages::
+* Browsing the local mirror::
+* Local revision history::
+* Database management::
+
+
+File: wikipedia.info,  Node: Synchronizing pages,  Next: Browsing the local mirror,  Up: Synchronization and local mirror
+
+3.9.1 Synchronizing pages
+-------------------------
+
+The command ‘wikipedia-sync-page’ synchronizes a single page to the
+local database.  It downloads revision metadata (up to
+‘wikipedia-sync-revision-limit’ revisions) and, if
+‘wikipedia-sync-fetch-content’ is non-nil, the full wikitext of the most
+
+recent revision.
+
+   The command ‘wikipedia-sync-watchlist’ performs a bulk
+synchronization of
+all pages from your watchlist.  It first fetches the watchlist, marks
+each page as watched in the database, and then synchronizes each page
+individually with a brief delay between requests to avoid overloading
+the server.  Pages that fail to synchronize are reported in a summary
+message without aborting the remaining pages.
+
+   The command ‘wikipedia-sync-update’ re-synchronizes all pages already
+
+marked as watched in the local database.  Use this for routine updates
+after the initial ‘wikipedia-sync-watchlist’ import.
+
+
+File: wikipedia.info,  Node: Browsing the local mirror,  Next: Local revision history,  Prev: Synchronizing pages,  Up: Synchronization and local mirror
+
+3.9.2 Browsing the local mirror
+-------------------------------
+
+The command ‘wikipedia-mirror’ opens a buffer listing all pages stored
+in
+the local database, showing each page's title, revision count, last sync
+
+time, and watched status.
+
+   From the mirror browser, you can open a page for online editing
+(‘RET’,
+‘o’), view its local revision history (‘h’), synchronize a single page
+(‘s’), or synchronize all watched pages (‘S’).
+
+Key     Command                           Description
+-------------------------------------------------------------------------
+‘RET’   ‘wikipedia-mirror-open-page’      Open page for online editing
+‘o’     ‘wikipedia-mirror-open-page’      Open page for online editing
+‘h’     ‘wikipedia-mirror-show-history’   Show local revision history
+‘s’     ‘wikipedia-mirror-sync-page’      Sync this page
+‘S’     ‘wikipedia-mirror-sync-all’       Sync all watched pages
+‘g’     ‘wikipedia-mirror-refresh’        Refresh the list
+‘q’     ‘quit-window’                     Close the window
+
+
+File: wikipedia.info,  Node: Local revision history,  Next: Database management,  Prev: Browsing the local mirror,  Up: Synchronization and local mirror
+
+3.9.3 Local revision history
+----------------------------
+
+The local history buffer shows revisions stored in the database for a
+given page.  The command ‘wikipedia-mirror-history-view’ (‘RET’, ‘v’)
+displays the stored wikitext of the revision at point.  The command
+‘wikipedia-mirror-history-diff’ (‘d’) shows the diff between the
+revision and its parent, using locally stored content.
+
+   Both commands require that the revision content was downloaded during
+
+synchronization.  If content is not available, an error is reported.
+
+Key     Command                              Description
+-----------------------------------------------------------------------
+‘RET’   ‘wikipedia-mirror-history-view’      View stored wikitext
+‘v’     ‘wikipedia-mirror-history-view’      View stored wikitext
+‘d’     ‘wikipedia-mirror-history-diff’      Diff to parent revision
+‘g’     ‘wikipedia-mirror-history-refresh’   Refresh history
+‘q’     ‘quit-window’                        Close the window
+
+
+File: wikipedia.info,  Node: Database management,  Prev: Local revision history,  Up: Synchronization and local mirror
+
+3.9.4 Database management
+-------------------------
+
+The command ‘wikipedia-db-close’ closes the database connection.  The
+connection is opened lazily on first use and remains open for the
+duration of the Emacs session.
+
+   The command ‘wikipedia-db-stats’ displays a summary of the database
+contents: the number of pages, watched pages, revisions, and revisions
+with stored content.
+
+
+File: wikipedia.info,  Node: Diff follow mode,  Next: Transient menu,  Prev: Synchronization and local mirror,  Up: Commands
+
+3.10 Diff follow mode
+=====================
+
+The minor mode ‘wikipedia-diff-follow-mode’ automatically displays the
+diff for the entry at point whenever you move to a different line in a
+list buffer.  It works in the watchlist, history, and contributions
+buffers and is toggled with ‘f’ in any of these modes.
+
+   When enabled, navigating to a new entry triggers an automatic diff
+display in an adjacent window.  If both revisions are already in the
+cache (populated by the watchlist's background prefetching), the diff
+appears instantly.  Otherwise, the revisions are fetched asynchronously
+and the diff is displayed when both arrive, with a "Loading diff..."
+placeholder in the meantime.
+
+   Diff follow mode requires ‘wikipedia-diff-function’ to be set to
+‘unified’ (*note Diff display::).  Attempting
+to enable it when ‘ediff’ is selected produces a warning and the mode
+remains disabled.
+
+   In watchlist mode, viewing a diff via follow mode also marks the
+entry
+as read (*note Unread tracking::).
+
+
+File: wikipedia.info,  Node: Transient menu,  Prev: Diff follow mode,  Up: Commands
+
+3.11 Transient menu
+===================
+
+The command ‘wikipedia-transient’ opens a transient menu providing quick
+
+access to all ‘wikipedia.el’ commands.  The menu is organized into
+groups:
+
+   • *Page*: open, publish, preview, browse, and login.
+   • *Draft*: save, open, and delete drafts.
+   • *Watchlist*: open the watchlist, watch/unwatch pages, browse, and
+     mark
+     all read.
+   • *History*: open page history.
+   • *User*: user contributions, user page, user talk, browse user, and
+     thank.
+   • *XTools*: user stats, page stats, and top editors.
+   • *Sync & Mirror*: sync page, sync watchlist, sync update, and mirror
+
+     browser.
+   • *AI Detection* (requires ‘pangram.el’): detect AI-generated text
+     and
+     clear overlays.  This group is only shown when ‘pangram.el’ is
+     installed.
+
+   Bind ‘wikipedia-transient’ to a convenient key for quick access to
+any
+command in the package.
+
+
+File: wikipedia.info,  Node: Indices,  Prev: Commands,  Up: Top
+
+4 Indices
+*********
+
+* Menu:
+
+* Function index::
+* Variable index::
+
+
+File: wikipedia.info,  Node: Function index,  Next: Variable index,  Up: Indices
+
+4.1 Function index
+==================
+
+ [index ]
+* Menu:
+
+* wikipedia-browse:                      Page editing.         (line  6)
+* wikipedia-db-close:                    Database management.  (line  6)
+* wikipedia-db-stats:                    Database management.  (line  6)
+* wikipedia-diff-follow-mode:            Diff follow mode.     (line  6)
+* wikipedia-draft-delete:                Draft management.     (line  6)
+* wikipedia-draft-open:                  Draft management.     (line  6)
+* wikipedia-draft-save:                  Draft management.     (line  6)
+* wikipedia-edit-mode:                   Page editing.         (line 22)
+* wikipedia-history:                     Revision history.     (line  6)
+* wikipedia-history-browse-revision:     Viewing and comparing revisions.
+                                                               (line  6)
+* wikipedia-history-diff-revisions:      Viewing and comparing revisions.
+                                                               (line  6)
+* wikipedia-history-diff-to-current:     Viewing and comparing revisions.
+                                                               (line  6)
+* wikipedia-history-diff-to-previous:    Viewing and comparing revisions.
+                                                               (line  6)
+* wikipedia-history-refresh:             Revision history.     (line  6)
+* wikipedia-history-view-revision:       Viewing and comparing revisions.
+                                                               (line  6)
+* wikipedia-login:                       Session management.   (line  6)
+* wikipedia-mirror:                      Browsing the local mirror.
+                                                               (line  6)
+* wikipedia-mirror-history-diff:         Local revision history.
+                                                               (line  6)
+* wikipedia-mirror-history-refresh:      Local revision history.
+                                                               (line  6)
+* wikipedia-mirror-history-view:         Local revision history.
+                                                               (line  6)
+* wikipedia-mirror-open-page:            Browsing the local mirror.
+                                                               (line  6)
+* wikipedia-mirror-refresh:              Browsing the local mirror.
+                                                               (line  6)
+* wikipedia-mirror-show-history:         Browsing the local mirror.
+                                                               (line  6)
+* wikipedia-mirror-sync-all:             Browsing the local mirror.
+                                                               (line  6)
+* wikipedia-mirror-sync-page:            Browsing the local mirror.
+                                                               (line  6)
+* wikipedia-open:                        Page editing.         (line  6)
+* wikipedia-preview:                     Preview.              (line  6)
+* wikipedia-preview-edit:                Preview.              (line  6)
+* wikipedia-preview-refresh:             Preview.              (line  6)
+* wikipedia-publish:                     Page editing.         (line  6)
+* wikipedia-sync-page:                   Synchronizing pages.  (line  6)
+* wikipedia-sync-update:                 Synchronizing pages.  (line  6)
+* wikipedia-sync-watchlist:              Synchronizing pages.  (line  6)
+* wikipedia-thank:                       Sending thanks.       (line  6)
+* wikipedia-transient:                   Transient menu.       (line  6)
+* wikipedia-user-at-point:               User page and profile commands.
+                                                               (line  6)
+* wikipedia-user-browse:                 User page and profile commands.
+                                                               (line  6)
+* wikipedia-user-contributions:          User inspection.      (line  6)
+* wikipedia-user-contributions-browse:   Contribution actions. (line  6)
+* wikipedia-user-contributions-open-page: Contribution actions.
+                                                               (line  6)
+* wikipedia-user-contributions-refresh:  User inspection.      (line  6)
+* wikipedia-user-contributions-show-history: Contribution actions.
+                                                               (line  6)
+* wikipedia-user-contributions-thank:    Contribution actions. (line  6)
+* wikipedia-user-contributions-view-diff: Contribution actions.
+                                                               (line  6)
+* wikipedia-user-contributions-view-revision: Contribution actions.
+                                                               (line  6)
+* wikipedia-user-page:                   User page and profile commands.
+                                                               (line  6)
+* wikipedia-user-stats:                  User page and profile commands.
+                                                               (line  6)
+* wikipedia-user-talk:                   User page and profile commands.
+                                                               (line  6)
+* wikipedia-watchlist:                   Watchlist.            (line  6)
+* wikipedia-watchlist-browse:            Actions.              (line  6)
+* wikipedia-watchlist-collapse-all:      Navigation.           (line  6)
+* wikipedia-watchlist-expand-all:        Navigation.           (line  6)
+* wikipedia-watchlist-mark-all-read:     Unread tracking.      (line  6)
+* wikipedia-watchlist-open-page:         Actions.              (line  6)
+* wikipedia-watchlist-refresh:           Watchlist.            (line  6)
+* wikipedia-watchlist-show-diff:         Actions.              (line  6)
+* wikipedia-watchlist-show-history:      Actions.              (line  6)
+* wikipedia-watchlist-toggle-expand:     Navigation.           (line  6)
+* wikipedia-watchlist-unwatch:           Managing watched pages.
+                                                               (line  6)
+* wikipedia-watchlist-watch:             Managing watched pages.
+                                                               (line  6)
+* wikipedia-xtools-page-stats:           Page statistics.      (line  6)
+* wikipedia-xtools-top-editors:          Page statistics.      (line  6)
+* wikipedia-xtools-user-stats:           User statistics.      (line  6)
+
+
+File: wikipedia.info,  Node: Variable index,  Prev: Function index,  Up: Indices
+
+4.2 Variable index
+==================
+
+ [index ]
+* Menu:
+
+* wikipedia-db-file:                     Local database.        (line 6)
+* wikipedia-diff-function:               Diff display.          (line 6)
+* wikipedia-draft-directory:             Draft storage.         (line 6)
+* wikipedia-sync-fetch-content:          Synchronization.       (line 6)
+* wikipedia-sync-revision-limit:         Synchronization.       (line 6)
+* wikipedia-xtools-base-url:             XTools integration.    (line 6)
+* wikipedia-xtools-project:              XTools integration.    (line 6)
+
+
+Tag Table:
+Node: Top222
+Node: Overview1585
+Node: User options3834
+Node: Diff display4061
+Node: Draft storage4821
+Node: XTools integration5414
+Node: Local database6117
+Node: Synchronization6585
+Node: Commands7329
+Node: Session management7677
+Node: Page editing8229
+Node: Preview9276
+Node: Draft management10251
+Node: Watchlist11624
+Node: Navigation12482
+Node: Actions13154
+Node: Unread tracking13809
+Node: Managing watched pages14241
+Node: Full keybinding reference14690
+Node: Revision history16533
+Node: Viewing and comparing revisions17077
+Node: Full keybinding reference (1)18104
+Node: User inspection19641
+Node: Contribution actions20310
+Node: User page and profile commands21146
+Node: Sending thanks21912
+Node: Full keybinding reference (2)22356
+Node: XTools statistics23890
+Node: User statistics24467
+Node: Page statistics25275
+Node: Synchronization and local mirror25818
+Node: Synchronizing pages26329
+Node: Browsing the local mirror27400
+Node: Local revision history28651
+Node: Database management29853
+Node: Diff follow mode30368
+Node: Transient menu31520
+Node: Indices32557
+Node: Function index32693
+Node: Variable index39168
+
+End Tag Table
+
+
+Local Variables:
+coding: utf-8
+Info-documentlanguage: en
+End:

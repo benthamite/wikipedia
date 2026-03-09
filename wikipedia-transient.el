@@ -25,6 +25,7 @@
 ;;;###autoload (autoload 'wikipedia-transient "wikipedia-transient" nil t)
 (transient-define-prefix wikipedia-transient ()
   "Wikipedia commands."
+  :info-manual "(wikipedia)"
   [["Page"
     ("o" "Open page" wikipedia-open)
     ("P" "Publish page" wikipedia-publish)
