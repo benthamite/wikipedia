@@ -146,12 +146,6 @@ Returns the parsed HTML as a string."
   (when (bound-and-true-p mediawiki-site)
     (setq wp--current-site mediawiki-site)))
 
-(defun wp--get-latest-revid (title)
-  "Return the latest revision ID for TITLE."
-  (let ((history (wp--get-page-history title 1)))
-    (when history
-      (alist-get 'revid (car history)))))
-
 (defun wp--get-page-history (title &optional limit)
   "Fetch revision history for TITLE.
 LIMIT is the maximum number of revisions to fetch (default 50).
