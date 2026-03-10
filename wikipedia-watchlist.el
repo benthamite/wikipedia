@@ -561,6 +561,32 @@ Unscored entries sort after scored ones."
         (message "Score %.2f: %s" (car score-data) (cdr score-data))
       (message "No AI review score for this entry"))))
 
+;;;; Score reason auto-display
+
+(defcustom wikipedia-watchlist-score-reason-auto nil
+  "When non-nil, automatically show the AI score reason in the echo area.
+Displays the score and reason for the entry at point whenever the
+cursor moves to a different entry."
+  :type 'boolean
+  :group 'wikipedia-ai)
+
+(defvar-local wikipedia-watchlist--score-reason-last-title nil
+  "Last title for which the score reason was auto-displayed.")
+
+(defun wikipedia-watchlist--score-reason-auto-show ()
+  "Show score reason for entry at point if it changed."
+  (when wikipedia-watchlist-score-reason-auto
+    (let* ((title (wikipedia-watchlist--title-at-point))
+           (score-data (and title (gethash title wikipedia-watchlist--scores))))
+      (when (and score-data (not (equal title wikipedia-watchlist--score-reason-last-title)))
+        (setq wikipedia-watchlist--score-reason-last-title title)
+        (message "Score %.2f: %s" (car score-data) (cdr score-data))))))
+
+(add-hook 'wikipedia-watchlist-mode-hook
+          (lambda ()
+            (add-hook 'post-command-hook
+                      #'wikipedia-watchlist--score-reason-auto-show nil t)))
+
 (provide 'wikipedia-watchlist)
 
 ;;; wikipedia-watchlist.el ends here
