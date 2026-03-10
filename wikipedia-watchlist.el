@@ -8,6 +8,7 @@
 
 ;;; Code:
 
+(require 'cl-lib)
 (require 'wikipedia-adapter)
 (require 'wikipedia-cache)
 (require 'wikipedia-common)
@@ -148,15 +149,18 @@ Populated by `wikipedia-ai-review-watchlist'.")
     widths))
 
 (defun wikipedia-watchlist--build-format (max-widths actual-widths)
-  "Build column format using minimum of MAX-WIDTHS and ACTUAL-WIDTHS."
-  (vector
-   (list "" (min (nth 0 max-widths) (nth 0 actual-widths)) nil)
-   (list "Page" (min (nth 1 max-widths) (nth 1 actual-widths)) t)
-   (list "Time" (min (nth 2 max-widths) (nth 2 actual-widths)) t)
-   (list "User" (min (nth 3 max-widths) (nth 3 actual-widths)) t)
-   (list "Change" (min (nth 4 max-widths) (nth 4 actual-widths)) t)
-   (list "Score" (min (nth 5 max-widths) (nth 5 actual-widths)) t)
-   (list "Summary" 0 nil)))
+  "Build column format using minimum of MAX-WIDTHS and ACTUAL-WIDTHS.
+Column widths are never smaller than the header name length."
+  (cl-flet ((w (i name) (min (nth i max-widths)
+                              (max (nth i actual-widths) (length name)))))
+    (vector
+     (list "" (w 0 "") nil)
+     (list "Page" (w 1 "Page") t)
+     (list "Time" (w 2 "Time") t)
+     (list "User" (w 3 "User") t)
+     (list "Change" (w 4 "Change") t)
+     (list "Score" (w 5 "Score") t)
+     (list "Summary" 0 nil))))
 
 (defun wikipedia-watchlist--build-display-entries ()
   "Build the list of display entries from grouped data."
@@ -205,13 +209,19 @@ The entry ID is (group . TITLE)."
             entries))
 
 (defun wikipedia-watchlist--apply-unread-face (row unread-p)
-  "Apply unread face to ROW if UNREAD-P is non-nil."
+  "Apply unread face to ROW if UNREAD-P is non-nil.
+Composes with any existing face on the cell rather than replacing it."
   (if unread-p
       (let ((new-row (copy-sequence row)))
         (dotimes (i (length new-row))
           (let ((cell (aref new-row i)))
             (when (stringp cell)
-              (aset new-row i (propertize cell 'face 'wikipedia-watchlist-unread)))))
+              (let ((existing (get-text-property 0 'face cell)))
+                (aset new-row i
+                      (propertize cell 'face
+                                  (if existing
+                                      (list existing 'wikipedia-watchlist-unread)
+                                    'wikipedia-watchlist-unread)))))))
         new-row)
     row))
 
@@ -522,10 +532,10 @@ spanning from the oldest base revision to the newest revision."
                       ((>= score 0.7) 'wikipedia-watchlist-score-high)
                       ((<= score 0.3) 'wikipedia-watchlist-score-low)
                       (t 'default))))
-          (propertize (format "%4.2f" score)
+          (propertize (format "%5.2f" score)
                       'face face
                       'help-echo (cdr score-data)))
-      "  -  ")))
+      "    -")))
 
 (defun wikipedia-watchlist-sort-by-score ()
   "Sort watchlist groups by AI review score, highest first.

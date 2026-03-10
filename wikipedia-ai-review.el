@@ -93,6 +93,10 @@ When nil, defaults to `gptel-model'."
 (defvar wikipedia-ai-review--watchlist-buffer nil
   "The watchlist buffer being scored.")
 
+(defvar wikipedia-ai-review--score-cache (make-hash-table :test 'equal)
+  "Global cache of AI review scores, preserved across buffer restarts.
+Maps page titles to (SCORE . REASON) cons cells.")
+
 ;;;; Backend resolution
 
 (defun wikipedia-ai-review--resolve-backend-and-model ()
@@ -156,6 +160,7 @@ Returns (SCORE . REASON) where SCORE is a float 0.0-1.0, or nil on failure."
 
 (defun wikipedia-ai-review--store-score (title score-data)
   "Store SCORE-DATA for TITLE in the watchlist buffer and refresh display."
+  (puthash title score-data wikipedia-ai-review--score-cache)
   (let ((buffer wikipedia-ai-review--watchlist-buffer))
     (when (buffer-live-p buffer)
       (with-current-buffer buffer
@@ -253,13 +258,24 @@ Requires the `gptel' package."
     (setq wikipedia-ai-review--watchlist-buffer
           (get-buffer "*Wikipedia Watchlist*"))
     (cl-incf wikipedia-ai-review--generation)
+    (clrhash wikipedia-ai-review--score-cache)
     (setq wikipedia-ai-review--queue groups
           wikipedia-ai-review--scored 0
           wikipedia-ai-review--total (length groups))
     (message "Starting AI review of %d watchlist entries..." (length groups))
     (wikipedia-ai-review--process-next)))
 
-;;;; Keybinding integration
+;;;; Score restoration and keybinding integration
+
+(defun wikipedia-ai-review--restore-cached-scores ()
+  "Restore cached scores to the watchlist buffer."
+  (when (> (hash-table-count wikipedia-ai-review--score-cache) 0)
+    (maphash (lambda (k v)
+               (puthash k v wikipedia-watchlist--scores))
+             wikipedia-ai-review--score-cache)))
+
+(add-hook 'wikipedia-watchlist-mode-hook
+          #'wikipedia-ai-review--restore-cached-scores)
 
 (with-eval-after-load 'wikipedia-watchlist
   (define-key wikipedia-watchlist-mode-map "R"
