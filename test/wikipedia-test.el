@@ -672,16 +672,6 @@
               '(((oldlen . 500) (newlen . 200))))
              -300)))
 
-;;; wikipedia-watchlist--format-title-with-count
-
-(ert-deftest watchlist-format-title/single-change ()
-  (should (equal (wikipedia-watchlist--format-title-with-count "Article" 1)
-                 "Article")))
-
-(ert-deftest watchlist-format-title/multiple-changes ()
-  (should (equal (wikipedia-watchlist--format-title-with-count "Article" 5)
-                 "Article (5 changes)")))
-
 ;;; wikipedia-watchlist--format-seconds-ago
 
 (ert-deftest watchlist-format-seconds-ago/just-now ()
@@ -723,13 +713,13 @@
 
 (ert-deftest watchlist-compute-column-widths/basic ()
   "Compute max width of each column."
-  (let ((entries `((id1 ,(vector ">" "Short" "12:00" "User" "+10" "comment"))
-                   (id2 ,(vector " " "A Longer Title" "13:00" "U" "-5" "")))))
+  (let ((entries `((id1 ,(vector ">" "3" "Short" "12:00" "User" "+10" "" "comment"))
+                   (id2 ,(vector " " "" "A Longer Title" "13:00" "U" "-5" "" "")))))
     (let ((widths (wikipedia-watchlist--compute-column-widths entries)))
-      ;; Column 1 (Page): "A Longer Title" = 14
-      (should (= (nth 1 widths) 14))
-      ;; Column 3 (User): "User" = 4
-      (should (= (nth 3 widths) 4)))))
+      ;; Column 2 (Page): "A Longer Title" = 14
+      (should (= (nth 2 widths) 14))
+      ;; Column 4 (User): "User" = 4
+      (should (= (nth 4 widths) 4)))))
 
 
 ;;;; ================================================================
@@ -1213,21 +1203,21 @@
 (ert-deftest watchlist-build-format/basic ()
   "Build column format vector."
   (let ((result (wikipedia-watchlist--build-format
-                 '(2 40 20 20 8) '(1 30 15 10 6))))
+                 '(2 3 40 20 20 8 6) '(1 1 30 15 10 6 4))))
     (should (vectorp result))
-    (should (= (length result) 6))
+    (should (= (length result) 8))
     ;; Each column width should be min of max and actual
-    (should (= (nth 1 (aref result 1)) 30))   ; Page: min(40,30)=30
-    (should (= (nth 1 (aref result 3)) 10))   ; User: min(20,10)=10
+    (should (= (nth 1 (aref result 2)) 30))   ; Page: min(40,30)=30
+    (should (= (nth 1 (aref result 4)) 10))   ; User: min(20,10)=10
     ;; Last column (Summary) always has width 0
-    (should (= (nth 1 (aref result 5)) 0))))
+    (should (= (nth 1 (aref result 7)) 0))))
 
 (ert-deftest watchlist-build-format/actual-exceeds-max ()
   "When actual width exceeds max, max is used."
   (let ((result (wikipedia-watchlist--build-format
-                 '(2 40 20 20 8) '(3 50 25 25 12))))
-    (should (= (nth 1 (aref result 1)) 40))   ; min(40,50)=40
-    (should (= (nth 1 (aref result 4)) 8))))  ; min(8,12)=8
+                 '(2 3 40 20 20 8 6) '(3 2 50 25 25 12 8))))
+    (should (= (nth 1 (aref result 2)) 40))   ; min(40,50)=40
+    (should (= (nth 1 (aref result 5)) 8))))  ; min(8,12)=8
 
 ;;; wikipedia-watchlist--group-has-unread-p
 
