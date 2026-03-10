@@ -129,7 +129,7 @@ Populated by `wikipedia-ai-review-watchlist'.")
 
 (defun wikipedia-watchlist--adjust-column-widths (entries)
   "Adjust column widths based on content in ENTRIES."
-  (let* ((max-widths '(2 40 20 20 8 6))
+  (let* ((max-widths '(2 3 40 20 20 8 6))
          (actual-widths (wikipedia-watchlist--compute-column-widths entries))
          (new-format (wikipedia-watchlist--build-format max-widths actual-widths)))
     (setq tabulated-list-format new-format)
@@ -137,10 +137,10 @@ Populated by `wikipedia-ai-review-watchlist'.")
 
 (defun wikipedia-watchlist--compute-column-widths (entries)
   "Compute the maximum width of each column in ENTRIES."
-  (let ((widths (list 0 0 0 0 0 0)))
+  (let ((widths (list 0 0 0 0 0 0 0)))
     (dolist (entry entries)
       (let ((row (cadr entry)))
-        (dotimes (i 6)
+        (dotimes (i 7)
           (let* ((cell (aref row i))
                  (text (if (stringp cell) cell (format "%s" cell)))
                  (len (length text)))
@@ -155,11 +155,12 @@ Column widths are never smaller than the header name length."
                               (max (nth i actual-widths) (length name)))))
     (vector
      (list "" (w 0 "") nil)
-     (list "Page" (w 1 "Page") t)
-     (list "Time" (w 2 "Time") t)
-     (list "User" (w 3 "User") t)
-     (list "Change" (w 4 "Change") t)
-     (list "Score" (w 5 "Score") t)
+     (list "#" (w 1 "#") t)
+     (list "Page" (w 2 "Page") t)
+     (list "Time" (w 3 "Time") t)
+     (list "User" (w 4 "User") t)
+     (list "Change" (w 5 "Change") t)
+     (list "Score" (w 6 "Score") t)
      (list "Summary" 0 nil))))
 
 (defun wikipedia-watchlist--build-display-entries ()
@@ -194,7 +195,8 @@ The entry ID is (group . TITLE)."
           (wikipedia-watchlist--apply-unread-face
            (vector
             indicator
-            (wikipedia-watchlist--format-title-with-count title count)
+            (if (> count 1) (number-to-string count) "")
+            title
             (wikipedia-watchlist--format-timestamp timestamp)
             users
             (wikipedia--format-size-change total-change)
@@ -240,6 +242,7 @@ The entry ID is (child TITLE . REVID)."
           (wikipedia-watchlist--apply-unread-face
            (vector
             ""
+            ""
             (concat "  " (wikipedia-watchlist--format-timestamp timestamp))
             ""
             (or user "")
@@ -248,12 +251,6 @@ The entry ID is (child TITLE . REVID)."
             ""
             (or comment ""))
            unread-p))))
-
-(defun wikipedia-watchlist--format-title-with-count (title count)
-  "Format TITLE with change COUNT if more than 1."
-  (if (> count 1)
-      (format "%s (%d changes)" title count)
-    title))
 
 (defun wikipedia-watchlist--summarize-users (entries)
   "Summarize the users who changed ENTRIES."
