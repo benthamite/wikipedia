@@ -222,7 +222,9 @@ OLD-REVID and REVID identify the revision range."
 
 (defun wikipedia-ai-review--gather-groups ()
   "Gather watchlist groups for review.
-Returns a list of (TITLE OLD-REVID REVID) for each group."
+Returns a list of (TITLE OLD-REVID REVID) for each group.
+Uses the latest revision ID from the API so that reverts are
+properly reflected in the diff."
   (let ((buffer (get-buffer "*Wikipedia Watchlist*")))
     (unless buffer
       (user-error "No watchlist buffer found; run `wikipedia-watchlist' first"))
@@ -233,12 +235,14 @@ Returns a list of (TITLE OLD-REVID REVID) for each group."
        (lambda (group)
          (let* ((title (car group))
                 (entries (cdr group))
-                (revids (mapcar (lambda (e) (alist-get 'revid e)) entries))
+                (max-revid (apply #'max
+                                  (mapcar (lambda (e) (alist-get 'revid e))
+                                          entries)))
                 (old-revids (mapcar (lambda (e) (alist-get 'old_revid e))
                                     entries)))
            (list title
                  (apply #'min old-revids)
-                 (apply #'max revids))))
+                 (or (wp--get-latest-revid title) max-revid))))
        wikipedia-watchlist--grouped-entries))))
 
 ;;;###autoload

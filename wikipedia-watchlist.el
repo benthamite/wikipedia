@@ -428,13 +428,14 @@ spanning from the oldest base revision to the newest revision."
   (let* ((id (tabulated-list-get-id))
          title revid old-revid)
     (cond
-     ;; Group header: diff from oldest old_revid to newest revid
+     ;; Group header: diff from oldest old_revid to latest revision
      ((and (consp id) (eq (car id) 'group))
       (setq title (cdr id))
       (let ((entries (alist-get title wikipedia-watchlist--grouped-entries
                                 nil nil #'equal)))
-        (setq revid (apply #'max (mapcar (lambda (e) (alist-get 'revid e))
-                                         entries)))
+        (setq revid (or (wp--get-latest-revid title)
+                        (apply #'max (mapcar (lambda (e) (alist-get 'revid e))
+                                             entries))))
         (setq old-revid (apply #'min (mapcar (lambda (e) (alist-get 'old_revid e))
                                              entries)))))
      ;; Child entry: use the entry's own revisions
