@@ -62,6 +62,16 @@
         content TEXT,
         FOREIGN KEY (revision_id) REFERENCES revisions(id)
       )")
+    (sqlite-execute db "
+      CREATE TABLE IF NOT EXISTS ai_scores (
+        page_id INTEGER PRIMARY KEY,
+        score REAL NOT NULL,
+        reason TEXT DEFAULT '',
+        old_revid INTEGER,
+        revid INTEGER,
+        scored_at INTEGER,
+        FOREIGN KEY (page_id) REFERENCES pages(id)
+      )")
     (sqlite-execute db "CREATE INDEX IF NOT EXISTS idx_pages_title ON pages(title)")
     (sqlite-execute db "CREATE INDEX IF NOT EXISTS idx_revisions_page ON revisions(page_id)")
     (sqlite-execute db "CREATE INDEX IF NOT EXISTS idx_revisions_revid ON revisions(revid)")))
@@ -187,6 +197,40 @@ CONTENT must be a string or nil."
       (message "Wikipedia DB: %d pages (%d watched), %d revisions, %d with content"
                pages watched revisions content)
       (list :pages pages :watched watched :revisions revisions :content content))))
+
+;;;; AI review scores
+
+(defun wikipedia-db-set-ai-score (title score reason &optional old-revid revid site)
+  "Store AI review SCORE and REASON for page TITLE."
+  (let* ((db (wikipedia-db--ensure-connection))
+         (page-id (wikipedia-db-insert-page title site)))
+    (sqlite-execute db
+                    "INSERT OR REPLACE INTO ai_scores
+                     (page_id, score, reason, old_revid, revid, scored_at)
+                     VALUES (?, ?, ?, ?, ?, ?)"
+                    (list page-id score reason old-revid revid
+                          (time-convert nil 'integer)))))
+
+(defun wikipedia-db-get-ai-scores (&optional site)
+  "Get all AI review scores for SITE.
+Returns a list of (TITLE SCORE REASON) lists."
+  (let ((db (wikipedia-db--ensure-connection))
+        (site (or site "en.wikipedia.org")))
+    (sqlite-select db
+                   "SELECT p.title, a.score, a.reason
+                    FROM ai_scores a
+                    JOIN pages p ON a.page_id = p.id
+                    WHERE p.site = ?"
+                   (list site))))
+
+(defun wikipedia-db-clear-ai-scores (&optional site)
+  "Clear all AI review scores for SITE."
+  (let ((db (wikipedia-db--ensure-connection))
+        (site (or site "en.wikipedia.org")))
+    (sqlite-execute db
+                    "DELETE FROM ai_scores WHERE page_id IN
+                     (SELECT id FROM pages WHERE site = ?)"
+                    (list site))))
 
 (provide 'wikipedia-db)
 

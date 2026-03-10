@@ -16,6 +16,7 @@
 (require 'wikipedia-ai)
 (require 'wikipedia-cache)
 (require 'wikipedia-common)
+(require 'wikipedia-db)
 (require 'wikipedia-diff)
 
 (declare-function gptel-request "gptel-request")
@@ -93,10 +94,6 @@ When nil, defaults to `gptel-model'."
 (defvar wikipedia-ai-review--watchlist-buffer nil
   "The watchlist buffer being scored.")
 
-(defvar wikipedia-ai-review--score-cache (make-hash-table :test 'equal)
-  "Global cache of AI review scores, preserved across buffer restarts.
-Maps page titles to (SCORE . REASON) cons cells.")
-
 ;;;; Backend resolution
 
 (defun wikipedia-ai-review--resolve-backend-and-model ()
@@ -158,9 +155,11 @@ Returns (SCORE . REASON) where SCORE is a float 0.0-1.0, or nil on failure."
 
 ;;;; Storing results
 
-(defun wikipedia-ai-review--store-score (title score-data)
-  "Store SCORE-DATA for TITLE in the watchlist buffer and refresh display."
-  (puthash title score-data wikipedia-ai-review--score-cache)
+(defun wikipedia-ai-review--store-score (title score-data old-revid revid)
+  "Store SCORE-DATA for TITLE and refresh the watchlist display.
+OLD-REVID and REVID record which revision range was scored."
+  (wikipedia-db-set-ai-score title (car score-data) (cdr score-data)
+                             old-revid revid)
   (let ((buffer wikipedia-ai-review--watchlist-buffer))
     (when (buffer-live-p buffer)
       (with-current-buffer buffer
@@ -185,10 +184,12 @@ Returns (SCORE . REASON) where SCORE is a float 0.0-1.0, or nil on failure."
                         title old-revid revid)))
         (if (or (null diff-text) (string-empty-p (string-trim diff-text)))
             (wikipedia-ai-review--process-next)
-          (wikipedia-ai-review--send-to-llm title diff-text))))))
+          (wikipedia-ai-review--send-to-llm
+           title old-revid revid diff-text))))))
 
-(defun wikipedia-ai-review--send-to-llm (title diff-text)
-  "Send DIFF-TEXT for TITLE to the LLM for scoring."
+(defun wikipedia-ai-review--send-to-llm (title old-revid revid diff-text)
+  "Send DIFF-TEXT for TITLE to the LLM for scoring.
+OLD-REVID and REVID identify the revision range."
   (let* ((resolved (wikipedia-ai-review--resolve-backend-and-model))
          (gptel-backend (car resolved))
          (gptel-model (cdr resolved))
@@ -206,7 +207,8 @@ Returns (SCORE . REASON) where SCORE is a float 0.0-1.0, or nil on failure."
          (if (stringp response)
              (let ((result (wikipedia-ai-review--parse-response response)))
                (when (car result)
-                 (wikipedia-ai-review--store-score title result)))
+                 (wikipedia-ai-review--store-score
+                  title result old-revid revid)))
            (message "Scoring failed for %s: %s"
                     title (plist-get info :status)))
          (wikipedia-ai-review--process-next))))))
@@ -258,7 +260,7 @@ Requires the `gptel' package."
     (setq wikipedia-ai-review--watchlist-buffer
           (get-buffer "*Wikipedia Watchlist*"))
     (cl-incf wikipedia-ai-review--generation)
-    (clrhash wikipedia-ai-review--score-cache)
+    (wikipedia-db-clear-ai-scores)
     (setq wikipedia-ai-review--queue groups
           wikipedia-ai-review--scored 0
           wikipedia-ai-review--total (length groups))
@@ -268,11 +270,12 @@ Requires the `gptel' package."
 ;;;; Score restoration and keybinding integration
 
 (defun wikipedia-ai-review--restore-cached-scores ()
-  "Restore cached scores to the watchlist buffer."
-  (when (> (hash-table-count wikipedia-ai-review--score-cache) 0)
-    (maphash (lambda (k v)
-               (puthash k v wikipedia-watchlist--scores))
-             wikipedia-ai-review--score-cache)))
+  "Restore scores from the database to the watchlist buffer."
+  (dolist (row (wikipedia-db-get-ai-scores))
+    (let ((title (nth 0 row))
+          (score (nth 1 row))
+          (reason (nth 2 row)))
+      (puthash title (cons score reason) wikipedia-watchlist--scores))))
 
 (add-hook 'wikipedia-watchlist-mode-hook
           #'wikipedia-ai-review--restore-cached-scores)
