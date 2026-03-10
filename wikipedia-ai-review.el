@@ -62,6 +62,13 @@ This prompt tells the AI what kinds of edits you consider noteworthy."
   :type 'string
   :group 'wikipedia-ai)
 
+(defcustom wikipedia-ai-review-auto nil
+  "When non-nil, automatically score watchlist entries after refresh.
+Runs `wikipedia-ai-review-watchlist' each time the watchlist is
+refreshed, so entries are always scored without pressing \\`R'."
+  :type 'boolean
+  :group 'wikipedia-ai)
+
 (defcustom wikipedia-ai-review-backend nil
   "The gptel backend name for AI review, e.g. \"Gemini\" or \"Claude\".
 When nil, the backend is inferred from `wikipedia-ai-review-model',
@@ -280,9 +287,17 @@ Requires the `gptel' package."
 (add-hook 'wikipedia-watchlist-mode-hook
           #'wikipedia-ai-review--restore-cached-scores)
 
+(defun wikipedia-ai-review--maybe-auto-score (&rest _)
+  "Run AI review after watchlist refresh if `wikipedia-ai-review-auto' is set."
+  (when (and wikipedia-ai-review-auto
+             (require 'gptel nil t))
+    (wikipedia-ai-review-watchlist)))
+
 (with-eval-after-load 'wikipedia-watchlist
   (define-key wikipedia-watchlist-mode-map "R"
-              #'wikipedia-ai-review-watchlist))
+              #'wikipedia-ai-review-watchlist)
+  (advice-add 'wikipedia-watchlist-refresh :after
+              #'wikipedia-ai-review--maybe-auto-score))
 
 (provide 'wikipedia-ai-review)
 
