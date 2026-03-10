@@ -42,6 +42,7 @@ User options
 * XTools integration::
 * Local database::
 * Synchronization::
+* AI review options::
 
 Commands
 
@@ -55,6 +56,7 @@ Commands
 * XTools statistics::
 * Synchronization and local mirror::
 * Diff follow mode::
+* AI review::
 * Transient menu::
 
 Watchlist
@@ -81,6 +83,12 @@ XTools statistics
 
 * User statistics::
 * Page statistics::
+
+AI review options
+
+* Review prompt::
+* Review model::
+* Automatic scoring::
 
 Synchronization and local mirror
 
@@ -149,6 +157,11 @@ for offline browsing and faster access (@ref{Synchronization and local mirror}).
 @strong{Diff follow mode}: automatically display diffs as you navigate @*
 entries in the watchlist, history, or contributions buffers @*
 (@ref{Diff follow mode}). @*
+
+@item
+@strong{AI review}: use an LLM to score watchlist changes by review @*
+priority, so you can focus on the edits that matter most @*
+(@ref{AI review}). @*
 @end itemize
 
 All commands are accessible through a unified transient menu @*
@@ -163,6 +176,7 @@ All commands are accessible through a unified transient menu @*
 * XTools integration::
 * Local database::
 * Synchronization::
+* AI review options::
 @end menu
 
 @node Diff display
@@ -243,6 +257,61 @@ downloaded and stored locally, enabling offline viewing and local diffs. @*
 Set this to @code{nil} if you only want revision metadata without the actual @*
 page content. @*
 
+@node AI review options
+@section AI review options
+
+These options require the @samp{gptel} package.
+
+@menu
+* Review prompt::
+* Review model::
+* Automatic scoring::
+@end menu
+
+@node Review prompt
+@subsection Review prompt
+
+@vindex wikipedia-ai-review-system-prompt
+@vindex wikipedia-ai-review-prompt
+The user option @code{wikipedia-ai-review-system-prompt} is the system @*
+prompt sent to the LLM.  It instructs the model to return a JSON object @*
+with a @samp{score} (0.0--1.0) and a @samp{reason}.  You should not normally @*
+need to change this. @*
+
+The user option @code{wikipedia-ai-review-prompt} describes which edits @*
+to flag.  The default asks the model to identify substantive changes @*
+(adding or removing sentences, changing factual claims, altering @*
+structure) and ignore minor edits like typo fixes or formatting.  @*
+Customize this to match your review priorities. @*
+
+@node Review model
+@subsection Review model
+
+@vindex wikipedia-ai-review-model
+@vindex wikipedia-ai-review-backend
+The user option @code{wikipedia-ai-review-model} specifies the LLM model @*
+to use for scoring.  When nil (the default), the current @*
+@code{gptel-model} is used.  Set this to a specific model symbol to use @*
+a different model for review than for other @samp{gptel} tasks. @*
+
+The user option @code{wikipedia-ai-review-backend} specifies the @*
+@samp{gptel} backend name (e.g., @samp{"Gemini"} or @samp{"Claude"}).  When nil @*
+(the default), the backend is inferred from @*
+@code{wikipedia-ai-review-model}, falling back to @code{gptel-backend}. @*
+
+@node Automatic scoring
+@subsection Automatic scoring
+
+@vindex wikipedia-ai-review-auto
+@vindex wikipedia-watchlist-score-reason-auto
+The user option @code{wikipedia-ai-review-auto}, when non-nil, @*
+automatically runs AI scoring after each watchlist refresh.  This @*
+eliminates the need to press @samp{R} manually. @*
+
+The user option @code{wikipedia-watchlist-score-reason-auto}, when @*
+non-nil, automatically displays the AI score and reason in the echo @*
+area as you move between watchlist entries. @*
+
 @node Commands
 @chapter Commands
 
@@ -257,6 +326,7 @@ page content. @*
 * XTools statistics::
 * Synchronization and local mirror::
 * Diff follow mode::
+* AI review::
 * Transient menu::
 @end menu
 
@@ -365,14 +435,21 @@ while remaining mostly human-readable for ASCII titles. @*
 The command @code{wikipedia-watchlist} opens a buffer displaying your @*
 Wikipedia watchlist.  Entries are grouped by page title: each page @*
 appears as a collapsible group header showing the most recent change @*
-summary, the contributing users, and the total size change.  Pages with @*
-multiple recent changes display a count (e.g., ``Article name (3 @*
-changes)''). @*
+summary, the contributing users, and the total size change.  A @samp{#} @*
+column shows the number of changes when a page has more than one. @*
 
-The watchlist fetches unseen changes from the last 30 days, excluding @*
-bot edits and minor edits.  After loading, it asynchronously prefetches @*
-revision content in the background so that diffs can be displayed @*
-instantly when you navigate to an entry. @*
+The watchlist fetches all unseen changes from the last 30 days, @*
+including bot and minor edits.  This ensures that reverts are included @*
+in the group, so that group diffs accurately reflect the net change. @*
+After loading, it asynchronously prefetches revision content in the @*
+background so that diffs can be displayed instantly when you navigate @*
+to an entry. @*
+
+When the @samp{gptel} package is installed, the watchlist supports AI @*
+review scoring (@ref{AI review}).  A @samp{Score} column shows the @*
+priority score (0.0--1.0) for each page.  Scores are persisted in the @*
+local database and restored automatically when the watchlist is @*
+reopened. @*
 
 @menu
 * Navigation::
@@ -498,6 +575,15 @@ and send the request asynchronously. @*
 @item @samp{x}
 @tab @code{wikipedia-watchlist-unwatch}
 @tab Unwatch a page
+@item @samp{R}
+@tab @code{wikipedia-ai-review-watchlist}
+@tab Score entries with AI
+@item @samp{S}
+@tab @code{wikipedia-watchlist-sort-by-score}
+@tab Sort by AI score
+@item @samp{I}
+@tab @code{wikipedia-watchlist-show-score-reason}
+@tab Show score reason
 @item @samp{g}
 @tab @code{wikipedia-watchlist-refresh}
 @tab Refresh the watchlist
@@ -934,6 +1020,37 @@ remains disabled. @*
 In watchlist mode, viewing a diff via follow mode also marks the entry @*
 as read (@ref{Unread tracking}). @*
 
+@node AI review
+@section AI review
+
+@findex wikipedia-ai-review-watchlist
+@findex wikipedia-watchlist-sort-by-score
+@findex wikipedia-watchlist-show-score-reason
+The command @code{wikipedia-ai-review-watchlist} (@samp{R} in the watchlist) @*
+scores each watchlist group using an LLM@.  For each group, it computes @*
+a unified diff between the oldest base revision and the newest @*
+revision, sends it to the model with the configured prompt @*
+(@ref{Review prompt}), and stores the returned score (0.0--1.0) and @*
+reason.  Scores appear in the watchlist's @samp{Score} column and are @*
+persisted in the local SQLite database. @*
+
+Processing is asynchronous and sequential: each group is scored one at @*
+a time.  Progress is reported in the echo area.  Re-invoking @samp{R} @*
+while a review is running cancels the previous run and starts a fresh @*
+one. @*
+
+The command @code{wikipedia-watchlist-sort-by-score} (@samp{S}) sorts @*
+the watchlist by score, highest first.  Unscored entries are placed at @*
+the bottom. @*
+
+The command @code{wikipedia-watchlist-show-score-reason} (@samp{I}) @*
+displays the AI's reasoning for the score of the entry at point in the @*
+echo area. @*
+
+High scores (>= 0.7) are highlighted with the @*
+@code{wikipedia-watchlist-score-high} face, and low scores (<= 0.3) use @*
+the @code{wikipedia-watchlist-score-low} face. @*
+
 @node Transient menu
 @section Transient menu
 
@@ -964,6 +1081,11 @@ browser. @*
 @strong{AI Detection} (requires @samp{pangram.el}): detect AI-generated text and @*
 clear overlays.  This group is only shown when @samp{pangram.el} is @*
 installed. @*
+
+@item
+@strong{AI Editing} (requires @samp{gptel}): generate citations and review @*
+watchlist changes with AI@.  This group is only shown when @samp{gptel} @*
+is installed. @*
 @end itemize
 
 Bind @code{wikipedia-transient} to a convenient key for quick access to any @*

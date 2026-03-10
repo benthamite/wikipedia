@@ -1,4 +1,4 @@
-This is wikipedia.info, produced by makeinfo version 7.2 from
+This is wikipedia.info, produced by makeinfo version 7.3 from
 wikipedia.texi.
 
 INFO-DIR-SECTION Emacs misc features
@@ -31,6 +31,7 @@ User options
 * XTools integration::
 * Local database::
 * Synchronization::
+* AI review options::
 
 Commands
 
@@ -44,6 +45,7 @@ Commands
 * XTools statistics::
 * Synchronization and local mirror::
 * Diff follow mode::
+* AI review::
 * Transient menu::
 
 Watchlist
@@ -70,6 +72,12 @@ XTools statistics
 
 * User statistics::
 * Page statistics::
+
+AI review options
+
+* Review prompt::
+* Review model::
+* Automatic scoring::
 
 Synchronization and local mirror
 
@@ -139,6 +147,10 @@ wiki site via ‘mediawiki-site-alist’ and establish a session with
      entries in the watchlist, history, or contributions buffers
      (*note Diff follow mode::).
 
+   • *AI review*: use an LLM to score watchlist changes by review
+     priority, so you can focus on the edits that matter most
+     (*note AI review::).
+
    All commands are accessible through a unified transient menu
 (*note Transient menu::).
 
@@ -155,6 +167,7 @@ File: wikipedia.info,  Node: User options,  Next: Commands,  Prev: Overview,  Up
 * XTools integration::
 * Local database::
 * Synchronization::
+* AI review options::
 
 
 File: wikipedia.info,  Node: Diff display,  Next: Draft storage,  Up: User options
@@ -227,7 +240,7 @@ the database stored elsewhere, for example to keep it separate from
 your Emacs configuration.
 
 
-File: wikipedia.info,  Node: Synchronization,  Prev: Local database,  Up: User options
+File: wikipedia.info,  Node: Synchronization,  Next: AI review options,  Prev: Local database,  Up: User options
 
 2.5 Synchronization
 ===================
@@ -244,6 +257,67 @@ downloaded and stored locally, enabling offline viewing and local diffs.
 
 Set this to ‘nil’ if you only want revision metadata without the actual
 page content.
+
+
+File: wikipedia.info,  Node: AI review options,  Prev: Synchronization,  Up: User options
+
+2.6 AI review options
+=====================
+
+These options require the ‘gptel’ package.
+
+* Menu:
+
+* Review prompt::
+* Review model::
+* Automatic scoring::
+
+
+File: wikipedia.info,  Node: Review prompt,  Next: Review model,  Up: AI review options
+
+2.6.1 Review prompt
+-------------------
+
+The user option ‘wikipedia-ai-review-system-prompt’ is the system
+prompt sent to the LLM. It instructs the model to return a JSON object
+with a ‘score’ (0.0-1.0) and a ‘reason’.  You should not normally
+need to change this.
+
+   The user option ‘wikipedia-ai-review-prompt’ describes which edits
+to flag.  The default asks the model to identify substantive changes
+(adding or removing sentences, changing factual claims, altering
+structure) and ignore minor edits like typo fixes or formatting.
+Customize this to match your review priorities.
+
+
+File: wikipedia.info,  Node: Review model,  Next: Automatic scoring,  Prev: Review prompt,  Up: AI review options
+
+2.6.2 Review model
+------------------
+
+The user option ‘wikipedia-ai-review-model’ specifies the LLM model
+to use for scoring.  When nil (the default), the current
+‘gptel-model’ is used.  Set this to a specific model symbol to use
+a different model for review than for other ‘gptel’ tasks.
+
+   The user option ‘wikipedia-ai-review-backend’ specifies the
+‘gptel’ backend name (e.g., ‘"Gemini"’ or ‘"Claude"’).  When nil
+(the default), the backend is inferred from
+‘wikipedia-ai-review-model’, falling back to ‘gptel-backend’.
+
+
+File: wikipedia.info,  Node: Automatic scoring,  Prev: Review model,  Up: AI review options
+
+2.6.3 Automatic scoring
+-----------------------
+
+The user option ‘wikipedia-ai-review-auto’, when non-nil,
+automatically runs AI scoring after each watchlist refresh.  This
+eliminates the need to press ‘R’ manually.
+
+   The user option ‘wikipedia-watchlist-score-reason-auto’, when
+non-nil, automatically displays the AI score and reason in the echo
+area as you move between watchlist entries.
 
 
 File: wikipedia.info,  Node: Commands,  Next: Indices,  Prev: User options,  Up: Top
@@ -263,6 +337,7 @@ File: wikipedia.info,  Node: Commands,  Next: Indices,  Prev: User options,  Up:
 * XTools statistics::
 * Synchronization and local mirror::
 * Diff follow mode::
+* AI review::
 * Transient menu::
 
 
@@ -370,15 +445,21 @@ File: wikipedia.info,  Node: Watchlist,  Next: Revision history,  Prev: Draft ma
 The command ‘wikipedia-watchlist’ opens a buffer displaying your
 Wikipedia watchlist.  Entries are grouped by page title: each page
 appears as a collapsible group header showing the most recent change
-summary, the contributing users, and the total size change.  Pages with
-multiple recent changes display a count (e.g., "Article name (3
-changes)").
+summary, the contributing users, and the total size change.  A ‘#’
+column shows the number of changes when a page has more than one.
 
-   The watchlist fetches unseen changes from the last 30 days, excluding
+   The watchlist fetches all unseen changes from the last 30 days,
+including bot and minor edits.  This ensures that reverts are included
+in the group, so that group diffs accurately reflect the net change.
+After loading, it asynchronously prefetches revision content in the
+background so that diffs can be displayed instantly when you navigate
+to an entry.
 
-bot edits and minor edits.  After loading, it asynchronously prefetches
-revision content in the background so that diffs can be displayed
-instantly when you navigate to an entry.
+   When the ‘gptel’ package is installed, the watchlist supports AI
+review scoring (*note AI review::).  A ‘Score’ column shows the
+priority score (0.0-1.0) for each page.  Scores are persisted in the
+local database and restored automatically when the watchlist is
+reopened.
 
 * Menu:
 
@@ -474,6 +555,9 @@ Key     Command                               Description
 ‘s’     ‘wikipedia-xtools-user-stats’         User stats via XTools
 ‘w’     ‘wikipedia-watchlist-watch’           Watch a page
 ‘x’     ‘wikipedia-watchlist-unwatch’         Unwatch a page
+‘R’     ‘wikipedia-ai-review-watchlist’       Score entries with AI
+‘S’     ‘wikipedia-watchlist-sort-by-score’   Sort by AI score
+‘I’     ‘wikipedia-watchlist-show-score-reason’Show score reason
 ‘g’     ‘wikipedia-watchlist-refresh’         Refresh the watchlist
 ‘q’     ‘quit-window’                         Close the window
 
@@ -806,7 +890,7 @@ contents: the number of pages, watched pages, revisions, and revisions
 with stored content.
 
 
-File: wikipedia.info,  Node: Diff follow mode,  Next: Transient menu,  Prev: Synchronization and local mirror,  Up: Commands
+File: wikipedia.info,  Node: Diff follow mode,  Next: AI review,  Prev: Synchronization and local mirror,  Up: Commands
 
 3.10 Diff follow mode
 =====================
@@ -833,9 +917,41 @@ entry
 as read (*note Unread tracking::).
 
 
-File: wikipedia.info,  Node: Transient menu,  Prev: Diff follow mode,  Up: Commands
+File: wikipedia.info,  Node: AI review,  Next: Transient menu,  Prev: Diff follow mode,  Up: Commands
 
-3.11 Transient menu
+3.11 AI review
+==============
+
+The command ‘wikipedia-ai-review-watchlist’ (‘R’ in the watchlist)
+scores each watchlist group using an LLM.  For each group, it computes
+a unified diff between the oldest base revision and the newest
+revision, sends it to the model with the configured prompt
+(*note Review prompt::), and stores the returned score (0.0-1.0) and
+reason.  Scores appear in the watchlist's ‘Score’ column and are
+persisted in the local SQLite database.
+
+   Processing is asynchronous and sequential: each group is scored one
+at
+a time.  Progress is reported in the echo area.  Re-invoking ‘R’
+while a review is running cancels the previous run and starts a fresh
+one.
+
+   The command ‘wikipedia-watchlist-sort-by-score’ (‘S’) sorts
+the watchlist by score, highest first.  Unscored entries are placed at
+the bottom.
+
+   The command ‘wikipedia-watchlist-show-score-reason’ (‘I’)
+displays the AI's reasoning for the score of the entry at point in the
+echo area.
+
+   High scores (>= 0.7) are highlighted with the
+‘wikipedia-watchlist-score-high’ face, and low scores (<= 0.3) use
+the ‘wikipedia-watchlist-score-low’ face.
+
+
+File: wikipedia.info,  Node: Transient menu,  Prev: AI review,  Up: Commands
+
+3.12 Transient menu
 ===================
 
 The command ‘wikipedia-transient’ opens a transient menu providing quick
@@ -859,6 +975,10 @@ groups:
      and
      clear overlays.  This group is only shown when ‘pangram.el’ is
      installed.
+
+   • *AI Editing* (requires ‘gptel’): generate citations and review
+     watchlist changes with AI.  This group is only shown when ‘gptel’
+     is installed.
 
    Bind ‘wikipedia-transient’ to a convenient key for quick access to
 any
@@ -884,6 +1004,7 @@ File: wikipedia.info,  Node: Function index,  Next: Variable index,  Up: Indices
  [index ]
 * Menu:
 
+* wikipedia-ai-review-watchlist:         AI review.            (line  6)
 * wikipedia-browse:                      Page editing.         (line  6)
 * wikipedia-db-close:                    Database management.  (line  6)
 * wikipedia-db-stats:                    Database management.  (line  6)
@@ -964,6 +1085,8 @@ File: wikipedia.info,  Node: Function index,  Next: Variable index,  Up: Indices
 * wikipedia-watchlist-refresh:           Watchlist.            (line  6)
 * wikipedia-watchlist-show-diff:         Actions.              (line  6)
 * wikipedia-watchlist-show-history:      Actions.              (line  6)
+* wikipedia-watchlist-show-score-reason: AI review.            (line  6)
+* wikipedia-watchlist-sort-by-score:     AI review.            (line  6)
 * wikipedia-watchlist-toggle-expand:     Navigation.           (line  6)
 * wikipedia-watchlist-unwatch:           Managing watched pages.
                                                                (line  6)
@@ -982,56 +1105,67 @@ File: wikipedia.info,  Node: Variable index,  Prev: Function index,  Up: Indices
  [index ]
 * Menu:
 
+* wikipedia-ai-review-auto:              Automatic scoring.     (line 6)
+* wikipedia-ai-review-backend:           Review model.          (line 6)
+* wikipedia-ai-review-model:             Review model.          (line 6)
+* wikipedia-ai-review-prompt:            Review prompt.         (line 6)
+* wikipedia-ai-review-system-prompt:     Review prompt.         (line 6)
 * wikipedia-db-file:                     Local database.        (line 6)
 * wikipedia-diff-function:               Diff display.          (line 6)
 * wikipedia-draft-directory:             Draft storage.         (line 6)
 * wikipedia-sync-fetch-content:          Synchronization.       (line 6)
 * wikipedia-sync-revision-limit:         Synchronization.       (line 6)
+* wikipedia-watchlist-score-reason-auto: Automatic scoring.     (line 6)
 * wikipedia-xtools-base-url:             XTools integration.    (line 6)
 * wikipedia-xtools-project:              XTools integration.    (line 6)
 
 
 Tag Table:
 Node: Top222
-Node: Overview1585
-Node: User options3834
-Node: Diff display4061
-Node: Draft storage4821
-Node: XTools integration5414
-Node: Local database6117
-Node: Synchronization6585
-Node: Commands7329
-Node: Session management7677
-Node: Page editing8229
-Node: Preview9276
-Node: Draft management10251
-Node: Watchlist11624
-Node: Navigation12482
-Node: Actions13154
-Node: Unread tracking13809
-Node: Managing watched pages14241
-Node: Full keybinding reference14690
-Node: Revision history16533
-Node: Viewing and comparing revisions17077
-Node: Full keybinding reference (1)18104
-Node: User inspection19641
-Node: Contribution actions20310
-Node: User page and profile commands21146
-Node: Sending thanks21912
-Node: Full keybinding reference (2)22356
-Node: XTools statistics23890
-Node: User statistics24467
-Node: Page statistics25275
-Node: Synchronization and local mirror25818
-Node: Synchronizing pages26329
-Node: Browsing the local mirror27400
-Node: Local revision history28651
-Node: Database management29853
-Node: Diff follow mode30368
-Node: Transient menu31520
-Node: Indices32557
-Node: Function index32693
-Node: Variable index39168
+Node: Overview1698
+Node: User options4104
+Node: Diff display4353
+Node: Draft storage5113
+Node: XTools integration5706
+Node: Local database6409
+Node: Synchronization6877
+Node: AI review options7647
+Node: Review prompt7900
+Node: Review model8591
+Node: Automatic scoring9270
+Node: Commands9772
+Node: Session management10134
+Node: Page editing10686
+Node: Preview11733
+Node: Draft management12708
+Node: Watchlist14081
+Node: Navigation15317
+Node: Actions15989
+Node: Unread tracking16644
+Node: Managing watched pages17076
+Node: Full keybinding reference17525
+Node: Revision history19588
+Node: Viewing and comparing revisions20132
+Node: Full keybinding reference (1)21159
+Node: User inspection22696
+Node: Contribution actions23365
+Node: User page and profile commands24201
+Node: Sending thanks24967
+Node: Full keybinding reference (2)25411
+Node: XTools statistics26945
+Node: User statistics27522
+Node: Page statistics28330
+Node: Synchronization and local mirror28873
+Node: Synchronizing pages29384
+Node: Browsing the local mirror30455
+Node: Local revision history31706
+Node: Database management32908
+Node: Diff follow mode33423
+Node: AI review34570
+Node: Transient menu35846
+Node: Indices37045
+Node: Function index37181
+Node: Variable index43875
 
 End Tag Table
 
