@@ -28,9 +28,21 @@
 (defvar-local wikipedia-watchlist--read nil
   "Hash table tracking which revision IDs have been read.")
 
+(defvar-local wikipedia-watchlist--scores nil
+  "Hash table mapping page titles to (SCORE . REASON) cons cells.
+Populated by `wikipedia-ai-review-watchlist'.")
+
 (defface wikipedia-watchlist-unread
   '((t :weight bold))
   "Face for unread watchlist entries.")
+
+(defface wikipedia-watchlist-score-high
+  '((t :inherit warning :weight bold))
+  "Face for high AI review scores.")
+
+(defface wikipedia-watchlist-score-low
+  '((t :inherit shadow))
+  "Face for low AI review scores.")
 
 (defvar wikipedia-watchlist-mode-map
   (let ((map (make-sparse-keymap)))
@@ -48,6 +60,8 @@
     (define-key map "c" #'wikipedia-watchlist-collapse-all)
     (define-key map "m" #'wikipedia-watchlist-mark-all-read)
     (define-key map "!" #'wikipedia-watchlist-mark-all-read)
+    (define-key map "S" #'wikipedia-watchlist-sort-by-score)
+    (define-key map "I" #'wikipedia-watchlist-show-score-reason)
     map)
   "Keymap for `wikipedia-watchlist-mode'.")
 
@@ -60,11 +74,13 @@
          ("Time" 20 t)
          ("User" 20 t)
          ("Change" 8 t)
+         ("Score" 6 t)
          ("Summary" 0 nil)])
   (setq tabulated-list-padding 2)
   (setq tabulated-list-sort-key nil)
   (setq wikipedia-watchlist--expanded (make-hash-table :test 'equal))
   (setq wikipedia-watchlist--read (make-hash-table :test 'eql))
+  (setq wikipedia-watchlist--scores (make-hash-table :test 'equal))
   (tabulated-list-init-header))
 
 ;;;###autoload
@@ -112,7 +128,7 @@
 
 (defun wikipedia-watchlist--adjust-column-widths (entries)
   "Adjust column widths based on content in ENTRIES."
-  (let* ((max-widths '(2 40 20 20 8))
+  (let* ((max-widths '(2 40 20 20 8 6))
          (actual-widths (wikipedia-watchlist--compute-column-widths entries))
          (new-format (wikipedia-watchlist--build-format max-widths actual-widths)))
     (setq tabulated-list-format new-format)
@@ -120,10 +136,10 @@
 
 (defun wikipedia-watchlist--compute-column-widths (entries)
   "Compute the maximum width of each column in ENTRIES."
-  (let ((widths (list 0 0 0 0 0)))
+  (let ((widths (list 0 0 0 0 0 0)))
     (dolist (entry entries)
       (let ((row (cadr entry)))
-        (dotimes (i 5)
+        (dotimes (i 6)
           (let* ((cell (aref row i))
                  (text (if (stringp cell) cell (format "%s" cell)))
                  (len (length text)))
@@ -139,6 +155,7 @@
    (list "Time" (min (nth 2 max-widths) (nth 2 actual-widths)) t)
    (list "User" (min (nth 3 max-widths) (nth 3 actual-widths)) t)
    (list "Change" (min (nth 4 max-widths) (nth 4 actual-widths)) t)
+   (list "Score" (min (nth 5 max-widths) (nth 5 actual-widths)) t)
    (list "Summary" 0 nil)))
 
 (defun wikipedia-watchlist--build-display-entries ()
@@ -177,6 +194,7 @@ The entry ID is (group . TITLE)."
             (wikipedia-watchlist--format-timestamp timestamp)
             users
             (wikipedia--format-size-change total-change)
+            (wikipedia-watchlist--format-score title)
             (or comment ""))
            unread-p))))
 
@@ -217,6 +235,7 @@ The entry ID is (child TITLE . REVID)."
             (or user "")
             (wikipedia--format-size-change (when (and oldlen newlen)
                                              (- newlen oldlen)))
+            ""
             (or comment ""))
            unread-p))))
 
@@ -491,6 +510,46 @@ spanning from the oldest base revision to the newest revision."
                    (when (derived-mode-p 'wikipedia-watchlist-mode)
                      (wikipedia-watchlist-refresh)))))
            (message "Failed to unwatch page \"%s\"" title)))))))
+
+;;;; Score display and sorting
+
+(defun wikipedia-watchlist--format-score (title)
+  "Format the AI review score for TITLE."
+  (let ((score-data (gethash title wikipedia-watchlist--scores)))
+    (if score-data
+        (let* ((score (car score-data))
+               (face (cond
+                      ((>= score 0.7) 'wikipedia-watchlist-score-high)
+                      ((<= score 0.3) 'wikipedia-watchlist-score-low)
+                      (t 'default))))
+          (propertize (format "%4.2f" score)
+                      'face face
+                      'help-echo (cdr score-data)))
+      "  -  ")))
+
+(defun wikipedia-watchlist-sort-by-score ()
+  "Sort watchlist groups by AI review score, highest first.
+Unscored entries sort after scored ones."
+  (interactive)
+  (setq wikipedia-watchlist--grouped-entries
+        (sort wikipedia-watchlist--grouped-entries
+              (lambda (a b)
+                (let ((score-a (or (car (gethash (car a) wikipedia-watchlist--scores))
+                                   -1.0))
+                      (score-b (or (car (gethash (car b) wikipedia-watchlist--scores))
+                                   -1.0)))
+                  (> score-a score-b)))))
+  (wikipedia-watchlist--rebuild-list)
+  (tabulated-list-print t))
+
+(defun wikipedia-watchlist-show-score-reason ()
+  "Show the AI review reason for the entry at point."
+  (interactive)
+  (let* ((title (wikipedia-watchlist--title-at-point))
+         (score-data (and title (gethash title wikipedia-watchlist--scores))))
+    (if score-data
+        (message "Score %.2f: %s" (car score-data) (cdr score-data))
+      (message "No AI review score for this entry"))))
 
 (provide 'wikipedia-watchlist)
 
