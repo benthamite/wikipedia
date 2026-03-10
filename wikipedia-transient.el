@@ -65,7 +65,8 @@
     ("a c" "Clear overlays" pangram-clear)]
    ["AI Editing"
     :if (lambda () (featurep 'gptel))
-    ("c" "Generate citation" wikipedia-ai-cite)]])
+    ("c" "Generate citation" wikipedia-ai-cite)
+    ("R" "Review watchlist" wikipedia-ai-review-watchlist)]])
 
 (provide 'wikipedia-transient)
 

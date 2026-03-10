@@ -59,6 +59,7 @@
 (require 'wikipedia-xtools)
 (require 'wikipedia-user)
 (require 'wikipedia-ai)
+(require 'wikipedia-ai-review)
 
 (defvar wikipedia-edit-mode-map
   (let ((map (make-sparse-keymap)))
