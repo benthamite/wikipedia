@@ -34,7 +34,8 @@
 (defun wp--login (site)
   "Establish a session with SITE.
 SITE should be a site name configured in `mediawiki-site-alist'."
-  (mediawiki-site site)
+  (save-window-excursion
+    (mediawiki-site site))
   (setq wp--current-site site))
 
 (defun wp--api-call (action params)
@@ -142,7 +143,8 @@ Returns the parsed HTML as a string."
 (defun wp--ensure-logged-in ()
   "Ensure we have an active session, prompting for login if needed."
   (unless (or wp--current-site (bound-and-true-p mediawiki-site))
-    (call-interactively #'mediawiki-site))
+    (save-window-excursion
+      (call-interactively #'mediawiki-site)))
   (when (bound-and-true-p mediawiki-site)
     (setq wp--current-site mediawiki-site)))
 
