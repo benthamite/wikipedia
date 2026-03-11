@@ -226,6 +226,23 @@ Uses `wikipedia-diff-function' to determine the diff style."
         (to-content (wp--get-revision-content title to-rev)))
     (wikipedia--show-diff-contents from-content to-content from-rev to-rev title)))
 
+(defun wikipedia--get-diff-text (from-rev to-rev title)
+  "Return unified diff text between FROM-REV and TO-REV for TITLE.
+Uses the same content-fetching path as `wikipedia--show-diff'.
+Returns the diff string, or nil if revisions cannot be fetched."
+  (condition-case nil
+      (let ((from-content (wp--get-revision-content title from-rev))
+            (to-content (wp--get-revision-content title to-rev)))
+        (when (and from-content to-content)
+          (let* ((from-file (wikipedia--write-temp-file from-content from-rev))
+                 (to-file (wikipedia--write-temp-file to-content to-rev)))
+            (unwind-protect
+                (wikipedia--generate-unified-diff
+                 from-file to-file from-rev to-rev)
+              (delete-file from-file)
+              (delete-file to-file)))))
+    (error nil)))
+
 (defun wikipedia--show-diff-contents (from-content to-content from-rev to-rev title)
   "Display diff between FROM-CONTENT and TO-CONTENT.
 FROM-REV and TO-REV are the revision IDs, TITLE is the page title.

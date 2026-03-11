@@ -14,7 +14,6 @@
 (require 'cl-lib)
 (require 'json)
 (require 'wikipedia-ai)
-(require 'wikipedia-cache)
 (require 'wikipedia-common)
 (require 'wikipedia-db)
 (require 'wikipedia-diff)
@@ -119,24 +118,9 @@ inferring the backend from the model when needed."
     (cons backend model)))
 
 ;;;; Diff text generation
-
-(defun wikipedia-ai-review--get-diff-text (title old-revid revid)
-  "Return the unified diff text between OLD-REVID and REVID for TITLE.
-Returns nil if revisions cannot be fetched."
-  (condition-case nil
-      (let* ((from-content (or (wikipedia--cache-get old-revid)
-                               (wp--get-revision-content title old-revid)))
-             (to-content (or (wikipedia--cache-get revid)
-                             (wp--get-revision-content title revid))))
-        (when (and from-content to-content)
-          (let* ((from-file (wikipedia--write-temp-file from-content old-revid))
-                 (to-file (wikipedia--write-temp-file to-content revid)))
-            (unwind-protect
-                (wikipedia--generate-unified-diff
-                 from-file to-file old-revid revid)
-              (delete-file from-file)
-              (delete-file to-file)))))
-    (error nil)))
+;; Reuses `wikipedia--get-diff-text' from wikipedia-diff.el, which
+;; fetches revision content via the same path as the interactive diff
+;; commands (pressing `d' in the watchlist).
 
 ;;;; Response parsing
 
@@ -187,8 +171,8 @@ OLD-REVID and REVID record which revision range was scored."
       (cl-incf wikipedia-ai-review--scored)
       (message "Scoring %d/%d: %s..."
                wikipedia-ai-review--scored wikipedia-ai-review--total title)
-      (let ((diff-text (wikipedia-ai-review--get-diff-text
-                        title old-revid revid)))
+      (let ((diff-text (wikipedia--get-diff-text
+                        old-revid revid title)))
         (if (or (null diff-text) (string-empty-p (string-trim diff-text)))
             (wikipedia-ai-review--process-next)
           (wikipedia-ai-review--send-to-llm
