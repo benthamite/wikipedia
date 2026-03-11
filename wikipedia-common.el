@@ -84,9 +84,17 @@ If DIFF is nil, return an empty string."
         (insert (or content "(empty)"))
         (goto-char (point-min)))
       (special-mode)
+      (setq-local wikipedia--buffer-page-title title)
       (setq-local header-line-format
                   (format "Revision %d of %s" revid title)))
     (pop-to-buffer buffer)))
+
+;;;; Buffer-local page metadata
+
+(defvar-local wikipedia--buffer-page-title nil
+  "Page title associated with this buffer, if any.
+Set automatically by diff, revision, and other display buffers
+so that commands can detect the current page regardless of mode.")
 
 ;;;; Context detection
 
@@ -134,6 +142,8 @@ This function checks various contexts to find a page title."
       (when contrib (alist-get 'title contrib))))
    ((bound-and-true-p mediawiki-page-title)
     mediawiki-page-title)
+   ((bound-and-true-p wikipedia--buffer-page-title)
+    wikipedia--buffer-page-title)
    (t nil)))
 
 ;;;; Reading with defaults

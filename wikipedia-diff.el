@@ -32,6 +32,7 @@ When set to `ediff', use `ediff-buffers' with side-by-side comparison."
   "Buffer name for diff follow mode output.")
 
 (defvar wikipedia-history--page-title)
+(defvar wikipedia--buffer-page-title)
 
 (declare-function wikipedia--revid-at-point "wikipedia-common")
 (declare-function wikipedia-history--revision-at-point "wikipedia-history")
@@ -169,6 +170,7 @@ SOURCE-WINDOW is the window to avoid when displaying the diff."
               from-content to-content from-rev to-rev
               wikipedia-diff-follow--buffer-name)))
     (with-current-buffer buf
+      (setq-local wikipedia--buffer-page-title title)
       (setq header-line-format
             (format " %s: %d → %d" title from-rev to-rev)))
     (wikipedia-diff-follow--display-buffer buf source-window)))
@@ -277,10 +279,12 @@ Returns the diff buffer."
 (defun wikipedia--show-diff-unified (from-content to-content from-rev to-rev title)
   "Display unified diff between FROM-CONTENT and TO-CONTENT.
 FROM-REV and TO-REV are the revision IDs, TITLE is the page title."
-  (pop-to-buffer
-   (wikipedia--render-unified-diff
-    from-content to-content from-rev to-rev
-    (format "*WP Diff: %s (%d → %d)*" title from-rev to-rev))))
+  (let ((buf (wikipedia--render-unified-diff
+              from-content to-content from-rev to-rev
+              (format "*WP Diff: %s (%d → %d)*" title from-rev to-rev))))
+    (with-current-buffer buf
+      (setq-local wikipedia--buffer-page-title title))
+    (pop-to-buffer buf)))
 
 (defun wikipedia--write-temp-file (content revid)
   "Write CONTENT to a temporary file named after REVID."
@@ -329,6 +333,7 @@ FROM-REV and TO-REV are the revision IDs, TITLE is the page title."
         (erase-buffer)
         (insert (or content ""))
         (goto-char (point-min)))
+      (setq-local wikipedia--buffer-page-title title)
       (setq buffer-read-only t))
     buffer))
 
