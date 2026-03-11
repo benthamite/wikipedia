@@ -71,19 +71,24 @@ explanation, or markup fences.
            when (member model (gptel-backend-models backend))
            return backend))
 
-(defun wikipedia-ai--resolve-backend-and-model ()
-  "Return (backend . model) for AI commands.
-Resolves `wikipedia-ai-backend' and `wikipedia-ai-model', inferring the
-backend from the model when needed."
-  (let* ((model (or wikipedia-ai-model gptel-model))
+(defun wikipedia-ai--resolve (backend-name model-name)
+  "Return (BACKEND . MODEL) given BACKEND-NAME and MODEL-NAME overrides.
+When BACKEND-NAME is non-nil, look it up via `gptel-get-backend'.
+When MODEL-NAME is non-nil, infer the backend from the model.
+Falls back to `gptel-backend' and `gptel-model'."
+  (let* ((model (or model-name gptel-model))
          (backend (cond
-                   (wikipedia-ai-backend
-                    (gptel-get-backend wikipedia-ai-backend))
-                   (wikipedia-ai-model
-                    (or (wikipedia-ai--find-backend-for-model wikipedia-ai-model)
+                   (backend-name
+                    (gptel-get-backend backend-name))
+                   (model-name
+                    (or (wikipedia-ai--find-backend-for-model model-name)
                         gptel-backend))
                    (t gptel-backend))))
     (cons backend model)))
+
+(defun wikipedia-ai--resolve-backend-and-model ()
+  "Return (backend . model) for AI commands."
+  (wikipedia-ai--resolve wikipedia-ai-backend wikipedia-ai-model))
 
 ;;;###autoload
 (defun wikipedia-ai-cite (input)

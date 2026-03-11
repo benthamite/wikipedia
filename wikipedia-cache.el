@@ -4,8 +4,11 @@
 
 ;;; Commentary:
 
-;; This module provides a revision content cache with FIFO eviction
-;; and an async prefetch queue for wikipedia.el.
+;; In-memory revision content cache with oldest-first eviction and an
+;; async prefetch queue.  This complements the persistent SQLite store
+;; in wikipedia-db.el: the in-memory cache serves the diff-follow mode
+;; and prefetch pipeline where low-latency access is needed, while the
+;; database provides long-term storage for synced pages.
 
 ;;; Code:
 
@@ -19,10 +22,12 @@
   "Cache of revision content, keyed by revision ID.")
 
 (defvar wikipedia--revision-cache-keys nil
-  "List of revision IDs in cache, newest first (FIFO eviction).")
+  "List of revision IDs in cache, newest first (oldest evicted first).")
 
 (defvar wikipedia--revision-cache-max-size 200
-  "Maximum number of revisions to keep in the cache.")
+  "Maximum number of revisions to keep in the cache.
+200 keeps memory reasonable (~10 MB at ~50 KB per revision) while
+covering typical watchlist + prefetch working sets.")
 
 (defvar wikipedia--prefetch-in-flight (make-hash-table :test 'eql)
   "Revision IDs currently being fetched.")
@@ -41,7 +46,8 @@
   (puthash revid content wikipedia--revision-cache))
 
 (defun wikipedia--cache-evict ()
-  "Evict oldest entries from the revision cache."
+  "Evict oldest entries from the revision cache.
+Shrinks to half capacity to amortize eviction cost."
   (let ((target (/ wikipedia--revision-cache-max-size 2)))
     (while (and wikipedia--revision-cache-keys
                 (> (hash-table-count wikipedia--revision-cache) target))
@@ -124,7 +130,8 @@ The content is always stored in the cache."
   "Queue of (TITLE . REVID) pairs pending prefetch.")
 
 (defvar wikipedia--prefetch-max-concurrent 10
-  "Maximum number of concurrent prefetch requests.")
+  "Maximum number of concurrent prefetch requests.
+Kept conservative to avoid triggering MediaWiki API rate limits.")
 
 (defun wikipedia--prefetch-watchlist-diffs (entries)
   "Prefetch revision content for all watchlist ENTRIES asynchronously.

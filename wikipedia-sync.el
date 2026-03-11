@@ -49,6 +49,7 @@
            (size (alist-get 'size rev))
            (rev-row-id (wikipedia-db-insert-revision
                         page-id revid parentid user timestamp comment size)))
+      ;; Only fetch content for the latest revision to save bandwidth
       (when (and wikipedia-sync-fetch-content
                  (eq rev (car revisions))
                  (not (wikipedia-db-has-content-p rev-row-id)))
@@ -60,28 +61,35 @@
     (when content
       (wikipedia-db-insert-content rev-row-id content))))
 
+(defun wikipedia-sync--sync-titles (titles operation)
+  "Sync each page in TITLES, reporting progress as OPERATION.
+Returns the list of titles that failed to sync."
+  (message "%s %d pages..." operation (length titles))
+  (let ((failed nil))
+    (dolist (title titles)
+      (condition-case err
+          (wikipedia-sync-page title)
+        (error
+         (push title failed)
+         (message "Failed to sync %s: %s" title (error-message-string err))))
+      (sit-for 0.5)) ;; Rate-limit to avoid overwhelming the MediaWiki API
+    (nreverse failed)))
+
 ;;;###autoload
 (defun wikipedia-sync-watchlist ()
   "Sync all pages from watchlist to local database."
   (interactive)
   (wp--ensure-logged-in)
   (message "Fetching watchlist...")
+  ;; Fetch up to 500 entries (MediaWiki API maximum for list queries)
   (let* ((entries (wp--get-watchlist 500))
          (titles (delete-dups (mapcar (lambda (e) (alist-get 'title e)) entries))))
     (dolist (title titles)
       (wikipedia-db-set-watched title t))
-    (let ((failed nil))
-      (message "Syncing %d watched pages..." (length titles))
-      (dolist (title titles)
-        (condition-case err
-            (wikipedia-sync-page title)
-          (error
-           (push title failed)
-           (message "Failed to sync %s: %s" title (error-message-string err))))
-        (sit-for 0.5))
+    (let ((failed (wikipedia-sync--sync-titles titles "Syncing")))
       (if failed
           (message "Sync complete with %d failures: %s"
-                   (length failed) (string-join (nreverse failed) ", "))
+                   (length failed) (string-join failed ", "))
         (message "Sync complete!")))))
 
 ;;;###autoload
@@ -92,16 +100,8 @@
   (let ((watched (wikipedia-db-get-watched-pages)))
     (if (null watched)
         (message "No watched pages in database. Run M-x wikipedia-sync-watchlist first.")
-      (let ((failed nil))
-        (message "Updating %d watched pages..." (length watched))
-        (dolist (row watched)
-          (pcase-let ((`(,_id ,title ,_last-synced) row))
-            (condition-case err
-                (wikipedia-sync-page title)
-              (error
-               (push title failed)
-               (message "Failed to sync %s: %s" title (error-message-string err))))
-            (sit-for 0.5)))
+      (let* ((titles (mapcar #'cadr watched))
+             (failed (wikipedia-sync--sync-titles titles "Updating")))
         (if failed
             (message "Update complete with %d failures" (length failed))
           (message "Update complete!"))))))

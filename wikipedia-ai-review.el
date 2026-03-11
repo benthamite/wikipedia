@@ -19,8 +19,6 @@
 (require 'wikipedia-diff)
 
 (declare-function gptel-request "gptel-request")
-(declare-function gptel-get-backend "gptel")
-
 (defvar gptel-backend)
 (defvar gptel-model)
 (defvar gptel-use-tools)
@@ -103,19 +101,9 @@ When nil, defaults to `gptel-model'."
 ;;;; Backend resolution
 
 (defun wikipedia-ai-review--resolve-backend-and-model ()
-  "Return (BACKEND . MODEL) for review commands.
-Resolves `wikipedia-ai-review-backend' and `wikipedia-ai-review-model',
-inferring the backend from the model when needed."
-  (let* ((model (or wikipedia-ai-review-model gptel-model))
-         (backend (cond
-                   (wikipedia-ai-review-backend
-                    (gptel-get-backend wikipedia-ai-review-backend))
-                   (wikipedia-ai-review-model
-                    (or (wikipedia-ai--find-backend-for-model
-                         wikipedia-ai-review-model)
-                        gptel-backend))
-                   (t gptel-backend))))
-    (cons backend model)))
+  "Return (BACKEND . MODEL) for review commands."
+  (wikipedia-ai--resolve wikipedia-ai-review-backend
+                         wikipedia-ai-review-model))
 
 ;;;; Diff text generation
 ;; Reuses `wikipedia--get-diff-text' from wikipedia-diff.el, which

@@ -14,6 +14,16 @@
 ;;   `wp--api-call' - Make API requests to the wiki
 ;;   `wp--open-page-buffer' - Open a page in a buffer for editing
 ;;   `wp--publish-page-buffer' - Publish the current buffer to the wiki
+;;
+;; Naming: This module uses the short `wp--' prefix instead of
+;; `wikipedia-adapter--' since its functions are called from nearly
+;; every other module.
+;;
+;; XML convention: MediaWiki API responses are parsed by `xml-parse-region'
+;; into trees of the form (TAG ATTRS . CHILDREN).  To navigate these
+;; trees, `(cadr NODE)' extracts the attribute alist and `(cddr NODE)'
+;; extracts the child list.  So `(cddr (assq 'KEY (cddr NODE)))' means
+;; "get the children of the KEY child element of NODE".
 
 ;;; Code:
 
@@ -53,6 +63,7 @@ Unlike `mediawiki-api-call', this does not expect the response to contain
 an element named after the action.  This is needed for APIs like `thank'
 that return `result' instead of the action name.
 Returns non-nil on success, signals an error on failure."
+  ;; Build request, parse XML response, and check for API-level errors.
   (let* ((url (mediawiki-make-api-url site))
          (all-params (append params
                              (list (cons "format" "xml")
@@ -94,6 +105,9 @@ CALLBACK is called with non-nil on success, nil on failure."
     (url-retrieve
      url
      (lambda (status callback-arg)
+       ;; Check both the status plist and the raw HTTP status line for a 2xx
+       ;; response; `url-retrieve' sometimes reports success in one but not
+       ;; the other depending on redirect handling.
        (let ((success (and (not (plist-get status :error))
                            (progn
                              (goto-char (point-min))
@@ -245,6 +259,7 @@ days back to fetch (default 30). Returns a list of watchlist entry alists. By
 default, shows only unseen changes and only includes page edits and page
 creations."
   (let* ((site (wp--get-site))
+         ;; Default to 30 days; 86400 = seconds per day
          (end-time (wp--format-timestamp-for-api (- (float-time) (* (or days 30) 86400))))
          (result (mediawiki-api-call
                   site "query"
@@ -320,51 +335,30 @@ Returns non-nil on success."
         (cdr (assq 'csrftoken token-attrs))
         (wp--extract-csrf-token result))))
 
-(defun wp--watch-page (title)
-  "Add TITLE to the user's watchlist.
+(defun wp--set-watch (title unwatch)
+  "Add or remove TITLE from the user's watchlist.
+When UNWATCH is non-nil, remove it; otherwise add it.
 Returns non-nil on success."
   (let* ((site (wp--get-site))
-         (token (wp--get-watch-token site)))
-    (mediawiki-api-call
-     site "watch"
-     (list (cons "titles" title)
-           (cons "token" token)))
+         (token (wp--get-watch-token site))
+         (params (list (cons "titles" title)
+                       (cons "token" token))))
+    (when unwatch
+      (push (cons "unwatch" "1") params))
+    (mediawiki-api-call site "watch" params)
     t))
 
-(defun wp--watch-page-async (title &optional callback)
-  "Add TITLE to the user's watchlist asynchronously.
+(defun wp--set-watch-async (title unwatch &optional callback)
+  "Add or remove TITLE from the user's watchlist asynchronously.
+When UNWATCH is non-nil, remove it; otherwise add it.
 CALLBACK is called with non-nil on success."
   (let* ((site (wp--get-site))
-         (token (wp--get-watch-token site)))
-    (wp--api-call-async
-     "watch"
-     (list (cons "titles" title)
-           (cons "token" token))
-     callback)))
-
-(defun wp--unwatch-page (title)
-  "Remove TITLE from the user's watchlist.
-Returns non-nil on success."
-  (let* ((site (wp--get-site))
-         (token (wp--get-watch-token site)))
-    (mediawiki-api-call
-     site "watch"
-     (list (cons "titles" title)
-           (cons "unwatch" "1")
-           (cons "token" token)))
-    t))
-
-(defun wp--unwatch-page-async (title &optional callback)
-  "Remove TITLE from the user's watchlist asynchronously.
-CALLBACK is called with non-nil on success."
-  (let* ((site (wp--get-site))
-         (token (wp--get-watch-token site)))
-    (wp--api-call-async
-     "watch"
-     (list (cons "titles" title)
-           (cons "unwatch" "1")
-           (cons "token" token))
-     callback)))
+         (token (wp--get-watch-token site))
+         (params (list (cons "titles" title)
+                       (cons "token" token))))
+    (when unwatch
+      (push (cons "unwatch" "1") params))
+    (wp--api-call-async "watch" params callback)))
 
 (defun wp--mark-page-seen (title)
   "Mark TITLE as seen on the watchlist.
@@ -384,6 +378,7 @@ TITLES is a list of page titles.  They are batched into groups of 50
 for the API.  CALLBACK is called with non-nil when all batches complete."
   (let* ((site (wp--get-site))
          (token (wp--get-csrf-token site))
+         ;; MediaWiki API limits `titles' parameter to 50 values per request
          (batches (wp--batch-titles titles 50))
          (pending (length batches))
          (all-success t))

@@ -118,6 +118,75 @@ Returns an alist with top edited pages."
           (error "Failed to fetch XTools data for %s" username)))
     (error (message "XTools error for %s: %s" username (error-message-string err)))))
 
+(defun wikipedia-xtools--insert-basic-info (data)
+  "Insert basic user info section from DATA."
+  (wikipedia-xtools--insert-stat "User ID" (alist-get 'user_id data))
+  (wikipedia-xtools--insert-stat "Project" (alist-get 'project data))
+  (let ((registration (alist-get 'registration data)))
+    (when registration
+      (wikipedia-xtools--insert-stat "Registered"
+        (wikipedia-xtools--format-timestamp registration))))
+  (let ((local-groups (alist-get 'user_groups data)))
+    (when (wikipedia-xtools--is-admin local-groups)
+      (insert "\n" (propertize "★ Administrator ★" 'face '(:foreground "gold" :weight bold)) "\n"))))
+
+(defun wikipedia-xtools--insert-edit-stats (data)
+  "Insert edit statistics section from DATA."
+  (insert "\n" (propertize "Edit Statistics\n" 'face 'bold))
+  (wikipedia-xtools--insert-stat "Live edits" (alist-get 'live_edit_count data))
+  (wikipedia-xtools--insert-stat "Deleted edits" (alist-get 'deleted_edit_count data))
+  (let ((live (alist-get 'live_edit_count data))
+        (deleted (alist-get 'deleted_edit_count data)))
+    (when (and live deleted)
+      (wikipedia-xtools--insert-stat "Total edits" (+ live deleted))))
+  (wikipedia-xtools--insert-stat "Pages created" (alist-get 'creation_count data)))
+
+(defun wikipedia-xtools--insert-activity-period (data)
+  "Insert activity period section from DATA."
+  (let ((first (alist-get 'first_edit data))
+        (latest (alist-get 'latest_edit data)))
+    (when (or first latest)
+      (insert "\n" (propertize "Activity Period\n" 'face 'bold))
+      (when first
+        (wikipedia-xtools--insert-stat "First edit"
+          (wikipedia-xtools--format-timestamp first)))
+      (when latest
+        (wikipedia-xtools--insert-stat "Latest edit"
+          (wikipedia-xtools--format-timestamp latest))))))
+
+(defun wikipedia-xtools--insert-user-groups (data)
+  "Insert user groups section from DATA."
+  (let ((local-groups (alist-get 'user_groups data))
+        (global-groups (alist-get 'global_user_groups data)))
+    (when (or local-groups global-groups)
+      (insert "\n" (propertize "User Groups\n" 'face 'bold))
+      (when local-groups
+        (let ((groups-str (wikipedia-xtools--format-groups local-groups)))
+          (when (and groups-str (not (string-empty-p groups-str)))
+            (wikipedia-xtools--insert-stat "Local groups" groups-str))))
+      (when global-groups
+        (let ((groups-str (wikipedia-xtools--format-groups global-groups)))
+          (when (and groups-str (not (string-empty-p groups-str)))
+            (wikipedia-xtools--insert-stat "Global groups" groups-str)))))))
+
+(defun wikipedia-xtools--insert-top-edits (data)
+  "Insert top edited pages section from DATA."
+  (let ((top-edits (alist-get 'top_edits_data data)))
+    (when (and top-edits (sequencep top-edits) (> (length top-edits) 0))
+      (insert "\n" (propertize "Top Edited Pages (mainspace)\n" 'face 'bold))
+      (let ((count 0))
+        (while (and (< count 10) (< count (length top-edits)))
+          (let* ((page (elt top-edits count))
+                 (title (cdr (assq 'page_title page)))
+                 (edits (cdr (assq 'count page))))
+            (when (and title edits)
+              (insert (format "  %-40s %5d edits\n"
+                              (if (> (length title) 40)
+                                  (concat (substring title 0 37) "...")
+                                title)
+                              edits))))
+          (setq count (1+ count)))))))
+
 (defun wikipedia-xtools--display-user-stats (username data)
   "Display user stats for USERNAME from DATA."
   (let ((buf (get-buffer-create (format "*XTools: %s*" username))))
@@ -127,73 +196,11 @@ Returns an alist with top edited pages."
         (insert (propertize (format "XTools Statistics: %s\n" username)
                             'face 'bold))
         (insert (make-string 50 ?─) "\n\n")
-        
-        ;; Basic info
-        (wikipedia-xtools--insert-stat "User ID" (alist-get 'user_id data))
-        (wikipedia-xtools--insert-stat "Project" (alist-get 'project data))
-        (let ((registration (alist-get 'registration data)))
-          (when registration
-            (wikipedia-xtools--insert-stat "Registered" 
-              (wikipedia-xtools--format-timestamp registration))))
-        
-        ;; Admin status
-        (let ((local-groups (alist-get 'user_groups data)))
-          (when (wikipedia-xtools--is-admin local-groups)
-            (insert "\n" (propertize "★ Administrator ★" 'face '(:foreground "gold" :weight bold)) "\n")))
-        
-        ;; Edit counts
-        (insert "\n" (propertize "Edit Statistics\n" 'face 'bold))
-        (wikipedia-xtools--insert-stat "Live edits" (alist-get 'live_edit_count data))
-        (wikipedia-xtools--insert-stat "Deleted edits" (alist-get 'deleted_edit_count data))
-        (let ((live (alist-get 'live_edit_count data))
-              (deleted (alist-get 'deleted_edit_count data)))
-          (when (and live deleted)
-            (wikipedia-xtools--insert-stat "Total edits" (+ live deleted))))
-        (wikipedia-xtools--insert-stat "Pages created" (alist-get 'creation_count data))
-        
-        ;; Timestamps
-        (let ((first (alist-get 'first_edit data))
-              (latest (alist-get 'latest_edit data)))
-          (when (or first latest)
-            (insert "\n" (propertize "Activity Period\n" 'face 'bold))
-            (when first
-              (wikipedia-xtools--insert-stat "First edit" 
-                (wikipedia-xtools--format-timestamp first)))
-            (when latest
-              (wikipedia-xtools--insert-stat "Latest edit" 
-                (wikipedia-xtools--format-timestamp latest)))))
-        
-        ;; User groups
-        (let ((local-groups (alist-get 'user_groups data))
-              (global-groups (alist-get 'global_user_groups data)))
-          (when (or local-groups global-groups)
-            (insert "\n" (propertize "User Groups\n" 'face 'bold))
-            (when local-groups
-              (let ((groups-str (wikipedia-xtools--format-groups local-groups)))
-                (when (and groups-str (not (string-empty-p groups-str)))
-                  (wikipedia-xtools--insert-stat "Local groups" groups-str))))
-            (when global-groups
-              (let ((groups-str (wikipedia-xtools--format-groups global-groups)))
-                (when (and groups-str (not (string-empty-p groups-str)))
-                  (wikipedia-xtools--insert-stat "Global groups" groups-str))))))
-        
-        ;; Top edits
-        (let ((top-edits (alist-get 'top_edits_data data)))
-          (when (and top-edits (sequencep top-edits) (> (length top-edits) 0))
-            (insert "\n" (propertize "Top Edited Pages (mainspace)\n" 'face 'bold))
-            (let ((count 0))
-              (while (and (< count 10) (< count (length top-edits)))
-                (let* ((page (elt top-edits count))
-                       (title (cdr (assq 'page_title page)))
-                       (edits (cdr (assq 'count page))))
-                  (when (and title edits)
-                    (insert (format "  %-40s %5d edits\n" 
-                                    (if (> (length title) 40)
-                                        (concat (substring title 0 37) "...")
-                                      title)
-                                    edits))))
-                (setq count (1+ count))))))
-        
+        (wikipedia-xtools--insert-basic-info data)
+        (wikipedia-xtools--insert-edit-stats data)
+        (wikipedia-xtools--insert-activity-period data)
+        (wikipedia-xtools--insert-user-groups data)
+        (wikipedia-xtools--insert-top-edits data)
         (goto-char (point-min)))
       (special-mode))
     (pop-to-buffer buf)))

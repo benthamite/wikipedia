@@ -20,6 +20,9 @@
   :type 'file
   :group 'wikipedia-db)
 
+(defconst wikipedia-db-default-site "en.wikipedia.org"
+  "Default site for database operations.")
+
 (defvar wikipedia-db--connection nil
   "Active database connection.")
 
@@ -39,7 +42,7 @@
         id INTEGER PRIMARY KEY,
         title TEXT NOT NULL,
         site TEXT NOT NULL DEFAULT 'en.wikipedia.org',
-        last_synced INTEGER,
+        last_synced INTEGER, -- epoch seconds (via time-convert)
         watched INTEGER DEFAULT 0,
         UNIQUE(title, site)
       )")
@@ -62,14 +65,17 @@
         content TEXT,
         FOREIGN KEY (revision_id) REFERENCES revisions(id)
       )")
+    ;; AI review scores: 0.0 = trivial/no review needed,
+    ;; 1.0 = highly significant/definitely review.  See
+    ;; `wikipedia-ai-review-system-prompt' for the scoring criteria.
     (sqlite-execute db "
       CREATE TABLE IF NOT EXISTS ai_scores (
         page_id INTEGER PRIMARY KEY,
-        score REAL NOT NULL,
+        score REAL NOT NULL, -- 0.0 (trivial) to 1.0 (needs review)
         reason TEXT DEFAULT '',
         old_revid INTEGER,
         revid INTEGER,
-        scored_at INTEGER,
+        scored_at INTEGER, -- epoch seconds
         FOREIGN KEY (page_id) REFERENCES pages(id)
       )")
     (sqlite-execute db "CREATE INDEX IF NOT EXISTS idx_pages_title ON pages(title)")
@@ -85,9 +91,10 @@
     (setq wikipedia-db--connection nil)))
 
 (defun wikipedia-db-get-page (title &optional site)
-  "Get page record for TITLE from SITE."
+  "Get page record for TITLE from SITE.
+Returns a list (ID TITLE SITE LAST_SYNCED WATCHED) or nil."
   (let ((db (wikipedia-db--ensure-connection))
-        (site (or site "en.wikipedia.org")))
+        (site (or site wikipedia-db-default-site)))
     (car (sqlite-select db
                         "SELECT id, title, site, last_synced, watched FROM pages WHERE title = ? AND site = ?"
                         (list title site)))))
@@ -95,7 +102,7 @@
 (defun wikipedia-db-insert-page (title &optional site)
   "Insert or get page record for TITLE from SITE.  Return page id."
   (let ((db (wikipedia-db--ensure-connection))
-        (site (or site "en.wikipedia.org")))
+        (site (or site wikipedia-db-default-site)))
     (sqlite-execute db
                     "INSERT OR IGNORE INTO pages (title, site) VALUES (?, ?)"
                     (list title site))
@@ -113,7 +120,7 @@
 (defun wikipedia-db-set-watched (title watched &optional site)
   "Set WATCHED status for page TITLE from SITE."
   (let ((db (wikipedia-db--ensure-connection))
-        (site (or site "en.wikipedia.org")))
+        (site (or site wikipedia-db-default-site)))
     (wikipedia-db-insert-page title site)
     (sqlite-execute db
                     "UPDATE pages SET watched = ? WHERE title = ? AND site = ?"
@@ -122,7 +129,7 @@
 (defun wikipedia-db-get-watched-pages (&optional site)
   "Get all watched pages from SITE."
   (let ((db (wikipedia-db--ensure-connection))
-        (site (or site "en.wikipedia.org")))
+        (site (or site wikipedia-db-default-site)))
     (sqlite-select db
                    "SELECT id, title, last_synced FROM pages WHERE watched = 1 AND site = ?"
                    (list site))))
@@ -139,7 +146,9 @@
                          (list page-id revid)))))
 
 (defun wikipedia-db-get-revisions (page-id &optional limit)
-  "Get revisions for PAGE-ID, optionally limited to LIMIT entries."
+  "Get revisions for PAGE-ID, optionally limited to LIMIT entries.
+Returns rows of (ID REVID PARENTID USER TIMESTAMP COMMENT SIZE),
+newest first."
   (let ((db (wikipedia-db--ensure-connection))
         (limit (or limit 50)))
     (sqlite-select db
@@ -148,7 +157,9 @@
                    (list page-id limit))))
 
 (defun wikipedia-db-get-revision-by-revid (revid)
-  "Get revision record by REVID."
+  "Get revision record by REVID.
+Returns (ID PAGE_ID REVID PARENTID USER TIMESTAMP COMMENT SIZE TITLE)
+or nil."
   (let ((db (wikipedia-db--ensure-connection)))
     (car (sqlite-select db
                         "SELECT r.id, r.page_id, r.revid, r.parentid, r.user, r.timestamp, r.comment, r.size, p.title
@@ -179,7 +190,8 @@ CONTENT must be a string or nil."
                          (list revision-id)))))
 
 (defun wikipedia-db-get-latest-revision (page-id)
-  "Get the latest revision for PAGE-ID."
+  "Get the latest revision for PAGE-ID.
+Returns (ID REVID PARENTID USER TIMESTAMP COMMENT SIZE) or nil."
   (let ((db (wikipedia-db--ensure-connection)))
     (car (sqlite-select db
                         "SELECT id, revid, parentid, user, timestamp, comment, size
@@ -215,7 +227,7 @@ CONTENT must be a string or nil."
   "Get all AI review scores for SITE.
 Returns a list of (TITLE SCORE REASON) lists."
   (let ((db (wikipedia-db--ensure-connection))
-        (site (or site "en.wikipedia.org")))
+        (site (or site wikipedia-db-default-site)))
     (sqlite-select db
                    "SELECT p.title, a.score, a.reason
                     FROM ai_scores a
@@ -226,7 +238,7 @@ Returns a list of (TITLE SCORE REASON) lists."
 (defun wikipedia-db-clear-ai-scores (&optional site)
   "Clear all AI review scores for SITE."
   (let ((db (wikipedia-db--ensure-connection))
-        (site (or site "en.wikipedia.org")))
+        (site (or site wikipedia-db-default-site)))
     (sqlite-execute db
                     "DELETE FROM ai_scores WHERE page_id IN
                      (SELECT id FROM pages WHERE site = ?)"

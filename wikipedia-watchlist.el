@@ -489,8 +489,8 @@ spanning from the oldest base revision to the newest revision."
   (wp--ensure-logged-in)
   (let ((source-buffer (current-buffer)))
     (message "Adding \"%s\" to watchlist..." title)
-    (wp--watch-page-async
-     title
+    (wp--set-watch-async
+     title nil
      (lambda (success)
        (if success
            (progn
@@ -508,8 +508,8 @@ spanning from the oldest base revision to the newest revision."
   (when (yes-or-no-p (format "Remove \"%s\" from watchlist? " title))
     (let ((source-buffer (current-buffer)))
       (message "Removing \"%s\" from watchlist..." title)
-      (wp--unwatch-page-async
-       title
+      (wp--set-watch-async
+       title t
        (lambda (success)
          (if success
              (progn
@@ -523,7 +523,9 @@ spanning from the oldest base revision to the newest revision."
 ;;;; Score display and sorting
 
 (defun wikipedia-watchlist--format-score (title)
-  "Format the AI review score for TITLE."
+  "Format the AI review score for TITLE.
+Scores range 0.0-1.0 (see `wikipedia-ai-review-system-prompt').
+High (>= 0.7) is highlighted as a warning, low (<= 0.3) is dimmed."
   (let ((score-data (gethash title wikipedia-watchlist--scores)))
     (if score-data
         (let* ((score (car score-data))
@@ -534,7 +536,7 @@ spanning from the oldest base revision to the newest revision."
           (propertize (format "%5.2f" score)
                       'face face
                       'help-echo (cdr score-data)))
-      "    -")))
+      "    -"))) ;; Aligned to %5.2f width
 
 (defun wikipedia-watchlist-sort-by-score ()
   "Sort watchlist groups by AI review score, highest first.
@@ -543,6 +545,8 @@ Unscored entries sort after scored ones."
   (setq wikipedia-watchlist--grouped-entries
         (sort wikipedia-watchlist--grouped-entries
               (lambda (a b)
+                ;; Sentinel -1.0 sorts unscored entries after all valid
+                ;; scores (which range 0.0-1.0)
                 (let ((score-a (or (car (gethash (car a) wikipedia-watchlist--scores))
                                    -1.0))
                       (score-b (or (car (gethash (car b) wikipedia-watchlist--scores))
