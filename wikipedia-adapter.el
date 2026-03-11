@@ -432,6 +432,42 @@ Returns a list of contribution alists."
       (sizediff . ,(wp--parse-number (cdr (assq 'sizediff attrs))))
       (minor . ,(assq 'minor attrs)))))
 
+;;;; Reverting edits
+
+(defun wp--undo-revision (title revid &optional summary)
+  "Undo revision REVID on page TITLE.
+Uses the MediaWiki undo mechanism, which performs a server-side
+three-way merge to remove the changes made by this revision while
+preserving subsequent edits.  SUMMARY is the edit summary; if nil,
+the server generates an automatic summary.
+Signals an error if the undo cannot be applied cleanly (e.g. due to
+conflicting intermediate edits)."
+  (let* ((site (wp--get-site))
+         (token (wp--get-csrf-token site))
+         (params (list (cons "title" title)
+                       (cons "undo" (number-to-string revid))
+                       (cons "token" token))))
+    (when summary
+      (push (cons "summary" summary) params))
+    (wp--api-call-raw site "edit" params)))
+
+(defun wp--restore-revision (title revid &optional summary)
+  "Restore page TITLE to the content of revision REVID.
+Fetches the wikitext at REVID and submits it as a new edit, completely
+replacing the current page content.  SUMMARY is the edit summary; if
+nil, a default summary is generated."
+  (let* ((site (wp--get-site))
+         (token (wp--get-csrf-token site))
+         (content (wp--get-revision-content title revid)))
+    (unless content
+      (error "Failed to fetch content for revision %d" revid))
+    (wp--api-call-raw
+     site "edit"
+     (list (cons "title" title)
+           (cons "text" content)
+           (cons "summary" (or summary (format "Restored revision %d" revid)))
+           (cons "token" token)))))
+
 ;;;; Editing mode helpers
 
 (defun wp--activate-editing-mode ()

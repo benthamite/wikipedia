@@ -152,6 +152,33 @@ This function checks various contexts to find a page title."
         (read-string (format "Username (default %s): " default) nil nil default)
       (read-string "Username: "))))
 
+;;;; Reverting edits
+
+(defun wikipedia-undo (revid &optional user)
+  "Undo revision REVID using the MediaWiki undo mechanism.
+This performs a server-side three-way merge to remove the changes
+made by REVID while preserving subsequent edits.  Fails if there
+are conflicting intermediate edits.
+USER is used only in the confirmation prompt."
+  (interactive (list (wikipedia--revid-at-point)
+                     (wikipedia--user-at-point)))
+  (unless revid
+    (error "No revision at point"))
+  (let ((title (wikipedia--page-title-at-point)))
+    (unless title
+      (error "Cannot determine page title"))
+    (when (yes-or-no-p (format "Undo revision %d%s? "
+                               revid
+                               (if user (format " by %s" user) "")))
+      (let ((summary (read-string "Edit summary (empty for default): ")))
+        (condition-case err
+            (progn
+              (wp--undo-revision title revid
+                                (unless (string-empty-p summary) summary))
+              (message "Undid revision %d on %s" revid title))
+          (error
+           (message "Undo failed: %s" (error-message-string err))))))))
+
 ;;;; Shared keymap for list modes
 
 (declare-function wikipedia-diff-follow-mode "wikipedia-diff")
@@ -169,6 +196,7 @@ This function checks various contexts to find a page title."
     (define-key map "t" #'wikipedia-thank)
     (define-key map "u" #'wikipedia-user-at-point)
     (define-key map "s" #'wikipedia-xtools-user-stats)
+    (define-key map "U" #'wikipedia-undo)
     (define-key map "B" #'wikipedia-browse)
     (define-key map "w" #'wikipedia-watchlist-watch)
     (define-key map "x" #'wikipedia-watchlist-unwatch)

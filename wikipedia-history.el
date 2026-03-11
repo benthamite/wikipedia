@@ -31,6 +31,7 @@
     (define-key map "d" #'wikipedia-history-diff-to-previous)
     (define-key map "c" #'wikipedia-history-diff-to-current)
     (define-key map "D" #'wikipedia-history-diff-revisions)
+    (define-key map "R" #'wikipedia-history-restore-revision)
     (define-key map "b" #'wikipedia-history-browse-revision)
     (define-key map "g" #'wikipedia-history-refresh)
     map)
@@ -164,6 +165,34 @@ This is equivalent to Wikipedia's \"cur\"."
       (error "No revision at point"))
     (let ((url (wikipedia--revision-url wikipedia-history--page-title revid)))
       (browse-url url))))
+
+(defun wikipedia-history-restore-revision ()
+  "Restore the page to the revision at point.
+This fetches the wikitext at the selected revision and submits it
+as a new edit, completely replacing the current page content."
+  (interactive)
+  (let* ((rev (wikipedia-history--revision-at-point))
+         (revid (alist-get 'revid rev))
+         (user (alist-get 'user rev))
+         (timestamp (alist-get 'timestamp rev)))
+    (unless revid
+      (error "No revision at point"))
+    (when (yes-or-no-p
+           (format "Restore %s to revision %d (%s by %s)? "
+                   wikipedia-history--page-title revid
+                   (wikipedia--format-timestamp timestamp)
+                   (or user "unknown")))
+      (let ((summary (read-string "Edit summary (empty for default): ")))
+        (condition-case err
+            (progn
+              (wp--restore-revision
+               wikipedia-history--page-title revid
+               (unless (string-empty-p summary) summary))
+              (message "Restored %s to revision %d"
+                       wikipedia-history--page-title revid)
+              (wikipedia-history-refresh))
+          (error
+           (message "Restore failed: %s" (error-message-string err))))))))
 
 (defun wikipedia-history-diff-revisions ()
   "Diff two revisions, prompting for revision IDs."
