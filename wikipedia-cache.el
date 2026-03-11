@@ -35,8 +35,8 @@
   "Store CONTENT in cache for REVID, evicting old entries if needed."
   (unless (gethash revid wikipedia--revision-cache)
     (push revid wikipedia--revision-cache-keys)
-    (when (> (hash-table-count wikipedia--revision-cache)
-             wikipedia--revision-cache-max-size)
+    (when (>= (hash-table-count wikipedia--revision-cache)
+              wikipedia--revision-cache-max-size)
       (wikipedia--cache-evict)))
   (puthash revid content wikipedia--revision-cache))
 
@@ -105,16 +105,16 @@ The content is always stored in the cache."
        url
        (lambda (status revid-arg callback-arg)
          (unwind-protect
-             (progn
+             (let ((content nil))
                (remhash revid-arg wikipedia--prefetch-in-flight)
                (unless (plist-get status :error)
                  (condition-case nil
-                     (let ((content (wikipedia--parse-async-revision-response)))
-                       (when content
-                         (wikipedia--cache-put revid-arg content))
-                       (when callback-arg
-                         (funcall callback-arg content)))
-                   (error nil))))
+                     (setq content (wikipedia--parse-async-revision-response))
+                   (error nil))
+                 (when content
+                   (wikipedia--cache-put revid-arg content)))
+               (when callback-arg
+                 (funcall callback-arg content)))
            (when (buffer-live-p (current-buffer))
              (kill-buffer (current-buffer)))))
        (list revid callback)

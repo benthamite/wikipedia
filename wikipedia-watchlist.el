@@ -71,6 +71,7 @@ Populated by `wikipedia-ai-review-watchlist'.")
 \\{wikipedia-watchlist-mode-map}"
   (setq tabulated-list-format
         [("" 2 nil)
+         ("#" 3 t)
          ("Page" 40 t)
          ("Time" 20 t)
          ("User" 20 t)

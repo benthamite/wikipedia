@@ -94,8 +94,12 @@ CALLBACK is called with non-nil on success, nil on failure."
     (url-retrieve
      url
      (lambda (status callback-arg)
-       (let ((success (not (plist-get status :error))))
-         (kill-buffer)
+       (let ((success (and (not (plist-get status :error))
+                           (progn
+                             (goto-char (point-min))
+                             (looking-at-p "HTTP/[0-9.]+ 2")))))
+         (when (buffer-live-p (current-buffer))
+           (kill-buffer))
          (when callback-arg
            (funcall callback-arg success))))
      (list callback)

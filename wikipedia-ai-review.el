@@ -257,7 +257,6 @@ Requires the `gptel' package."
     (setq wikipedia-ai-review--watchlist-buffer
           (get-buffer "*Wikipedia Watchlist*"))
     (cl-incf wikipedia-ai-review--generation)
-    (wikipedia-db-clear-ai-scores)
     (setq wikipedia-ai-review--queue groups
           wikipedia-ai-review--scored 0
           wikipedia-ai-review--total (length groups))
