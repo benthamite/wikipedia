@@ -173,10 +173,16 @@ OLD-REVID and REVID record which revision range was scored."
                wikipedia-ai-review--scored wikipedia-ai-review--total title)
       (let ((diff-text (wikipedia--get-diff-text
                         old-revid revid title)))
-        (if (or (null diff-text) (string-empty-p (string-trim diff-text)))
-            (wikipedia-ai-review--process-next)
+        (cond
+         ((null diff-text)
+          (wikipedia-ai-review--process-next))
+         ((string-empty-p (string-trim diff-text))
+          (wikipedia-ai-review--store-score
+           title (cons 0.0 "No net change") old-revid revid)
+          (wikipedia-ai-review--process-next))
+         (t
           (wikipedia-ai-review--send-to-llm
-           title old-revid revid diff-text))))))
+           title old-revid revid diff-text)))))))
 
 (defun wikipedia-ai-review--send-to-llm (title old-revid revid diff-text)
   "Send DIFF-TEXT for TITLE to the LLM for scoring.

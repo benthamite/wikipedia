@@ -136,16 +136,17 @@ Populated by `wikipedia-ai-review-watchlist'.")
     (tabulated-list-init-header)))
 
 (defun wikipedia-watchlist--compute-column-widths (entries)
-  "Compute the maximum width of each column in ENTRIES."
+  "Compute the maximum display width of each column in ENTRIES.
+Uses `string-width' to match `tabulated-list-mode' column layout."
   (let ((widths (list 0 0 0 0 0 0 0)))
     (dolist (entry entries)
       (let ((row (cadr entry)))
         (dotimes (i 7)
           (let* ((cell (aref row i))
                  (text (if (stringp cell) cell (format "%s" cell)))
-                 (len (length text)))
-            (when (> len (nth i widths))
-              (setf (nth i widths) len))))))
+                 (w (string-width text)))
+            (when (> w (nth i widths))
+              (setf (nth i widths) w))))))
     widths))
 
 (defun wikipedia-watchlist--build-format (max-widths actual-widths)

@@ -721,6 +721,13 @@
       ;; Column 4 (User): "User" = 4
       (should (= (nth 4 widths) 4)))))
 
+(ert-deftest watchlist-compute-column-widths/uses-string-width ()
+  "Column widths use display width, not character count."
+  ;; CJK character "中" has string-width 2 but length 1
+  (let* ((entries (list (list 'id1 (vector "" "" "中" "" "" "" "" "")))))
+    (let ((widths (wikipedia-watchlist--compute-column-widths entries)))
+      (should (= (nth 2 widths) 2)))))
+
 
 ;;;; ================================================================
 ;;;; 7. IMPORTANT: History annotation tests
