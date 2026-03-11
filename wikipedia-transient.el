@@ -43,7 +43,9 @@
     ("w b" "Browse watchlist" wikipedia-watchlist-browse)
     ("w !" "Mark all read" wikipedia-watchlist-mark-all-read)]
    ["History"
-    ("h" "History" wikipedia-history)]]
+    ("h" "History" wikipedia-history)
+    ("U" "Undo revision" wikipedia-undo)
+    ("r" "Restore revision" wikipedia-history-restore-revision)]]
   [["User"
     ("u c" "User contributions" wikipedia-user-contributions)
     ("u p" "User page" wikipedia-user-page)
