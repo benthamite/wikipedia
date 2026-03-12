@@ -60,6 +60,7 @@
 (require 'wikipedia-user)
 (require 'wikipedia-ai)
 (require 'wikipedia-ai-review)
+(require 'wikipedia-auto)
 
 (defvar wikipedia-edit-mode-map
   (let ((map (make-sparse-keymap)))
