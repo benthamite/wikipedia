@@ -62,11 +62,11 @@
     ("S u" "Sync update" wikipedia-sync-update)
     ("m" "Mirror" wikipedia-mirror)]
    ["AI Detection"
-    :if (lambda () (featurep 'pangram))
+    :if (lambda () (locate-library "pangram"))
     ("a d" "Detect AI" pangram-detect)
     ("a c" "Clear overlays" pangram-clear)]
    ["AI Editing"
-    :if (lambda () (featurep 'gptel))
+    :if (lambda () (locate-library "gptel"))
     ("c" "Generate citation" wikipedia-ai-cite)
     ("R" "Review watchlist" wikipedia-ai-review-watchlist)]])
 
