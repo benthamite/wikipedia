@@ -33,6 +33,9 @@
   "Hash table mapping page titles to (SCORE . REASON) cons cells.
 Populated by `wikipedia-ai-review-watchlist'.")
 
+(defvar-local wikipedia-watchlist--original-group-order nil
+  "Saved group order before sorting by score, for toggling back.")
+
 (defface wikipedia-watchlist-unread
   '((t :weight bold))
   "Face for unread watchlist entries.")
@@ -103,6 +106,7 @@ Populated by `wikipedia-ai-review-watchlist'.")
     (setq wikipedia-watchlist--entries entries)
     (setq wikipedia-watchlist--grouped-entries
           (wikipedia-watchlist--group-entries entries))
+    (setq wikipedia-watchlist--original-group-order nil)
     (wikipedia-watchlist--rebuild-list)
     (tabulated-list-print t)
     (wikipedia--prefetch-watchlist-diffs entries)))
@@ -539,21 +543,34 @@ High (>= 0.7) is highlighted as a warning, low (<= 0.3) is dimmed."
       "    -"))) ;; Aligned to %5.2f width
 
 (defun wikipedia-watchlist-sort-by-score ()
-  "Sort watchlist groups by AI review score, highest first.
-Unscored entries sort after scored ones."
+  "Toggle sorting watchlist groups by AI review score.
+When sorting by score, groups are ordered highest first with
+unscored entries after scored ones.  Toggling again restores the
+original order (by recency)."
   (interactive)
-  (setq wikipedia-watchlist--grouped-entries
-        (sort wikipedia-watchlist--grouped-entries
-              (lambda (a b)
-                ;; Sentinel -1.0 sorts unscored entries after all valid
-                ;; scores (which range 0.0-1.0)
-                (let ((score-a (or (car (gethash (car a) wikipedia-watchlist--scores))
-                                   -1.0))
-                      (score-b (or (car (gethash (car b) wikipedia-watchlist--scores))
-                                   -1.0)))
-                  (> score-a score-b)))))
-  (wikipedia-watchlist--rebuild-list)
-  (tabulated-list-print t))
+  (if wikipedia-watchlist--original-group-order
+      ;; Restore original order
+      (progn
+        (setq wikipedia-watchlist--grouped-entries
+              wikipedia-watchlist--original-group-order
+              wikipedia-watchlist--original-group-order nil)
+        (wikipedia-watchlist--rebuild-list)
+        (tabulated-list-print t)
+        (message "Watchlist sorted by recency"))
+    ;; Sort by score
+    (setq wikipedia-watchlist--original-group-order
+          (copy-sequence wikipedia-watchlist--grouped-entries))
+    (setq wikipedia-watchlist--grouped-entries
+          (sort wikipedia-watchlist--grouped-entries
+                (lambda (a b)
+                  (let ((score-a (or (car (gethash (car a) wikipedia-watchlist--scores))
+                                     -1.0))
+                        (score-b (or (car (gethash (car b) wikipedia-watchlist--scores))
+                                     -1.0)))
+                    (> score-a score-b)))))
+    (wikipedia-watchlist--rebuild-list)
+    (tabulated-list-print t)
+    (message "Watchlist sorted by score")))
 
 (defun wikipedia-watchlist-show-score-reason ()
   "Show the AI review reason for the entry at point."
