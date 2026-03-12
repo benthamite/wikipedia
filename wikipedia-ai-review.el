@@ -42,7 +42,9 @@ and should definitely be reviewed.
 
 Respond with a JSON object containing two fields:
 - \"score\": a float between 0.0 and 1.0
-- \"reason\": a brief (one sentence) explanation of your assessment
+- \"reason\": a brief (one sentence) explanation of your assessment, \
+with the edit(s) as the tacit subject (e.g. \"adds a new section\" not \
+\"the edit adds a new section\")
 
 Output ONLY the JSON object, with no surrounding text or markup fences."
   "System prompt for the AI watchlist review command."
