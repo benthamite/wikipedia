@@ -33,12 +33,11 @@
 
 (defcustom wikipedia-ai-review-system-prompt
   "You are a Wikipedia edit reviewer.  You will be shown a unified diff \
-of one or more edits to a Wikipedia article, along with metadata about \
-the individual edits (authors and edit summaries).  Evaluate how much \
-the change warrants manual review, considering all edits as a whole.
+of changes to a Wikipedia article.  Evaluate how much the edit warrants \
+manual review.
 
-Rate on a scale from 0.0 to 1.0, where 0.0 means the change is \
-trivial and needs no review, and 1.0 means it is highly significant \
+Rate the edit on a scale from 0.0 to 1.0, where 0.0 means the edit is \
+trivial and needs no review, and 1.0 means the edit is highly significant \
 and should definitely be reviewed.
 
 Respond with a JSON object containing two fields:
@@ -87,7 +86,7 @@ When nil, defaults to `gptel-model'."
 ;;;; Internal state
 
 (defvar wikipedia-ai-review--queue nil
-  "Queue of groups to process: list of (TITLE OLD-REVID REVID ENTRIES).")
+  "Queue of groups to process: list of (TITLE OLD-REVID REVID).")
 
 (defvar wikipedia-ai-review--total 0
   "Total number of groups being reviewed.")
@@ -163,8 +162,7 @@ OLD-REVID and REVID record which revision range was scored."
     (let* ((group (pop wikipedia-ai-review--queue))
            (title (nth 0 group))
            (old-revid (nth 1 group))
-           (revid (nth 2 group))
-           (entries (nth 3 group)))
+           (revid (nth 2 group)))
       (cl-incf wikipedia-ai-review--scored)
       (message "Scoring %d/%d: %s..."
                wikipedia-ai-review--scored wikipedia-ai-review--total title)
@@ -179,49 +177,19 @@ OLD-REVID and REVID record which revision range was scored."
           (wikipedia-ai-review--process-next))
          (t
           (wikipedia-ai-review--send-to-llm
-           title old-revid revid diff-text entries)))))))
+           title old-revid revid diff-text)))))))
 
-(defun wikipedia-ai-review--format-edit-metadata (entries)
-  "Format ENTRIES into a metadata summary for the AI prompt.
-Lists the number of edits and each edit's author and summary,
-in chronological order (oldest first)."
-  (let* ((sorted (sort (copy-sequence entries)
-                       (lambda (a b)
-                         (string< (alist-get 'timestamp a)
-                                  (alist-get 'timestamp b)))))
-         (count (length sorted))
-         (lines (mapcar
-                 (lambda (e)
-                   (format "- %s: %s"
-                           (or (alist-get 'user e) "?")
-                           (let ((c (alist-get 'comment e)))
-                             (if (or (null c) (string-empty-p c))
-                                 "(no summary)"
-                               c))))
-                 sorted)))
-    (format "%d edit%s:\n%s"
-            count (if (= count 1) "" "s")
-            (string-join lines "\n"))))
-
-(defun wikipedia-ai-review--send-to-llm (title old-revid revid diff-text
-                                                &optional entries)
+(defun wikipedia-ai-review--send-to-llm (title old-revid revid diff-text)
   "Send DIFF-TEXT for TITLE to the LLM for scoring.
-OLD-REVID and REVID identify the revision range.  ENTRIES, when
-provided, are the individual watchlist entries in the group."
+OLD-REVID and REVID identify the revision range."
   (let* ((resolved (wikipedia-ai-review--resolve-backend-and-model))
          (gptel-backend (car resolved))
          (gptel-model (cdr resolved))
          (gptel-use-tools nil)
          (gptel-use-context nil)
          (gen wikipedia-ai-review--generation)
-         (metadata (when entries
-                     (wikipedia-ai-review--format-edit-metadata entries)))
-         (prompt (if metadata
-                     (format "%s\n\nArticle: %s\n\n%s\n\nDiff:\n%s"
-                             wikipedia-ai-review-prompt title metadata
-                             diff-text)
-                   (format "%s\n\nArticle: %s\n\nDiff:\n%s"
-                           wikipedia-ai-review-prompt title diff-text))))
+         (prompt (format "%s\n\nArticle: %s\n\nDiff:\n%s"
+                         wikipedia-ai-review-prompt title diff-text)))
     (gptel-request prompt
      :system wikipedia-ai-review-system-prompt
      :transforms nil
@@ -246,7 +214,7 @@ provided, are the individual watchlist entries in the group."
 
 (defun wikipedia-ai-review--gather-groups ()
   "Gather watchlist groups that need scoring.
-Returns a list of (TITLE OLD-REVID REVID ENTRIES) for each unscored or
+Returns a list of (TITLE OLD-REVID REVID) for each unscored or
 stale group, skipping entries already scored for the same revision range."
   (let ((buffer (get-buffer "*Wikipedia Watchlist*")))
     (unless buffer
@@ -267,7 +235,7 @@ stale group, skipping entries already scored for the same revision range."
                unless (and cached
                           (equal (car cached) old-revid)
                           (equal (cdr cached) revid))
-               collect (list title old-revid revid entries)))))
+               collect (list title old-revid revid)))))
 
 ;;;###autoload
 (defun wikipedia-ai-review-watchlist ()
