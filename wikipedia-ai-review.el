@@ -98,6 +98,10 @@ When nil, defaults to `gptel-model'."
 (defvar wikipedia-ai-review--watchlist-buffer nil
   "The watchlist buffer being scored.")
 
+(defvar wikipedia-ai-review--scored-revisions
+  (make-hash-table :test 'equal)
+  "Map from TITLE to (OLD-REVID . REVID) for the last scored revision range.")
+
 ;;;; Backend resolution
 
 (defun wikipedia-ai-review--resolve-backend-and-model ()
@@ -139,6 +143,7 @@ Returns (SCORE . REASON) where SCORE is a float 0.0-1.0, or nil on failure."
 OLD-REVID and REVID record which revision range was scored."
   (wikipedia-db-set-ai-score title (car score-data) (cdr score-data)
                              old-revid revid)
+  (puthash title (cons old-revid revid) wikipedia-ai-review--scored-revisions)
   (let ((buffer wikipedia-ai-review--watchlist-buffer))
     (when (buffer-live-p buffer)
       (with-current-buffer buffer
@@ -206,25 +211,29 @@ OLD-REVID and REVID identify the revision range."
 ;;;; Gathering watchlist data
 
 (defun wikipedia-ai-review--gather-groups ()
-  "Gather watchlist groups for review.
-Returns a list of (TITLE OLD-REVID REVID) for each group."
+  "Gather watchlist groups that need scoring.
+Returns a list of (TITLE OLD-REVID REVID) for each unscored or
+stale group, skipping entries already scored for the same revision range."
   (let ((buffer (get-buffer "*Wikipedia Watchlist*")))
     (unless buffer
       (user-error "No watchlist buffer found; run `wikipedia-watchlist' first"))
     (with-current-buffer buffer
       (unless wikipedia-watchlist--grouped-entries
         (user-error "Watchlist has no entries"))
-      (mapcar
-       (lambda (group)
-         (let* ((title (car group))
-                (entries (cdr group))
-                (revids (mapcar (lambda (e) (alist-get 'revid e)) entries))
-                (old-revids (mapcar (lambda (e) (alist-get 'old_revid e))
-                                    entries)))
-           (list title
-                 (apply #'min old-revids)
-                 (apply #'max revids))))
-       wikipedia-watchlist--grouped-entries))))
+      (cl-loop for group in wikipedia-watchlist--grouped-entries
+               for title = (car group)
+               for entries = (cdr group)
+               for revids = (mapcar (lambda (e) (alist-get 'revid e)) entries)
+               for old-revids = (mapcar (lambda (e) (alist-get 'old_revid e))
+                                        entries)
+               for old-revid = (apply #'min old-revids)
+               for revid = (apply #'max revids)
+               for cached = (gethash title
+                                     wikipedia-ai-review--scored-revisions)
+               unless (and cached
+                          (equal (car cached) old-revid)
+                          (equal (cdr cached) revid))
+               collect (list title old-revid revid)))))
 
 ;;;###autoload
 (defun wikipedia-ai-review-watchlist ()
@@ -240,16 +249,17 @@ Requires the `gptel' package."
   (unless (require 'gptel nil t)
     (user-error "This command requires the `gptel' package"))
   (let ((groups (wikipedia-ai-review--gather-groups)))
-    (unless groups
-      (user-error "No watchlist entries to review"))
-    (setq wikipedia-ai-review--watchlist-buffer
-          (get-buffer "*Wikipedia Watchlist*"))
-    (cl-incf wikipedia-ai-review--generation)
-    (setq wikipedia-ai-review--queue groups
-          wikipedia-ai-review--scored 0
-          wikipedia-ai-review--total (length groups))
-    (message "Starting AI review of %d watchlist entries..." (length groups))
-    (wikipedia-ai-review--process-next)))
+    (if (null groups)
+        (when (called-interactively-p 'any)
+          (message "All watchlist entries already scored for current revisions."))
+      (setq wikipedia-ai-review--watchlist-buffer
+            (get-buffer "*Wikipedia Watchlist*"))
+      (cl-incf wikipedia-ai-review--generation)
+      (setq wikipedia-ai-review--queue groups
+            wikipedia-ai-review--scored 0
+            wikipedia-ai-review--total (length groups))
+      (message "Starting AI review of %d watchlist entries..." (length groups))
+      (wikipedia-ai-review--process-next))))
 
 ;;;; Score restoration and keybinding integration
 
@@ -258,8 +268,12 @@ Requires the `gptel' package."
   (dolist (row (wikipedia-db-get-ai-scores))
     (let ((title (nth 0 row))
           (score (nth 1 row))
-          (reason (nth 2 row)))
-      (puthash title (cons score reason) wikipedia-watchlist--scores))))
+          (reason (nth 2 row))
+          (old-revid (nth 3 row))
+          (revid (nth 4 row)))
+      (puthash title (cons score reason) wikipedia-watchlist--scores)
+      (puthash title (cons old-revid revid)
+               wikipedia-ai-review--scored-revisions))))
 
 (add-hook 'wikipedia-watchlist-mode-hook
           #'wikipedia-ai-review--restore-cached-scores)

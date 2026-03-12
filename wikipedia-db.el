@@ -225,11 +225,11 @@ Returns (ID REVID PARENTID USER TIMESTAMP COMMENT SIZE) or nil."
 
 (defun wikipedia-db-get-ai-scores (&optional site)
   "Get all AI review scores for SITE.
-Returns a list of (TITLE SCORE REASON) lists."
+Returns a list of (TITLE SCORE REASON OLD_REVID REVID) lists."
   (let ((db (wikipedia-db--ensure-connection))
         (site (or site wikipedia-db-default-site)))
     (sqlite-select db
-                   "SELECT p.title, a.score, a.reason
+                   "SELECT p.title, a.score, a.reason, a.old_revid, a.revid
                     FROM ai_scores a
                     JOIN pages p ON a.page_id = p.id
                     WHERE p.site = ?"
