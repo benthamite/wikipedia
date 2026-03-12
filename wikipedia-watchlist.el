@@ -578,7 +578,7 @@ original order (by recency)."
   (let* ((title (wikipedia-watchlist--title-at-point))
          (score-data (and title (gethash title wikipedia-watchlist--scores))))
     (if score-data
-        (message "Score %.2f: %s" (car score-data) (cdr score-data))
+        (message "%s" (cdr score-data))
       (message "No AI review score for this entry"))))
 
 ;;;; Score reason auto-display
@@ -600,7 +600,7 @@ cursor moves to a different entry."
            (score-data (and title (gethash title wikipedia-watchlist--scores))))
       (when (and score-data (not (equal title wikipedia-watchlist--score-reason-last-title)))
         (setq wikipedia-watchlist--score-reason-last-title title)
-        (message "Score %.2f: %s" (car score-data) (cdr score-data))))))
+        (message "%s" (cdr score-data))))))
 
 (add-hook 'wikipedia-watchlist-mode-hook
           (lambda ()
