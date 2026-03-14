@@ -182,7 +182,12 @@ USER is used only in the confirmation prompt."
     (when (yes-or-no-p (format "Undo revision %d%s? "
                                revid
                                (if user (format " by %s" user) "")))
-      (let ((summary (read-string "Edit summary (empty for default): ")))
+      (let* ((default-summary
+              (if user
+                  (format "Undid revision [[Special:Diff/%d|%d]] by [[Special:Contributions/%s|%s]] ([[User talk:%s|talk]])"
+                          revid revid user user user)
+                (format "Undid revision [[Special:Diff/%d|%d]]" revid revid)))
+             (summary (read-string "Edit summary: " default-summary)))
         (condition-case err
             (progn
               (wp--undo-revision title revid

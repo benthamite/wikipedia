@@ -182,12 +182,17 @@ as a new edit, completely replacing the current page content."
            (format "Restore %s to revision %d%s? "
                    title revid
                    (if user (format " by %s" user) "")))
-      (let ((summary (read-string "Edit summary (empty for default): ")))
+      (let* ((default-summary
+              (if user
+                  (format "Restored revision %d by [[Special:Contributions/%s|%s]]"
+                          revid user user)
+                (format "Restored revision %d" revid)))
+             (summary (read-string "Edit summary: " default-summary)))
         (condition-case err
             (progn
               (wp--restore-revision
                title revid
-               (unless (string-empty-p summary) summary))
+               (if (string-empty-p summary) default-summary summary))
               (message "Restored %s to revision %d" title revid)
               (when (derived-mode-p 'wikipedia-history-mode)
                 (wikipedia-history-refresh)))
