@@ -144,6 +144,8 @@ This function checks various contexts to find a page title."
     mediawiki-page-title)
    ((bound-and-true-p wikipedia--buffer-page-title)
     wikipedia--buffer-page-title)
+   (buffer-file-name
+    (file-name-base buffer-file-name))
    (t nil)))
 
 ;;;; Reading with defaults
