@@ -128,7 +128,21 @@ Returns the buffer containing the page content."
 (defun wp--publish-page-buffer (&optional summary)
   "Publish the current buffer to the wiki.
 SUMMARY is the edit summary.  If nil, the user will be prompted."
-  (mediawiki-save summary))
+  (if (wp--current-page-title)
+      (mediawiki-save summary)
+    (let* ((title (or (when buffer-file-name
+                        (file-name-base buffer-file-name))
+                      (error "No page title for this buffer")))
+           (summary (or summary (read-string (format "Edit summary for %s: " title))))
+           (content (buffer-substring-no-properties (point-min) (point-max)))
+           (site (wp--get-site))
+           (token (wp--get-csrf-token site)))
+      (wp--api-call-raw
+       site "edit"
+       (list (cons "title" title)
+             (cons "text" content)
+             (cons "summary" summary)
+             (cons "token" token))))))
 
 (defun wp--current-page-title ()
   "Return the title of the page in the current buffer, or nil."

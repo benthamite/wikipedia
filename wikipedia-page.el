@@ -41,7 +41,10 @@ for the summary if the current value is empty."
   (interactive)
   (wp--ensure-logged-in)
   (wp--publish-page-buffer summary)
-  (message "Published %s" (or (wp--current-page-title) "page")))
+  (message "Published %s" (or (wp--current-page-title)
+                              (when buffer-file-name
+                                (file-name-base buffer-file-name))
+                              "page")))
 
 ;;;###autoload
 (defalias 'wikipedia-save #'wikipedia-publish)
