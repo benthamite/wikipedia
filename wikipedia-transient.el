@@ -30,7 +30,7 @@
     ("o" "Open page" wikipedia-open)
     ("P" "Publish page" wikipedia-publish)
     ("p" "Preview" wikipedia-preview)
-    ("d" "Diff to live" wikipedia-diff-to-live)
+    ("D" "Diff to live" wikipedia-diff-to-live)
     ("b" "Browse page" wikipedia-browse)
     ("l" "Login" wikipedia-login)]
    ["Draft"
