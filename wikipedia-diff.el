@@ -355,6 +355,8 @@ so additions show new content and deletions show removed content."
   (interactive)
   (wp--ensure-logged-in)
   (let* ((title (or (wp--current-page-title)
+                    (when buffer-file-name
+                      (file-name-base buffer-file-name))
                     (error "No page title for this buffer")))
          (latest (or (wp--get-latest-revision-content title)
                      (error "Could not fetch latest revision for %s" title)))
