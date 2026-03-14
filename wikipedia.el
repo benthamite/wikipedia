@@ -65,6 +65,7 @@
 (defvar wikipedia-edit-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c C-p") #'wikipedia-preview)
+    (define-key map (kbd "C-c C-d") #'wikipedia-diff-to-live)
     map)
   "Keymap for Wikipedia editing commands.
 This map can be activated as a minor mode in mediawiki-mode buffers.")

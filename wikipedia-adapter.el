@@ -204,6 +204,26 @@ If it's nil or empty, return nil."
     (string-to-number value))
    (t nil)))
 
+(defun wp--get-latest-revision-content (title)
+  "Fetch the latest revision content and ID for TITLE.
+Returns a cons cell (REVID . CONTENT), or nil if the page doesn't exist."
+  (let* ((site (wp--get-site))
+         (result (mediawiki-api-call
+                  site "query"
+                  (list (cons "titles" title)
+                        (cons "prop" "revisions")
+                        (cons "rvprop" "ids|content")
+                        (cons "rvslots" "main")
+                        (cons "rvlimit" "1"))))
+         (pages (cddr (assq 'pages (cddr result))))
+         (page (car pages))
+         (revisions (cddr (assq 'revisions (cddr page))))
+         (rev (car revisions))
+         (revid (wp--parse-number (cdr (assq 'revid (cadr rev)))))
+         (content (wp--extract-revision-content rev)))
+    (when (and revid content)
+      (cons revid content))))
+
 (defun wp--get-revision-content (title revid)
   "Fetch the wikitext content of TITLE at revision REVID."
   (let* ((site (wp--get-site))

@@ -297,11 +297,19 @@ FROM-REV and TO-REV are the revision IDs, TITLE is the page title."
 (defun wikipedia--generate-unified-diff (from-file to-file from-rev to-rev)
   "Generate unified diff output between FROM-FILE and TO-FILE.
 FROM-REV and TO-REV are used for the diff header labels."
+  (wikipedia--generate-labeled-diff
+   from-file to-file
+   (format "Revision %d" from-rev)
+   (format "Revision %d" to-rev)))
+
+(defun wikipedia--generate-labeled-diff (from-file to-file from-label to-label)
+  "Generate unified diff between FROM-FILE and TO-FILE.
+FROM-LABEL and TO-LABEL are strings used for the diff header labels."
   (with-temp-buffer
     (let ((exit-code (call-process "diff" nil t nil
                                    "-u"
-                                   (format "--label=Revision %d" from-rev)
-                                   (format "--label=Revision %d" to-rev)
+                                   (format "--label=%s" from-label)
+                                   (format "--label=%s" to-label)
                                    from-file to-file)))
       (if (> exit-code 1)
           (error "Diff command failed with exit code %d" exit-code)
@@ -336,6 +344,85 @@ FROM-REV and TO-REV are the revision IDs, TITLE is the page title."
       (setq-local wikipedia--buffer-page-title title)
       (setq buffer-read-only t))
     buffer))
+
+;;;; Diff to live
+
+;;;###autoload
+(defun wikipedia-diff-to-live ()
+  "Show diff between the current buffer and the live version on Wikipedia.
+Compares the latest published revision against the local editing buffer,
+so additions show new content and deletions show removed content."
+  (interactive)
+  (wp--ensure-logged-in)
+  (let* ((title (or (wp--current-page-title)
+                    (error "No page title for this buffer")))
+         (latest (or (wp--get-latest-revision-content title)
+                     (error "Could not fetch latest revision for %s" title)))
+         (live-revid (car latest))
+         (live-content (cdr latest))
+         (local-content (buffer-substring-no-properties (point-min) (point-max))))
+    (if (string= live-content local-content)
+        (message "No changes (buffer matches live revision %d)" live-revid)
+      (wikipedia--diff-buffer-to-revision
+       local-content live-content live-revid title))))
+
+(defun wikipedia--diff-buffer-to-revision (local-content live-content revid title)
+  "Display diff between LOCAL-CONTENT and LIVE-CONTENT at REVID for TITLE.
+Uses `wikipedia-diff-function' to determine the diff style."
+  (pcase wikipedia-diff-function
+    ('unified
+     (wikipedia--diff-buffer-to-revision-unified
+      local-content live-content revid title))
+    ('ediff
+     (wikipedia--diff-buffer-to-revision-ediff
+      local-content live-content revid title))
+    (_ (error "Unknown diff function: %s" wikipedia-diff-function))))
+
+(defun wikipedia--diff-buffer-to-revision-unified (local-content live-content revid title)
+  "Show unified diff between LOCAL-CONTENT and LIVE-CONTENT for TITLE.
+REVID is the live revision ID."
+  (let* ((live-file (wikipedia--write-temp-file live-content revid))
+         (local-file (wikipedia--write-temp-file local-content 0))
+         (diff-output (unwind-protect
+                          (wikipedia--generate-labeled-diff
+                           live-file local-file
+                           (format "Revision %d (live)" revid)
+                           "Local buffer")
+                        (delete-file live-file)
+                        (delete-file local-file)))
+         (buf-name (format "*WP Diff: %s (live → local)*" title))
+         (buf (get-buffer-create buf-name)))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert diff-output)
+        (goto-char (point-min)))
+      (diff-mode)
+      (setq buffer-read-only t)
+      (setq-local wikipedia--buffer-page-title title))
+    (pop-to-buffer buf)))
+
+(defun wikipedia--diff-buffer-to-revision-ediff (local-content live-content revid title)
+  "Show ediff between LOCAL-CONTENT and LIVE-CONTENT for TITLE.
+REVID is the live revision ID."
+  (let ((live-buffer (wikipedia--create-revision-buffer title revid live-content))
+        (local-buffer (get-buffer-create (format "*WP Local: %s*" title))))
+    (with-current-buffer local-buffer
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert (or local-content ""))
+        (goto-char (point-min)))
+      (setq-local wikipedia--buffer-page-title title)
+      (setq buffer-read-only t))
+    (ediff-buffers live-buffer local-buffer
+                   (list (lambda ()
+                           (let ((a ediff-buffer-A)
+                                 (b ediff-buffer-B))
+                             (add-hook 'ediff-quit-hook
+                                       (lambda ()
+                                         (when (buffer-live-p a) (kill-buffer a))
+                                         (when (buffer-live-p b) (kill-buffer b)))
+                                       nil t)))))))
 
 (provide 'wikipedia-diff)
 
