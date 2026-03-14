@@ -171,26 +171,26 @@ This is equivalent to Wikipedia's \"cur\"."
 This fetches the wikitext at the selected revision and submits it
 as a new edit, completely replacing the current page content."
   (interactive)
-  (let* ((rev (wikipedia-history--revision-at-point))
-         (revid (alist-get 'revid rev))
-         (user (alist-get 'user rev))
-         (timestamp (alist-get 'timestamp rev)))
+  (let ((revid (wikipedia--revid-at-point))
+        (title (wikipedia--page-title-at-point))
+        (user (wikipedia--user-at-point)))
     (unless revid
       (error "No revision at point"))
+    (unless title
+      (error "Cannot determine page title"))
     (when (yes-or-no-p
-           (format "Restore %s to revision %d (%s by %s)? "
-                   wikipedia-history--page-title revid
-                   (wikipedia--format-timestamp timestamp)
-                   (or user "unknown")))
+           (format "Restore %s to revision %d%s? "
+                   title revid
+                   (if user (format " by %s" user) "")))
       (let ((summary (read-string "Edit summary (empty for default): ")))
         (condition-case err
             (progn
               (wp--restore-revision
-               wikipedia-history--page-title revid
+               title revid
                (unless (string-empty-p summary) summary))
-              (message "Restored %s to revision %d"
-                       wikipedia-history--page-title revid)
-              (wikipedia-history-refresh))
+              (message "Restored %s to revision %d" title revid)
+              (when (derived-mode-p 'wikipedia-history-mode)
+                (wikipedia-history-refresh)))
           (error
            (message "Restore failed: %s" (error-message-string err))))))))
 
