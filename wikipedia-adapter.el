@@ -129,7 +129,11 @@ Returns the buffer containing the page content."
   "Publish the current buffer to the wiki.
 SUMMARY is the edit summary.  If nil, the user will be prompted."
   (if (wp--current-page-title)
-      (mediawiki-save summary)
+      (let ((summary (or summary
+                        (read-string
+                         (format "Edit summary for %s: "
+                                 (wp--current-page-title))))))
+        (mediawiki-save summary))
     (let* ((title (or (when buffer-file-name
                         (file-name-base buffer-file-name))
                       (error "No page title for this buffer")))
