@@ -96,7 +96,11 @@ When nil, defaults to `gptel-model'."
   "Number of groups scored so far in the current review.")
 
 (defvar wikipedia-ai-review--generation 0
-  "Generation counter to discard stale callbacks.")
+  "Generation counter to discard stale callbacks.
+Incremented each time a new review cycle starts.  Each LLM callback
+captures the generation value at dispatch time; if the generation has
+advanced by the time the callback fires, the result is stale (a newer
+review cycle has superseded it) and is silently dropped.")
 
 (defvar wikipedia-ai-review--watchlist-buffer nil
   "The watchlist buffer being scored.")

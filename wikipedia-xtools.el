@@ -28,6 +28,9 @@
   :type 'string
   :group 'wikipedia-xtools)
 
+(defconst wikipedia-xtools--divider (make-string 50 ?─)
+  "Horizontal rule used to separate sections in XTools display buffers.")
+
 (defun wikipedia-xtools--api-call (endpoint)
   "Make an XTools API call to ENDPOINT and return parsed JSON.
 Returns nil on error."
@@ -195,7 +198,7 @@ Returns an alist with top edited pages."
         (erase-buffer)
         (insert (propertize (format "XTools Statistics: %s\n" username)
                             'face 'bold))
-        (insert (make-string 50 ?─) "\n\n")
+        (insert wikipedia-xtools--divider "\n\n")
         (wikipedia-xtools--insert-basic-info data)
         (wikipedia-xtools--insert-edit-stats data)
         (wikipedia-xtools--insert-activity-period data)
@@ -258,7 +261,7 @@ GROUPS can be a vector or list of group names (strings or symbols)."
         (erase-buffer)
         (insert (propertize (format "XTools Page Statistics: %s\n" title)
                             'face 'bold))
-        (insert (make-string 50 ?─) "\n\n")
+        (insert wikipedia-xtools--divider "\n\n")
         (wikipedia-xtools--insert-stat "Page ID" (alist-get 'page_id data))
         (wikipedia-xtools--insert-stat "Revisions" (alist-get 'revisions data))
         (wikipedia-xtools--insert-stat "Editors" (alist-get 'editors data))
@@ -301,7 +304,7 @@ GROUPS can be a vector or list of group names (strings or symbols)."
         (erase-buffer)
         (insert (propertize (format "Top Editors: %s\n" title)
                             'face 'bold))
-        (insert (make-string 50 ?─) "\n\n")
+        (insert wikipedia-xtools--divider "\n\n")
         (if editors
             (dolist (editor editors)
               (let ((name (alist-get 'username editor))

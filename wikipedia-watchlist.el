@@ -50,6 +50,17 @@ Populated by `wikipedia-ai-review-watchlist'.")
   '((t :inherit shadow))
   "Face for low AI review scores.")
 
+(defconst wikipedia-watchlist-score-high-threshold 0.7
+  "Scores at or above this value are highlighted with `wikipedia-watchlist-score-high'.
+The AI review scores range from 0.0 (trivial, no review needed) to
+1.0 (highly significant, definitely review).  0.7 marks the boundary
+where edits are substantial enough to warrant prominent visual emphasis.")
+
+(defconst wikipedia-watchlist-score-low-threshold 0.3
+  "Scores at or below this value are dimmed with `wikipedia-watchlist-score-low'.
+Edits scoring this low are minor (typo fixes, whitespace, formatting)
+and can typically be skipped during review.")
+
 (defvar wikipedia-watchlist-mode-map
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map wikipedia-list-mode-map)
@@ -104,6 +115,7 @@ Populated by `wikipedia-ai-review-watchlist'.")
 (defun wikipedia-watchlist-refresh ()
   "Refresh the watchlist."
   (interactive)
+  ;; 500 is the MediaWiki API maximum for list queries
   (let ((entries (wp--get-watchlist 500)))
     (setq wikipedia-watchlist--entries entries)
     (setq wikipedia-watchlist--grouped-entries
@@ -538,13 +550,15 @@ High (>= 0.7) is highlighted as a warning, low (<= 0.3) is dimmed."
     (if score-data
         (let* ((score (car score-data))
                (face (cond
-                      ((>= score 0.7) 'wikipedia-watchlist-score-high)
-                      ((<= score 0.3) 'wikipedia-watchlist-score-low)
+                      ((>= score wikipedia-watchlist-score-high-threshold)
+                       'wikipedia-watchlist-score-high)
+                      ((<= score wikipedia-watchlist-score-low-threshold)
+                       'wikipedia-watchlist-score-low)
                       (t 'default))))
           (propertize (format "%5.2f" score)
                       'face face
                       'help-echo (cdr score-data)))
-      "    -"))) ;; Aligned to %5.2f width
+      (format "%5s" "-")))  ;; Same width as "%5.2f" score column
 
 (defun wikipedia-watchlist-sort-by-score ()
   "Toggle sorting watchlist groups by AI review score.

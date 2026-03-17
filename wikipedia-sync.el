@@ -76,7 +76,11 @@ Returns the list of titles that failed to sync."
         (error
          (push title failed)
          (message "Failed to sync %s: %s" title (error-message-string err))))
-      (sleep-for 0.5)) ;; Rate-limit to avoid overwhelming the MediaWiki API
+      ;; Pause between pages to stay well under the MediaWiki API rate
+      ;; limit of ~200 req/s for authenticated users.  Each sync page
+      ;; fires multiple API calls (history + content), so 0.5 s keeps
+      ;; bursts modest without noticeably slowing a typical sync.
+      (sleep-for 0.5))
     (nreverse failed)))
 
 ;;;###autoload
