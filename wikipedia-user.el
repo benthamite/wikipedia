@@ -93,15 +93,18 @@
       (seq-find (lambda (c) (eql (alist-get 'revid c) revid))
                 wikipedia-user--contributions))))
 
+(defun wikipedia-user--require-contrib-at-point ()
+  "Return the contribution at point, or signal an error."
+  (or (wikipedia-user--contrib-at-point)
+      (error "No contribution at point")))
+
 (defun wikipedia-user-contributions-view-diff ()
   "Show diff for the contribution at point."
   (interactive)
-  (let* ((contrib (wikipedia-user--contrib-at-point))
+  (let* ((contrib (wikipedia-user--require-contrib-at-point))
          (revid (alist-get 'revid contrib))
          (parentid (alist-get 'parentid contrib))
          (title (alist-get 'title contrib)))
-    (unless revid
-      (error "No contribution at point"))
     (unless (and parentid (not (zerop parentid)))
       (error "This revision has no parent (first revision of page)"))
     (wikipedia--show-diff parentid revid title)))
@@ -109,41 +112,33 @@
 (defun wikipedia-user-contributions-view-revision ()
   "View the wikitext of the revision at point."
   (interactive)
-  (let* ((contrib (wikipedia-user--contrib-at-point))
+  (let* ((contrib (wikipedia-user--require-contrib-at-point))
          (revid (alist-get 'revid contrib))
-         (title (alist-get 'title contrib)))
-    (unless revid
-      (error "No contribution at point"))
-    (let ((content (wp--get-revision-content title revid)))
-      (wikipedia--display-revision-buffer title revid content))))
+         (title (alist-get 'title contrib))
+         (content (wp--get-revision-content title revid)))
+    (wikipedia--display-revision-buffer title revid content)))
 
 (defun wikipedia-user-contributions-open-page ()
   "Open the page at point for editing."
   (interactive)
-  (let* ((contrib (wikipedia-user--contrib-at-point))
+  (let* ((contrib (wikipedia-user--require-contrib-at-point))
          (title (alist-get 'title contrib)))
-    (unless title
-      (error "No contribution at point"))
     (wp--open-page-buffer title)))
 
 (defun wikipedia-user-contributions-browse ()
   "Open the revision at point in an external browser."
   (interactive)
-  (let* ((contrib (wikipedia-user--contrib-at-point))
+  (let* ((contrib (wikipedia-user--require-contrib-at-point))
          (revid (alist-get 'revid contrib))
-         (title (alist-get 'title contrib)))
-    (unless revid
-      (error "No contribution at point"))
-    (let ((url (wikipedia--revision-url title revid)))
-      (browse-url url))))
+         (title (alist-get 'title contrib))
+         (url (wikipedia--revision-url title revid)))
+    (browse-url url)))
 
 (defun wikipedia-user-contributions-show-history ()
   "Show history for the page at point."
   (interactive)
-  (let* ((contrib (wikipedia-user--contrib-at-point))
+  (let* ((contrib (wikipedia-user--require-contrib-at-point))
          (title (alist-get 'title contrib)))
-    (unless title
-      (error "No contribution at point"))
     (wikipedia-history title)))
 
 ;;; User page commands

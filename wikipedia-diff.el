@@ -321,20 +321,24 @@ FROM-LABEL and TO-LABEL are strings used for the diff header labels."
 (defvar ediff-buffer-A)
 (defvar ediff-buffer-B)
 
+(defun wikipedia--ediff-with-cleanup (buffer-a buffer-b)
+  "Run ediff on BUFFER-A and BUFFER-B, killing both when ediff quits."
+  (ediff-buffers buffer-a buffer-b
+                 (list (lambda ()
+                         (let ((a ediff-buffer-A)
+                               (b ediff-buffer-B))
+                           (add-hook 'ediff-quit-hook
+                                     (lambda ()
+                                       (when (buffer-live-p a) (kill-buffer a))
+                                       (when (buffer-live-p b) (kill-buffer b)))
+                                     nil t))))))
+
 (defun wikipedia--show-diff-ediff (from-content to-content from-rev to-rev title)
   "Display ediff between FROM-CONTENT and TO-CONTENT.
 FROM-REV and TO-REV are the revision IDs, TITLE is the page title."
   (let ((from-buffer (wikipedia--create-revision-buffer title from-rev from-content))
         (to-buffer (wikipedia--create-revision-buffer title to-rev to-content)))
-    (ediff-buffers from-buffer to-buffer
-                   (list (lambda ()
-                           (let ((a ediff-buffer-A)
-                                 (b ediff-buffer-B))
-                             (add-hook 'ediff-quit-hook
-                                       (lambda ()
-                                         (when (buffer-live-p a) (kill-buffer a))
-                                         (when (buffer-live-p b) (kill-buffer b)))
-                                       nil t)))))))
+    (wikipedia--ediff-with-cleanup from-buffer to-buffer)))
 
 (defun wikipedia--create-revision-buffer (title revid content)
   "Create a buffer for TITLE at REVID with CONTENT."
@@ -419,15 +423,7 @@ REVID is the live revision ID."
         (goto-char (point-min)))
       (setq-local wikipedia--buffer-page-title title)
       (setq buffer-read-only t))
-    (ediff-buffers live-buffer local-buffer
-                   (list (lambda ()
-                           (let ((a ediff-buffer-A)
-                                 (b ediff-buffer-B))
-                             (add-hook 'ediff-quit-hook
-                                       (lambda ()
-                                         (when (buffer-live-p a) (kill-buffer a))
-                                         (when (buffer-live-p b) (kill-buffer b)))
-                                       nil t)))))))
+    (wikipedia--ediff-with-cleanup live-buffer local-buffer)))
 
 (provide 'wikipedia-diff)
 

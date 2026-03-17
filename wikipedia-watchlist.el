@@ -17,6 +17,8 @@
 (require 'tabulated-list)
 (require 'iso8601)
 
+(declare-function wikipedia-browse "wikipedia-page")
+
 (defvar-local wikipedia-watchlist--entries nil
   "The list of watchlist entries displayed in this buffer.")
 
@@ -470,8 +472,7 @@ spanning from the oldest base revision to the newest revision."
   (let ((title (wikipedia-watchlist--title-at-point)))
     (unless title
       (error "No entry at point"))
-    (let ((url (wikipedia--page-url title)))
-      (browse-url url))))
+    (wikipedia-browse title)))
 
 (defun wikipedia-watchlist-mark-all-read ()
   "Mark all entries in the watchlist as read."

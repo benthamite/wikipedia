@@ -13,23 +13,17 @@
 
 (require 'cl-lib)
 (require 'json)
-(require 'mm-url)
-(require 'url)
-(require 'xml)
 (require 'wikipedia-ai)
+(require 'wikipedia-cache)
 (require 'wikipedia-common)
 (require 'wikipedia-db)
 (require 'wikipedia-diff)
 
 (declare-function gptel-request "gptel-request")
-(declare-function mediawiki-make-api-url "mediawiki-api")
-(declare-function wp--get-site "wikipedia-adapter")
-(declare-function wp--extract-revision-content "wikipedia-adapter")
 (defvar gptel-backend)
 (defvar gptel-model)
 (defvar gptel-use-tools)
 (defvar gptel-use-context)
-(defvar url-http-end-of-headers)
 (defvar wikipedia-watchlist-mode-map)
 (defvar wikipedia-watchlist--grouped-entries)
 (defvar wikipedia-watchlist--scores)
@@ -120,78 +114,42 @@ When nil, defaults to `gptel-model'."
 
 ;;;; Async diff fetching
 
-(defun wikipedia-ai-review--fetch-revision-async (title revid callback)
-  "Fetch wikitext of TITLE at REVID asynchronously.
-CALLBACK is called with the content string, or nil on error."
-  (let* ((url (mediawiki-make-api-url (wp--get-site)))
-         (url-request-method "POST")
-         (url-request-extra-headers
-          '(("Content-Type"
-             . "application/x-www-form-urlencoded; charset=utf-8")
-            ("Connection" . "close")))
-         (url-request-data
-          (mm-url-encode-www-form-urlencoded
-           (list (cons "format" "xml")
-                 (cons "action" "query")
-                 (cons "titles" title)
-                 (cons "prop" "revisions")
-                 (cons "rvprop" "content")
-                 (cons "rvslots" "main")
-                 (cons "rvstartid" (number-to-string revid))
-                 (cons "rvendid" (number-to-string revid))))))
-    (url-retrieve
-     url
-     (lambda (_status cb)
-       (unwind-protect
-           (condition-case nil
-               (progn
-                 (goto-char url-http-end-of-headers)
-                 (let* ((xml (xml-parse-region (point) (point-max)))
-                        (api (assq 'api xml))
-                        (query (assq 'query (cddr api)))
-                        (pages (cddr (assq 'pages (cddr query))))
-                        (page (car pages))
-                        (revisions (cddr (assq 'revisions (cddr page))))
-                        (rev (car revisions)))
-                   (funcall cb (wp--extract-revision-content rev))))
-             (error (funcall cb nil)))
-         (when (buffer-live-p (current-buffer))
-           (kill-buffer))))
-     (list callback)
-     t)))
-
 (defun wikipedia-ai-review--fetch-diff-async (old-revid revid title callback)
   "Fetch diff between OLD-REVID and REVID for TITLE asynchronously.
-Fires two revision fetches in parallel; when both complete, computes
-the unified diff and calls CALLBACK with the diff text or nil."
-  (let ((results (make-vector 2 nil))
-        (done-count 0))
-    (cl-flet ((on-fetched (idx content)
-                (aset results idx content)
-                (cl-incf done-count)
-                (when (= done-count 2)
-                  (let ((from-content (aref results 0))
-                        (to-content (aref results 1)))
-                    (if (and from-content to-content)
-                        (condition-case nil
-                            (let ((from-file (wikipedia--write-temp-file
-                                              from-content old-revid))
-                                  (to-file (wikipedia--write-temp-file
-                                            to-content revid)))
-                              (unwind-protect
-                                  (funcall callback
-                                           (wikipedia--generate-unified-diff
-                                            from-file to-file old-revid revid))
-                                (delete-file from-file)
-                                (delete-file to-file)))
-                          (error (funcall callback nil)))
-                      (funcall callback nil))))))
-      (wikipedia-ai-review--fetch-revision-async
-       title old-revid
-       (lambda (content) (funcall #'on-fetched 0 content)))
-      (wikipedia-ai-review--fetch-revision-async
-       title revid
-       (lambda (content) (funcall #'on-fetched 1 content))))))
+Fires two revision fetches in parallel (using the shared cache module);
+when both complete, computes the unified diff and calls CALLBACK with
+the diff text or nil."
+  (let ((pending 2)
+        (from-content (wikipedia--cache-get old-revid))
+        (to-content (wikipedia--cache-get revid)))
+    (cl-flet ((maybe-done
+                ()
+                (cl-decf pending)
+                (when (zerop pending)
+                  (setq from-content (or from-content (wikipedia--cache-get old-revid)))
+                  (setq to-content (or to-content (wikipedia--cache-get revid)))
+                  (if (and from-content to-content)
+                      (condition-case nil
+                          (let ((from-file (wikipedia--write-temp-file
+                                            from-content old-revid))
+                                (to-file (wikipedia--write-temp-file
+                                          to-content revid)))
+                            (unwind-protect
+                                (funcall callback
+                                         (wikipedia--generate-unified-diff
+                                          from-file to-file old-revid revid))
+                              (delete-file from-file)
+                              (delete-file to-file)))
+                        (error (funcall callback nil)))
+                    (funcall callback nil)))))
+      (if from-content
+          (maybe-done)
+        (wikipedia--fetch-revision-async
+         title old-revid (lambda (_) (maybe-done))))
+      (if to-content
+          (maybe-done)
+        (wikipedia--fetch-revision-async
+         title revid (lambda (_) (maybe-done)))))))
 
 ;;;; Response parsing
 
