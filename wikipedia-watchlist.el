@@ -436,10 +436,13 @@ spanning from the oldest base revision to the newest revision."
       (setq title (cdr id))
       (let ((entries (alist-get title wikipedia-watchlist--grouped-entries
                                 nil nil #'equal)))
-        (setq revid (apply #'max (mapcar (lambda (e) (alist-get 'revid e))
-                                         entries)))
-        (setq old-revid (apply #'min (mapcar (lambda (e) (alist-get 'old_revid e))
-                                             entries)))))
+        (let ((revids (delq nil (mapcar (lambda (e) (alist-get 'revid e)) entries)))
+              (old-revids (delq nil
+                                (cl-remove-if #'zerop
+                                              (delq nil (mapcar (lambda (e) (alist-get 'old_revid e))
+                                                                entries))))))
+          (setq revid (and revids (apply #'max revids)))
+          (setq old-revid (and old-revids (apply #'min old-revids))))))
      ;; Child entry: use the entry's own revisions
      (t
       (let ((entry (wikipedia-watchlist--entry-at-point)))

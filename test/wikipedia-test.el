@@ -239,8 +239,8 @@
 ;;; wp--extract-diff-content
 
 (ert-deftest wp-extract-diff-content/with-body ()
-  "Extract diff content when body element is present."
-  (let ((diff-body '((body . "<tr>diff rows</tr>"))))
+  "Extract diff content string from body element children."
+  (let ((diff-body '((body nil "<tr>diff rows</tr>"))))
     (should (equal (wp--extract-diff-content diff-body)
                    "<tr>diff rows</tr>"))))
 
@@ -1014,14 +1014,8 @@
       (delete-file file))))
 
 (ert-deftest write-temp-file/nil-content ()
-  "Nil content writes empty string."
-  (let ((file (wikipedia--write-temp-file nil 1)))
-    (unwind-protect
-        (should (equal (with-temp-buffer
-                         (insert-file-contents file)
-                         (buffer-string))
-                       ""))
-      (delete-file file))))
+  "Nil content signals an error."
+  (should-error (wikipedia--write-temp-file nil 1) :type 'error))
 
 (ert-deftest write-temp-file/unicode ()
   "Unicode content is preserved."

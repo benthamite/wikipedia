@@ -278,13 +278,12 @@ Returns the diff HTML as a string."
     (wp--extract-diff-content diff-body)))
 
 (defun wp--extract-diff-content (diff-body)
-  "Extract diff content from DIFF-BODY."
+  "Extract diff content string from DIFF-BODY."
   (when diff-body
     (let ((body-element (assq 'body diff-body)))
       (if body-element
-          (or (cdr body-element)
-              (car (last body-element)))
-        (car (last diff-body))))))
+          (car (seq-filter #'stringp (cddr body-element)))
+        (car (seq-filter #'stringp diff-body))))))
 
 (defun wp--get-watchlist (&optional limit days)
   "Fetch the user's watchlist.

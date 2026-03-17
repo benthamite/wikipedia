@@ -138,8 +138,8 @@ This is equivalent to Wikipedia \"prev\"."
          (parentid (alist-get 'parentid rev)))
     (unless revid
       (error "No revision at point"))
-    (unless parentid
-      (error "This revision has no parent"))
+    (unless (and parentid (not (zerop parentid)))
+      (error "This revision has no parent (first revision of page)"))
     (wikipedia--show-diff parentid revid wikipedia-history--page-title)))
 
 (defun wikipedia-history-diff-to-current ()

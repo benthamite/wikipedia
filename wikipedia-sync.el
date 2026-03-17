@@ -51,9 +51,13 @@
                         page-id revid parentid user timestamp comment size)))
       ;; Only fetch content for the latest revision to save bandwidth
       (when (and wikipedia-sync-fetch-content
-                 (eq rev (car revisions))
+                 (eql revid (alist-get 'revid (car revisions)))
                  (not (wikipedia-db-has-content-p rev-row-id)))
-        (wikipedia-sync--fetch-content title revid rev-row-id)))))
+        (condition-case err
+            (wikipedia-sync--fetch-content title revid rev-row-id)
+          (error
+           (message "Failed to fetch content for %s rev %d: %s"
+                    title revid (error-message-string err))))))))
 
 (defun wikipedia-sync--fetch-content (title revid rev-row-id)
   "Fetch content for TITLE at REVID and store with REV-ROW-ID."
@@ -72,7 +76,7 @@ Returns the list of titles that failed to sync."
         (error
          (push title failed)
          (message "Failed to sync %s: %s" title (error-message-string err))))
-      (sit-for 0.5)) ;; Rate-limit to avoid overwhelming the MediaWiki API
+      (sleep-for 0.5)) ;; Rate-limit to avoid overwhelming the MediaWiki API
     (nreverse failed)))
 
 ;;;###autoload

@@ -240,9 +240,8 @@ OLD-REVID and REVID record which revision range was scored."
            (title (nth 0 group))
            (old-revid (nth 1 group))
            (revid (nth 2 group)))
-      (cl-incf wikipedia-ai-review--scored)
       (message "Scoring %d/%d: %s..."
-               wikipedia-ai-review--scored wikipedia-ai-review--total title)
+               (1+ wikipedia-ai-review--scored) wikipedia-ai-review--total title)
       (wikipedia-ai-review--fetch-diff-async
        old-revid revid title
        (lambda (diff-text)
@@ -276,9 +275,12 @@ OLD-REVID and REVID identify the revision range."
        (when (= gen wikipedia-ai-review--generation)
          (if (stringp response)
              (let ((result (wikipedia-ai-review--parse-response response)))
-               (when (car result)
-                 (wikipedia-ai-review--store-score
-                  title result old-revid revid)))
+               (if (car result)
+                   (progn
+                     (cl-incf wikipedia-ai-review--scored)
+                     (wikipedia-ai-review--store-score
+                      title result old-revid revid))
+                 (message "Could not parse score for %s: %s" title (cdr result))))
            (message "Scoring failed for %s: %s"
                     title (plist-get info :status)))
          (wikipedia-ai-review--process-next))))))
@@ -306,8 +308,13 @@ stale group, skipping entries already scored for the same revision range."
                for revids = (mapcar (lambda (e) (alist-get 'revid e)) entries)
                for old-revids = (mapcar (lambda (e) (alist-get 'old_revid e))
                                         entries)
-               for old-revid = (apply #'min old-revids)
-               for revid = (apply #'max revids)
+               for old-revids-clean = (cl-remove-if
+                                       (lambda (x) (or (null x) (zerop x)))
+                                       old-revids)
+               for revids-clean = (delq nil revids)
+               when (and revids-clean old-revids-clean)
+               for old-revid = (apply #'min old-revids-clean)
+               for revid = (apply #'max revids-clean)
                for cached = (gethash title
                                      wikipedia-ai-review--scored-revisions)
                unless (and cached

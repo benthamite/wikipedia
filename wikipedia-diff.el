@@ -80,7 +80,7 @@ Returns a plist with :from-rev, :to-rev, and :title, or nil."
   (let* ((rev (wikipedia-history--revision-at-point))
          (revid (alist-get 'revid rev))
          (parentid (alist-get 'parentid rev)))
-    (when (and revid parentid)
+    (when (and revid parentid (not (zerop parentid)))
       (list :from-rev parentid
             :to-rev revid
             :title wikipedia-history--page-title))))
@@ -102,7 +102,7 @@ Returns a plist with :from-rev, :to-rev, and :title, or nil."
          (revid (alist-get 'revid contrib))
          (parentid (alist-get 'parentid contrib))
          (title (alist-get 'title contrib)))
-    (when (and revid parentid title)
+    (when (and revid parentid (not (zerop parentid)) title)
       (list :from-rev parentid
             :to-rev revid
             :title title))))
@@ -287,11 +287,14 @@ FROM-REV and TO-REV are the revision IDs, TITLE is the page title."
     (pop-to-buffer buf)))
 
 (defun wikipedia--write-temp-file (content revid)
-  "Write CONTENT to a temporary file named after REVID."
+  "Write CONTENT to a temporary file named after REVID.
+Signals an error if CONTENT is nil."
+  (unless content
+    (error "Cannot write temp file for revision %d: nil content" revid))
   (let ((file (make-temp-file (format "wp-rev-%d-" revid)))
         (coding-system-for-write 'utf-8))
     (with-temp-file file
-      (insert (or content "")))
+      (insert content))
     file))
 
 (defun wikipedia--generate-unified-diff (from-file to-file from-rev to-rev)

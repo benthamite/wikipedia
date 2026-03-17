@@ -64,7 +64,8 @@ Opens a preview buffer showing the rendered HTML."
   (wp--ensure-logged-in)
   (let* ((title (or (wp--current-page-title) "Preview"))
          (wikitext (buffer-substring-no-properties (point-min) (point-max)))
-         (html (wp--preview title wikitext))
+         (html (or (wp--preview title wikitext)
+                   (error "Preview failed: no HTML returned")))
          (source-buffer (current-buffer)))
     (wikipedia--display-preview html title source-buffer)))
 
@@ -73,13 +74,13 @@ Opens a preview buffer showing the rendered HTML."
 SOURCE-BUFFER is the buffer containing the wikitext being previewed."
   (let ((buffer (get-buffer-create (format "*Wikipedia Preview: %s*" title))))
     (with-current-buffer buffer
+      (wikipedia-preview-mode)
       (let ((inhibit-read-only t))
         (erase-buffer)
         (insert html)
         (goto-char (point-min))
         (shr-render-region (point-min) (point-max))
         (goto-char (point-min)))
-      (wikipedia-preview-mode)
       (setq-local wikipedia--preview-source-buffer source-buffer))
     (display-buffer buffer)))
 

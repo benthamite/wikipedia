@@ -60,7 +60,8 @@ Shrinks to half capacity to amortize eviction cost."
   "Get revision content for TITLE at REVID, using cache if available."
   (or (wikipedia--cache-get revid)
       (let ((content (wp--get-revision-content title revid)))
-        (wikipedia--cache-put revid content)
+        (when content
+          (wikipedia--cache-put revid content))
         content)))
 
 ;;;; Async prefetching
@@ -114,9 +115,11 @@ The content is always stored in the cache."
              (let ((content nil))
                (remhash revid-arg wikipedia--prefetch-in-flight)
                (unless (plist-get status :error)
-                 (condition-case nil
+                 (condition-case err
                      (setq content (wikipedia--parse-async-revision-response))
-                   (error nil))
+                   (error
+                    (message "wikipedia: prefetch parse error for rev %d: %s"
+                             revid-arg (error-message-string err))))
                  (when content
                    (wikipedia--cache-put revid-arg content)))
                (when callback-arg
