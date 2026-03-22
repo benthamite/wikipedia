@@ -69,6 +69,12 @@ refreshed, so entries are always scored without pressing \\`R'."
   :type 'boolean
   :group 'wikipedia-ai)
 
+(defcustom wikipedia-ai-review-silent nil
+  "When non-nil, suppress per-entry progress messages during scoring.
+Only the completion message is shown."
+  :type 'boolean
+  :group 'wikipedia-ai)
+
 (defcustom wikipedia-ai-review-backend nil
   "The gptel backend name for AI review, e.g. \"Gemini\" or \"Claude\".
 When nil, the backend is inferred from `wikipedia-ai-review-model',
@@ -202,8 +208,9 @@ OLD-REVID and REVID record which revision range was scored."
            (title (nth 0 group))
            (old-revid (nth 1 group))
            (revid (nth 2 group)))
-      (message "Scoring %d/%d: %s..."
-               (1+ wikipedia-ai-review--scored) wikipedia-ai-review--total title)
+      (unless wikipedia-ai-review-silent
+        (message "Scoring %d/%d: %s..."
+                 (1+ wikipedia-ai-review--scored) wikipedia-ai-review--total title))
       (wikipedia-ai-review--fetch-diff-async
        old-revid revid title
        (lambda (diff-text)
