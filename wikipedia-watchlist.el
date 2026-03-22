@@ -16,6 +16,7 @@
 (require 'wikipedia-history)
 (require 'tabulated-list)
 (require 'iso8601)
+(require 'wikipedia-ai-review)
 
 (declare-function wikipedia-browse "wikipedia-page")
 
@@ -558,7 +559,7 @@ High (>= 0.7) is highlighted as a warning, low (<= 0.3) is dimmed."
           (propertize (format "%5.2f" score)
                       'face face
                       'help-echo (cdr score-data)))
-      (format "%5s" "-")))  ;; Same width as "%5.2f" score column
+      (format "%5s" "-"))))  ;; Same width as "%5.2f" score column
 
 (defun wikipedia-watchlist-sort-by-score ()
   "Toggle sorting watchlist groups by AI review score.
