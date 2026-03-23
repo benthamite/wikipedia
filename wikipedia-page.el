@@ -13,6 +13,11 @@
 (require 'wikipedia-common)
 (require 'shr)
 
+(declare-function wikipedia-ai--request-summary "wikipedia-ai")
+(declare-function wikipedia--diff-to-live-text "wikipedia-diff")
+(defvar wikipedia-ai-summarize-auto)
+(defvar wikipedia-ai--pending-summary)
+
 ;;;###autoload
 (defun wikipedia-login (site)
   "Log in to SITE.
@@ -37,14 +42,41 @@ When called interactively, prompts for the page title."
 (defun wikipedia-publish (&optional summary)
   "Publish the current buffer to Wikipedia.
 SUMMARY is the edit summary.  When called interactively, prompts
-for the summary if the current value is empty."
+for the summary.  When `wikipedia-ai-summarize-auto' is non-nil and
+no SUMMARY is provided, an AI-generated summary pre-fills the prompt."
   (interactive)
   (wp--ensure-logged-in)
+  (if (and (not summary)
+           (called-interactively-p 'interactive)
+           (bound-and-true-p wikipedia-ai-summarize-auto)
+           (not (bound-and-true-p wikipedia-ai--pending-summary))
+           (require 'gptel nil t))
+      (wikipedia--publish-with-ai-summary)
+    (wikipedia--publish-now summary)))
+
+(defun wikipedia--publish-now (&optional summary)
+  "Publish the current buffer with SUMMARY and show confirmation."
   (wp--publish-page-buffer summary)
   (message "Published %s" (or (wp--current-page-title)
                               (when buffer-file-name
                                 (file-name-base buffer-file-name))
                               "page")))
+
+(defun wikipedia--publish-with-ai-summary ()
+  "Generate an AI edit summary, then publish.
+Falls back to normal publishing if no diff is available."
+  (let ((buf (current-buffer))
+        (diff-text (condition-case nil
+                       (wikipedia--diff-to-live-text)
+                     (error nil))))
+    (if diff-text
+        (wikipedia-ai--request-summary
+         diff-text buf
+         (lambda (_)
+           (when (buffer-live-p buf)
+             (with-current-buffer buf
+               (wikipedia--publish-now)))))
+      (wikipedia--publish-now))))
 
 ;;;###autoload
 (defalias 'wikipedia-save #'wikipedia-publish)

@@ -425,6 +425,27 @@ REVID is the live revision ID."
       (setq buffer-read-only t))
     (wikipedia--ediff-with-cleanup live-buffer local-buffer)))
 
+(defun wikipedia--diff-to-live-text ()
+  "Return unified diff text between the current buffer and the live version.
+Returns the diff string, or nil if there are no changes."
+  (let* ((title (or (wp--current-page-title)
+                    (when buffer-file-name
+                      (file-name-base buffer-file-name))
+                    (error "No page title for this buffer")))
+         (latest (or (wp--get-latest-revision-content title)
+                     (error "Could not fetch latest revision for %s" title)))
+         (live-content (cdr latest))
+         (local-content (buffer-substring-no-properties (point-min) (point-max))))
+    (if (string= live-content local-content)
+        nil
+      (let* ((live-file (wikipedia--write-temp-file live-content 0))
+             (local-file (wikipedia--write-temp-file local-content 1)))
+        (unwind-protect
+            (wikipedia--generate-labeled-diff
+             live-file local-file "Live" "Local")
+          (delete-file live-file)
+          (delete-file local-file))))))
+
 (provide 'wikipedia-diff)
 
 ;;; wikipedia-diff.el ends here

@@ -6,7 +6,7 @@
 
 ;; This module provides AI-powered commands using gptel as the LLM
 ;; backend.  Currently supports generating Wikipedia-formatted
-;; citations from a URL or free-text description.
+;; citations and AI-powered edit summaries.
 
 ;;; Code:
 
@@ -16,6 +16,8 @@
 (declare-function gptel-request "gptel-request")
 (declare-function gptel-get-backend "gptel")
 (declare-function gptel-backend-models "gptel-openai")
+(declare-function wp--ensure-logged-in "wikipedia-adapter")
+(declare-function wikipedia--diff-to-live-text "wikipedia-diff")
 
 (defvar gptel-backend)
 (defvar gptel-model)
@@ -129,6 +131,92 @@ Requires the `gptel' package."
                    (insert citation))
                  (message "Citation inserted."))
              (message "Buffer no longer exists.  Citation: %s" citation))))))))
+
+;;;; Edit summary generation
+
+(defcustom wikipedia-ai-summarize-system-prompt
+  "You are a Wikipedia edit summary generator.  Given a unified diff of \
+changes to a Wikipedia article, produce a concise edit summary following \
+Wikipedia conventions (see [[Help:Edit summary]]).
+
+Rules:
+- Maximum 500 characters, but aim for brevity (one concise sentence when \
+possible).
+- Summarize WHAT changed and, if inferable from context, WHY.
+- Be specific: name the section, fact, or nature of the change.
+- Use standard Wikipedia abbreviations when appropriate: ce (copy edit), \
+sp (typo/spelling), fmt (formatting), ref/refs (references/citations), \
++ (added), - (removed), rv (revert), cl (cleanup), gr (grammar), \
+lk/wl (wikilink), cat (category), dab (disambiguation).
+- For multiple changes, mention the most significant and append \"; misc\" \
+or similar.
+- Never be vague (e.g. \"I made some changes\"); always be specific.
+- Do not use section markers like /* Section */; the system adds those \
+automatically when editing a section.
+- Output ONLY the edit summary text.  No surrounding explanation, quotes, \
+or markup fences."
+  "System prompt for the edit summary generation command."
+  :type 'string
+  :group 'wikipedia-ai)
+
+(defcustom wikipedia-ai-summarize-auto nil
+  "Whether to auto-generate an AI edit summary when publishing.
+When non-nil, `wikipedia-publish' generates an AI-powered edit
+summary before prompting, pre-filling the minibuffer with the
+suggestion.  The user can edit the suggestion before confirming."
+  :type 'boolean
+  :group 'wikipedia-ai)
+
+(defvar-local wikipedia-ai--pending-summary nil
+  "AI-generated edit summary awaiting use by `wikipedia-publish'.")
+
+;;;###autoload
+(defun wikipedia-ai-summarize ()
+  "Generate an AI edit summary for the current buffer's changes.
+Compares the buffer against the live version on Wikipedia and sends
+the diff to an LLM to produce a concise edit summary.  The result
+is stored for use by `wikipedia-publish'.
+
+Requires the `gptel' package."
+  (interactive)
+  (unless (require 'gptel nil t)
+    (user-error "This command requires the `gptel' package"))
+  (wp--ensure-logged-in)
+  (let ((diff-text (wikipedia--diff-to-live-text)))
+    (unless diff-text
+      (user-error "No changes to summarize (buffer matches live version)"))
+    (wikipedia-ai--request-summary diff-text (current-buffer))))
+
+(defun wikipedia-ai--request-summary (diff-text buffer &optional callback)
+  "Request an AI edit summary for DIFF-TEXT.
+BUFFER is the editing buffer where the summary will be stored.
+Optional CALLBACK is called with the generated summary string,
+or nil on failure."
+  (let* ((resolved (wikipedia-ai--resolve-backend-and-model))
+         (gptel-backend (car resolved))
+         (gptel-model (cdr resolved))
+         (gptel-use-tools nil)
+         (gptel-use-context nil))
+    (message "Generating edit summary...")
+    (gptel-request
+     (format "Generate an edit summary for the following diff:\n\n%s" diff-text)
+     :system wikipedia-ai-summarize-system-prompt
+     :transforms nil
+     :callback
+     (lambda (response info)
+       (if (not (stringp response))
+           (progn
+             (message "Edit summary generation failed: %s"
+                      (plist-get info :status))
+             (when callback
+               (funcall callback nil)))
+         (let ((summary (string-trim response)))
+           (when (buffer-live-p buffer)
+             (with-current-buffer buffer
+               (setq wikipedia-ai--pending-summary summary)))
+           (message "Edit summary: %s" summary)
+           (when callback
+             (funcall callback summary))))))))
 
 (provide 'wikipedia-ai)
 

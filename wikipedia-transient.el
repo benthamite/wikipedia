@@ -69,6 +69,7 @@
    ["AI Editing"
     :if (lambda () (locate-library "gptel"))
     ("c" "Generate citation" wikipedia-ai-cite)
+    ("s" "Generate edit summary" wikipedia-ai-summarize)
     ("R" "Review watchlist" wikipedia-ai-review-watchlist)]])
 
 (provide 'wikipedia-transient)
