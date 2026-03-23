@@ -118,9 +118,14 @@ review cycle has superseded it) and is silently dropped.")
 ;;;; Backend resolution
 
 (defun wikipedia-ai-review--resolve-backend-and-model ()
-  "Return (BACKEND . MODEL) for review commands."
-  (wikipedia-ai--resolve wikipedia-ai-review-backend
-                         wikipedia-ai-review-model))
+  "Return (BACKEND . MODEL) for review commands.
+Per-review overrides (`wikipedia-ai-review-backend' and
+`wikipedia-ai-review-model') take precedence over the per-command
+alist in `wikipedia-ai-backend' / `wikipedia-ai-model'."
+  (wikipedia-ai--resolve (or wikipedia-ai-review-backend
+                             (wikipedia-ai--lookup-backend 'review))
+                         (or wikipedia-ai-review-model
+                             (wikipedia-ai--lookup-model 'review))))
 
 ;;;; Async diff fetching
 

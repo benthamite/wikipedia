@@ -32,18 +32,46 @@
 
 (defcustom wikipedia-ai-backend nil
   "The gptel backend name for AI commands, e.g. \"Gemini\" or \"Claude\".
-When nil, the backend is inferred from `wikipedia-ai-model', falling
-back to `gptel-backend'."
+The value can be:
+- nil: infer from the model or use `gptel-backend'
+- A string: use this backend for all AI commands
+- An alist mapping command keys to backend name strings, e.g.
+  \\='((cite . \"Gemini\")
+    (review . \"Claude\")
+    (t . \"Gemini\"))
+
+  Valid keys: `cite', `summarize', `review', and `t' (default).
+  Commands not listed fall back to the `t' entry, then inference."
   :type '(choice (const :tag "Infer from model or use gptel default" nil)
-                 (string :tag "Backend name"))
+                 (string :tag "Backend for all commands")
+                 (alist :tag "Per-command backend mapping"
+                        :key-type (choice (const :tag "Default" t)
+                                          (const :tag "Citation" cite)
+                                          (const :tag "Edit summary" summarize)
+                                          (const :tag "Watchlist review" review))
+                        :value-type (string :tag "Backend name")))
   :group 'wikipedia-ai)
 
 (defcustom wikipedia-ai-model nil
   "The gptel model for AI commands.
-A fast model is recommended, such as `gemini-flash-lite-latest'. When nil,
-defaults to `gptel-model'."
+The value can be:
+- nil: use `gptel-model'
+- A symbol: use this model for all AI commands
+- An alist mapping command keys to model symbols, e.g.
+  \\='((cite . gemini-2.0-flash)
+    (review . claude-sonnet-4-5-20250514)
+    (t . gemini-2.0-flash-lite))
+
+  Valid keys: `cite', `summarize', `review', and `t' (default).
+  Commands not listed fall back to the `t' entry, then `gptel-model'."
   :type '(choice (const :tag "Use gptel default" nil)
-                 (symbol :tag "Model name"))
+                 (symbol :tag "Model for all commands")
+                 (alist :tag "Per-command model mapping"
+                        :key-type (choice (const :tag "Default" t)
+                                          (const :tag "Citation" cite)
+                                          (const :tag "Edit summary" summarize)
+                                          (const :tag "Watchlist review" review))
+                        :value-type (symbol :tag "Model name")))
   :group 'wikipedia-ai)
 
 (defcustom wikipedia-ai-citation-system-prompt
@@ -88,9 +116,35 @@ Falls back to `gptel-backend' and `gptel-model'."
                    (t gptel-backend))))
     (cons backend model)))
 
-(defun wikipedia-ai--resolve-backend-and-model ()
-  "Return (backend . model) for AI commands."
-  (wikipedia-ai--resolve wikipedia-ai-backend wikipedia-ai-model))
+(defun wikipedia-ai--lookup-model (command)
+  "Look up the model for COMMAND from `wikipedia-ai-model'.
+COMMAND is a key symbol (e.g. `cite', `summarize', `review').
+Returns a model symbol or nil."
+  (cond
+   ((null wikipedia-ai-model) nil)
+   ((consp wikipedia-ai-model)
+    (or (alist-get command wikipedia-ai-model)
+        (alist-get t wikipedia-ai-model)))
+   (t wikipedia-ai-model)))
+
+(defun wikipedia-ai--lookup-backend (command)
+  "Look up the backend for COMMAND from `wikipedia-ai-backend'.
+COMMAND is a key symbol (e.g. `cite', `summarize', `review').
+Returns a backend name string or nil."
+  (cond
+   ((null wikipedia-ai-backend) nil)
+   ((consp wikipedia-ai-backend)
+    (or (alist-get command wikipedia-ai-backend)
+        (alist-get t wikipedia-ai-backend)))
+   (t wikipedia-ai-backend)))
+
+(defun wikipedia-ai--resolve-backend-and-model (&optional command)
+  "Return (backend . model) for AI COMMAND.
+COMMAND is a key symbol (e.g. `cite', `summarize', `review')
+used to look up per-command overrides in `wikipedia-ai-model'
+and `wikipedia-ai-backend'."
+  (wikipedia-ai--resolve (wikipedia-ai--lookup-backend command)
+                         (wikipedia-ai--lookup-model command)))
 
 ;;;###autoload
 (defun wikipedia-ai-cite (input)
@@ -104,7 +158,7 @@ Requires the `gptel' package."
     (user-error "This command requires the `gptel' package"))
   (when (string-empty-p (string-trim input))
     (user-error "Input cannot be empty"))
-  (let* ((resolved (wikipedia-ai--resolve-backend-and-model))
+  (let* ((resolved (wikipedia-ai--resolve-backend-and-model 'cite))
          (gptel-backend (car resolved))
          (gptel-model (cdr resolved))
          (gptel-use-tools nil)
@@ -192,7 +246,7 @@ Requires the `gptel' package."
 BUFFER is the editing buffer where the summary will be stored.
 Optional CALLBACK is called with the generated summary string,
 or nil on failure."
-  (let* ((resolved (wikipedia-ai--resolve-backend-and-model))
+  (let* ((resolved (wikipedia-ai--resolve-backend-and-model 'summarize))
          (gptel-backend (car resolved))
          (gptel-model (cdr resolved))
          (gptel-use-tools nil)
