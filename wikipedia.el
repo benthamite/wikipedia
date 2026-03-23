@@ -62,18 +62,18 @@
 (require 'wikipedia-ai-review)
 (require 'wikipedia-auto)
 
-(defvar wikipedia-edit-mode-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "C-x C-s") #'wikipedia-publish)
-    (define-key map (kbd "C-c C-c") #'wikipedia-publish)
-    (define-key map (kbd "C-c C-p") #'wikipedia-preview)
-    (define-key map (kbd "C-c C-d") #'wikipedia-diff-to-live)
-    (define-key map (kbd "C-c C-s") #'wikipedia-ai-summarize)
-    map)
+(defvar wikipedia-edit-mode-map (make-sparse-keymap)
   "Keymap for Wikipedia editing commands.
 This map can be activated as a minor mode in mediawiki-mode buffers.
 Overrides `mediawiki-mode' bindings for save/publish so that
 `wikipedia-publish' (with AI summary support) is used instead.")
+
+;; Keybindings are set outside `defvar' so they take effect on reload.
+(define-key wikipedia-edit-mode-map (kbd "C-x C-s") #'wikipedia-publish)
+(define-key wikipedia-edit-mode-map (kbd "C-c C-c") #'wikipedia-publish)
+(define-key wikipedia-edit-mode-map (kbd "C-c C-p") #'wikipedia-preview)
+(define-key wikipedia-edit-mode-map (kbd "C-c C-d") #'wikipedia-diff-to-live)
+(define-key wikipedia-edit-mode-map (kbd "C-c C-s") #'wikipedia-ai-summarize)
 
 ;;;###autoload
 (define-minor-mode wikipedia-edit-mode
