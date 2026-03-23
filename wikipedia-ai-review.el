@@ -29,6 +29,7 @@
 (defvar wikipedia-watchlist--scores)
 
 (declare-function wikipedia-watchlist--rebuild-list "wikipedia-watchlist")
+(declare-function wikipedia-watchlist--maybe-sort-by-score "wikipedia-watchlist")
 
 ;;;; User options
 
@@ -261,6 +262,10 @@ OLD-REVID and REVID identify the revision range."
 
 (defun wikipedia-ai-review--done ()
   "Called when all groups have been scored."
+  (let ((buffer wikipedia-ai-review--watchlist-buffer))
+    (when (buffer-live-p buffer)
+      (with-current-buffer buffer
+        (wikipedia-watchlist--maybe-sort-by-score))))
   (message "AI review complete (%d entries scored). Press S to sort by score."
            wikipedia-ai-review--scored))
 

@@ -125,6 +125,7 @@ and can typically be skipped during review.")
     (wikipedia-ai-review--invalidate-stale-scores)
     (wikipedia-watchlist--rebuild-list)
     (tabulated-list-print t)
+    (wikipedia-watchlist--maybe-sort-by-score)
     (wikipedia--prefetch-watchlist-diffs entries)))
 
 (defun wikipedia-watchlist--group-entries (entries)
@@ -544,6 +545,15 @@ spanning from the oldest base revision to the newest revision."
 
 ;;;; Score display and sorting
 
+(defcustom wikipedia-watchlist-sort-by-score nil
+  "When non-nil, sort the watchlist buffer by AI score (highest first).
+Unscored entries are sorted after scored ones.  Sorting is applied
+after scores are restored from the database and again after each
+AI review cycle completes, so newly scored entries move into place
+automatically."
+  :type 'boolean
+  :group 'wikipedia-ai)
+
 (defun wikipedia-watchlist--format-score (title)
   "Format the AI review score for TITLE.
 Scores range 0.0-1.0 (see `wikipedia-ai-review-system-prompt').
@@ -591,6 +601,25 @@ original order (by recency)."
     (wikipedia-watchlist--rebuild-list)
     (tabulated-list-print t)
     (message "Watchlist sorted by score")))
+
+(defun wikipedia-watchlist--maybe-sort-by-score ()
+  "Sort the watchlist by score if `wikipedia-watchlist-sort-by-score' is set.
+Called after scores are restored or updated so that scored entries
+are always in score order when the user option is enabled."
+  (when (and wikipedia-watchlist-sort-by-score
+             wikipedia-watchlist--grouped-entries)
+    (setq wikipedia-watchlist--original-group-order
+          (copy-sequence wikipedia-watchlist--grouped-entries))
+    (setq wikipedia-watchlist--grouped-entries
+          (sort wikipedia-watchlist--grouped-entries
+                (lambda (a b)
+                  (let ((score-a (or (car (gethash (car a) wikipedia-watchlist--scores))
+                                     -1.0))
+                        (score-b (or (car (gethash (car b) wikipedia-watchlist--scores))
+                                     -1.0)))
+                    (> score-a score-b)))))
+    (wikipedia-watchlist--rebuild-list)
+    (tabulated-list-print t)))
 
 (defun wikipedia-watchlist-show-score-reason ()
   "Show the AI review reason for the entry at point."
