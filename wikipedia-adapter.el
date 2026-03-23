@@ -185,12 +185,16 @@ Returns the parsed HTML as a string."
        (t nil)))))
 
 (defun wp--ensure-logged-in ()
-  "Ensure we have an active session, prompting for login if needed."
+  "Ensure we have an active session, prompting for login if needed.
+Also propagates the site name to the buffer-local `mediawiki-site'
+so that `mediawiki-save' and other mediawiki.el functions find it."
   (unless (or wp--current-site (bound-and-true-p mediawiki-site))
     (save-window-excursion
       (call-interactively #'mediawiki-site)))
   (when (bound-and-true-p mediawiki-site)
-    (setq wp--current-site mediawiki-site)))
+    (setq wp--current-site mediawiki-site))
+  (when (and wp--current-site (not mediawiki-site))
+    (setq mediawiki-site wp--current-site)))
 
 (defun wp--get-page-history (title &optional limit)
   "Fetch revision history for TITLE.
