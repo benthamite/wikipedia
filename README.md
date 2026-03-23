@@ -10,6 +10,8 @@ The package is aimed at Wikipedia editors who want to work from within Emacs. Yo
 
 Beyond editing, `wikipedia` offers tools for reviewing other editors' work: browse user contributions, send thank notifications, and look up detailed editing statistics via the XTools API. For power users, a synchronization system can mirror your entire watchlist into a local SQLite database for offline browsing and faster access.
 
+With the optional `gptel` package, AI-powered features become available: generate Wikipedia citation templates from URLs or descriptions, produce edit summaries from diffs following Wikipedia's conventions, and score watchlist changes by review priority so you can focus on the edits that matter most. Models and backends can be configured per-command.
+
 All commands are accessible through a unified transient menu via `wikipedia-transient`.
 
 ## Installation
@@ -19,6 +21,7 @@ All commands are accessible through a unified transient menu via `wikipedia-tran
 **Dependencies:**
 
 - [`mediawiki`](https://github.com/hexmode/mediawiki-el) (>= 2.4.9) -- required for MediaWiki API communication
+- [`gptel`](https://github.com/karthink/gptel) -- optional, enables AI-powered citation generation, edit summaries, and watchlist review scoring
 
 ### package-vc (built-in since Emacs 30)
 

@@ -23,9 +23,11 @@ and adds higher-level workflows for editing, reviewing, and managing Wikipedia
 content.
 
 The package requires Emacs 29.1 or later and =mediawiki.el= for the
-underlying API communication.  Optionally, =pangram.el= can be
-installed for AI-generated text detection; when available, an "AI
-Detection" group appears in the transient menu ([[#h:transient-menu][Transient menu]]).
+underlying API communication.  Optionally, =gptel= provides AI-powered
+features (citation generation, edit summary generation, and watchlist
+review scoring), and =pangram.el= provides AI-generated text detection.
+When available, corresponding groups appear in the transient menu
+([[#h:transient-menu][Transient menu]]).
 Before using any commands, you must configure at least one
 wiki site via =mediawiki-site-alist= and establish a session with
 ~wikipedia-login~ ([[#h:session-management][Session management]]).
@@ -58,6 +60,10 @@ The package is organized around several core workflows:
 - *Diff follow mode*: automatically display diffs as you navigate
   entries in the watchlist, history, or contributions buffers
   ([[#h:diff-follow-mode][Diff follow mode]]).
+
+- *AI-powered editing* (requires =gptel=): generate Wikipedia citation
+  templates, produce edit summaries from diffs, and score watchlist
+  changes by review priority ([[#h:ai-commands][AI commands]]).
 
 All commands are accessible through a unified transient menu
 ([[#h:transient-menu][Transient menu]]).
@@ -151,6 +157,74 @@ downloaded and stored locally, enabling offline viewing and local diffs.
 Set this to ~nil~ if you only want revision metadata without the actual
 page content.
 
+** AI configuration
+:PROPERTIES:
+:CUSTOM_ID: h:ai-options
+:END:
+
+All AI-powered commands require the =gptel= package.  When =gptel= is
+not installed, the AI groups in the transient menu are hidden and the
+commands signal an error if called directly.
+
+#+vindex: wikipedia-ai-backend
+#+vindex: wikipedia-ai-model
+The user option ~wikipedia-ai-backend~ specifies the gptel backend name
+for AI commands (e.g., ="Gemini"= or ="Claude"=).  When ~nil~, the
+backend is inferred from the model or falls back to ~gptel-backend~.
+
+The user option ~wikipedia-ai-model~ specifies the gptel model for AI
+commands.  When ~nil~, it defaults to ~gptel-model~.
+
+Both options accept three forms:
+- ~nil~: use the gptel default.
+- A single value (symbol for model, string for backend): use it for all
+  AI commands.
+- An alist mapping command keys to values, with ~t~ as the fallback:
+
+#+begin_src emacs-lisp
+(setq wikipedia-ai-model
+      '((cite . gemini-2.0-flash)
+        (review . claude-sonnet-4-5-20250514)
+        (t . gemini-2.0-flash-lite)))
+#+end_src
+
+Valid command keys are ~cite~ ([[#h:ai-citation][Citation generation]]),
+~summarize~ ([[#h:ai-edit-summary][Edit summary generation]]), and
+~review~ ([[#h:ai-watchlist-review][Watchlist review]]).  Commands not
+listed in the alist fall back to the ~t~ entry, then to ~gptel-model~.
+
+#+vindex: wikipedia-ai-review-backend
+#+vindex: wikipedia-ai-review-model
+The user options ~wikipedia-ai-review-backend~ and
+~wikipedia-ai-review-model~ provide per-command overrides specifically
+for watchlist review.  When set, they take precedence over the alist in
+~wikipedia-ai-model~ / ~wikipedia-ai-backend~.
+
+#+vindex: wikipedia-ai-citation-system-prompt
+#+vindex: wikipedia-ai-summarize-system-prompt
+#+vindex: wikipedia-ai-review-system-prompt
+#+vindex: wikipedia-ai-review-prompt
+The user options ~wikipedia-ai-citation-system-prompt~,
+~wikipedia-ai-summarize-system-prompt~, ~wikipedia-ai-review-system-prompt~,
+and ~wikipedia-ai-review-prompt~ control the LLM prompts for their
+respective commands.  Customize these to change the AI's behavior.
+
+#+vindex: wikipedia-ai-summarize-auto
+The user option ~wikipedia-ai-summarize-auto~ controls whether
+~wikipedia-publish~ automatically generates an AI edit summary before
+prompting.  When non-nil, the minibuffer is pre-filled with the AI's
+suggestion, which you can edit before confirming.  Defaults to ~nil~.
+
+#+vindex: wikipedia-ai-review-auto
+The user option ~wikipedia-ai-review-auto~ controls whether the
+watchlist is automatically scored after each refresh.  When non-nil,
+~wikipedia-ai-review-watchlist~ runs automatically, so entries are always
+scored without pressing =R=.
+
+#+vindex: wikipedia-ai-review-verbose
+The user option ~wikipedia-ai-review-verbose~ controls whether
+per-entry progress messages are shown during scoring.
+
 * Commands
 :PROPERTIES:
 :CUSTOM_ID: h:commands
@@ -183,9 +257,11 @@ page title, defaulting to the title at point if available (for example,
 when invoked from a watchlist or history buffer).
 
 The command ~wikipedia-publish~ saves the current buffer's content back
-to the wiki.  It accepts an optional edit summary; when called
-interactively, =mediawiki.el= prompts for one if needed.  The alias
-~wikipedia-save~ is provided for discoverability.
+to the wiki.  It prompts for an edit summary in the minibuffer.  When
+~wikipedia-ai-summarize-auto~ is non-nil ([[#h:ai-options][AI
+configuration]]), the summary prompt is pre-filled with an AI-generated
+suggestion.  The alias ~wikipedia-save~ is provided for
+discoverability.
 
 The command ~wikipedia-browse~ opens the page in an external web browser
 via ~browse-url~.  Like ~wikipedia-open~, it defaults to the title at
@@ -194,7 +270,13 @@ point.
 #+findex: wikipedia-edit-mode
 The minor mode ~wikipedia-edit-mode~ provides additional keybindings when
 editing a wiki page.  It displays =WP= in the mode line lighter and
-binds =C-c C-p= to ~wikipedia-preview~.
+adds the following bindings:
+
+| Key       | Command                    | Description               |
+|-----------+----------------------------+---------------------------|
+| =C-c C-p= | ~wikipedia-preview~       | Preview rendered HTML     |
+| =C-c C-d= | ~wikipedia-diff-to-live~  | Diff buffer against live  |
+| =C-c C-s= | ~wikipedia-ai-summarize~  | Generate AI edit summary  |
 
 ** Preview
 :PROPERTIES:
@@ -692,6 +774,79 @@ remains disabled.
 In watchlist mode, viewing a diff via follow mode also marks the entry
 as read ([[#h:unread-tracking][Unread tracking]]).
 
+** AI commands
+:PROPERTIES:
+:CUSTOM_ID: h:ai-commands
+:END:
+
+All AI commands require the =gptel= package.  See [[#h:ai-options][AI
+configuration]] for backend and model settings.
+
+*** Citation generation
+:PROPERTIES:
+:CUSTOM_ID: h:ai-citation
+:END:
+
+#+findex: wikipedia-ai-cite
+The command ~wikipedia-ai-cite~ generates a properly formatted Wikipedia
+citation template from a URL or free-text source description.  The
+generated citation uses the appropriate template (={{cite web}}=,
+={{cite book}}=, ={{cite journal}}=, etc.) and is inserted at point.
+
+When called interactively, it prompts for the input.  Examples:
+
+- A URL: =https://example.com/article=
+- A description: ="The Wealth of Nations by Adam Smith, 1776"=
+
+*** Edit summary generation
+:PROPERTIES:
+:CUSTOM_ID: h:ai-edit-summary
+:END:
+
+#+findex: wikipedia-ai-summarize
+The command ~wikipedia-ai-summarize~ generates an AI-powered edit
+summary for the current buffer's changes.  It compares the buffer
+against the live version on Wikipedia, sends the unified diff to the
+LLM, and produces a concise summary following Wikipedia's
+[[https://en.wikipedia.org/wiki/Help:Edit_summary][edit summary conventions]]:
+standard abbreviations, specific descriptions, and a 500-character
+limit.
+
+The generated summary is stored in a buffer-local variable.  When you
+next call ~wikipedia-publish~, the summary pre-fills the minibuffer
+prompt so you can review and edit it before confirming.
+
+When ~wikipedia-ai-summarize-auto~ is non-nil, ~wikipedia-publish~
+calls this command automatically before prompting, removing the need to
+invoke it separately.
+
+*** Watchlist review
+:PROPERTIES:
+:CUSTOM_ID: h:ai-watchlist-review
+:END:
+
+#+findex: wikipedia-ai-review-watchlist
+The command ~wikipedia-ai-review-watchlist~ scores watchlist changes
+using AI to prioritize review.  Each watchlist group is assigned a score
+between 0.0 (trivial, no review needed) and 1.0 (highly significant,
+should be reviewed).
+
+The command fetches the unified diff for each unscored group
+asynchronously, sends it to the LLM, and parses the JSON response
+containing a score and a brief reason.  Scores are persisted in the
+local SQLite database and restored when the watchlist is reopened.
+
+In the watchlist buffer:
+
+| Key | Command                           | Description                    |
+|-----+-----------------------------------+--------------------------------|
+| =R= | ~wikipedia-ai-review-watchlist~  | Score unscored entries         |
+| =S= | sort by score                     | Toggle score vs. recency sort  |
+| =I= | show reason                       | Display AI reasoning           |
+
+High scores (>=0.7) are highlighted with a warning face; low scores
+(<=0.3) are dimmed.
+
 ** Transient menu
 :PROPERTIES:
 :CUSTOM_ID: h:transient-menu
@@ -715,6 +870,9 @@ groups:
 - *AI Detection* (requires =pangram.el=): detect AI-generated text and
   clear overlays.  This group is only shown when =pangram.el= is
   installed.
+- *AI Editing* (requires =gptel=): generate citations (=c=), generate
+  edit summaries (=s=), and review the watchlist with AI scoring (=R=).
+  This group is only shown when =gptel= is installed.
 
 Bind ~wikipedia-transient~ to a convenient key for quick access to any
 command in the package.
