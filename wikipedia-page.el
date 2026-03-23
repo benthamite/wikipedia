@@ -64,19 +64,21 @@ no SUMMARY is provided, an AI-generated summary pre-fills the prompt."
 
 (defun wikipedia--publish-with-ai-summary ()
   "Generate an AI edit summary, then publish.
-Falls back to normal publishing if no diff is available."
-  (let ((buf (current-buffer))
-        (diff-text (condition-case nil
-                       (wikipedia--diff-to-live-text)
-                     (error nil))))
-    (if diff-text
-        (wikipedia-ai--request-summary
-         diff-text buf
-         (lambda (_)
-           (when (buffer-live-p buf)
-             (with-current-buffer buf
-               (wikipedia--publish-now)))))
-      (wikipedia--publish-now))))
+Falls back to normal publishing if the diff or AI request fails."
+  (let ((buf (current-buffer)))
+    (condition-case err
+        (let ((diff-text (wikipedia--diff-to-live-text)))
+          (if diff-text
+              (wikipedia-ai--request-summary
+               diff-text buf
+               (lambda (_)
+                 (when (buffer-live-p buf)
+                   (with-current-buffer buf
+                     (wikipedia--publish-now)))))
+            (wikipedia--publish-now)))
+      (error
+       (message "AI summary skipped: %s" (error-message-string err))
+       (wikipedia--publish-now)))))
 
 ;;;###autoload
 (defalias 'wikipedia-save #'wikipedia-publish)
