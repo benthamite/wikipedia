@@ -297,20 +297,27 @@ Signals an error if CONTENT is nil."
       (insert content))
     file))
 
-(defun wikipedia--generate-unified-diff (from-file to-file from-rev to-rev)
+(defun wikipedia--generate-unified-diff (from-file to-file from-rev to-rev
+                                                  &optional context-lines)
   "Generate unified diff output between FROM-FILE and TO-FILE.
-FROM-REV and TO-REV are used for the diff header labels."
+FROM-REV and TO-REV are used for the diff header labels.
+Optional CONTEXT-LINES overrides the default context (3 lines)."
   (wikipedia--generate-labeled-diff
    from-file to-file
    (format "Revision %d" from-rev)
-   (format "Revision %d" to-rev)))
+   (format "Revision %d" to-rev)
+   context-lines))
 
-(defun wikipedia--generate-labeled-diff (from-file to-file from-label to-label)
+(defun wikipedia--generate-labeled-diff (from-file to-file from-label to-label
+                                                   &optional context-lines)
   "Generate unified diff between FROM-FILE and TO-FILE.
-FROM-LABEL and TO-LABEL are strings used for the diff header labels."
+FROM-LABEL and TO-LABEL are strings used for the diff header labels.
+Optional CONTEXT-LINES overrides the default context (3 lines)."
   (with-temp-buffer
     (let ((exit-code (call-process "diff" nil t nil
-                                   "-u"
+                                   (if context-lines
+                                       (format "-U%d" context-lines)
+                                     "-u")
                                    (format "--label=%s" from-label)
                                    (format "--label=%s" to-label)
                                    from-file to-file)))

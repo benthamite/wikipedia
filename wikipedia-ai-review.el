@@ -38,6 +38,16 @@
 of changes to a Wikipedia article.  Evaluate how much the edit warrants \
 manual review.
 
+How to read the diff:
+- Lines starting with \"-\" (minus) are REMOVED text.
+- Lines starting with \"+\" (plus) are ADDED text.
+- When a \"-\" line and the following \"+\" line are nearly identical, \
+the actual change is only the small difference between them (e.g. a \
+typo fix or case change).  Do NOT describe the whole line as removed \
+or added; identify the specific words that changed.
+- ONLY describe changes visible in the diff.  Do not infer changes \
+from the article title or from your training data.
+
 Rate the edit on a scale from 0.0 to 1.0, where 0.0 means the edit is \
 trivial and needs no review, and 1.0 means the edit is highly significant \
 and should definitely be reviewed.
@@ -153,7 +163,7 @@ the diff text or nil."
                             (unwind-protect
                                 (funcall callback
                                          (wikipedia--generate-unified-diff
-                                          from-file to-file old-revid revid))
+                                          from-file to-file old-revid revid 1))
                               (delete-file from-file)
                               (delete-file to-file)))
                         (error (funcall callback nil)))
