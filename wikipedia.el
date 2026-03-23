@@ -3,7 +3,7 @@
 ;; Copyright (C) 2025-2026 Pablo Stafforini
 
 ;; Author: Pablo Stafforini
-;; Version: 0.2.0
+;; Version: 0.3.0
 ;; Package-Requires: ((emacs "29.1") (mediawiki "2.4.9"))
 ;; Keywords: wiki, wikipedia, mediawiki
 ;; URL: https://github.com/pablostafforini/wikipedia.el
