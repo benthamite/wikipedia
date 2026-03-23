@@ -32,6 +32,12 @@ covering typical watchlist + prefetch working sets.")
 (defvar wikipedia--prefetch-in-flight (make-hash-table :test 'eql)
   "Revision IDs currently being fetched.")
 
+(defvar wikipedia--prefetch-pending-callbacks (make-hash-table :test 'eql)
+  "Callbacks waiting for in-flight revision fetches.
+Maps revision ID to a list of callbacks to invoke when the fetch
+completes.  This allows multiple callers (e.g. prefetch and AI review)
+to request the same revision concurrently without dropping callbacks.")
+
 (defun wikipedia--cache-get (revid)
   "Get cached content for REVID, or nil if not cached."
   (gethash revid wikipedia--revision-cache))
@@ -102,32 +108,52 @@ Returns the wikitext content or nil."
 (defun wikipedia--fetch-revision-async (title revid &optional callback)
   "Fetch revision REVID for TITLE asynchronously.
 CALLBACK is called with the content when done (optional).
-The content is always stored in the cache."
-  (when (and revid (not (wikipedia--cache-get revid))
-             (not (gethash revid wikipedia--prefetch-in-flight)))
-    (puthash revid t wikipedia--prefetch-in-flight)
-    (let* ((site (wp--get-site))
-           (url (wikipedia--build-revision-api-url site title revid)))
-      (url-retrieve
-       url
-       (lambda (status revid-arg callback-arg)
-         (unwind-protect
-             (let ((content nil))
-               (remhash revid-arg wikipedia--prefetch-in-flight)
-               (unless (plist-get status :error)
-                 (condition-case err
-                     (setq content (wikipedia--parse-async-revision-response))
-                   (error
-                    (message "wikipedia: prefetch parse error for rev %d: %s"
-                             revid-arg (error-message-string err))))
-                 (when content
-                   (wikipedia--cache-put revid-arg content)))
-               (when callback-arg
-                 (funcall callback-arg content)))
-           (when (buffer-live-p (current-buffer))
-             (kill-buffer (current-buffer)))))
-       (list revid callback)
-       t t))))
+The content is always stored in the cache.  If the revision is
+already cached, CALLBACK fires immediately.  If a fetch is already
+in-flight, CALLBACK is queued and fires when that fetch completes."
+  (when revid
+    (let ((cached (wikipedia--cache-get revid)))
+      (cond
+       ;; Already cached — fire callback immediately.
+       (cached
+        (when callback (funcall callback cached)))
+       ;; Already in-flight — register callback for when it completes.
+       ((gethash revid wikipedia--prefetch-in-flight)
+        (when callback
+          (puthash revid
+                   (cons callback
+                         (gethash revid wikipedia--prefetch-pending-callbacks))
+                   wikipedia--prefetch-pending-callbacks)))
+       ;; New fetch.
+       (t
+        (puthash revid t wikipedia--prefetch-in-flight)
+        (when callback
+          (puthash revid (list callback)
+                   wikipedia--prefetch-pending-callbacks))
+        (let* ((site (wp--get-site))
+               (url (wikipedia--build-revision-api-url site title revid)))
+          (url-retrieve
+           url
+           (lambda (status revid-arg)
+             (unwind-protect
+                 (let ((content nil))
+                   (remhash revid-arg wikipedia--prefetch-in-flight)
+                   (unless (plist-get status :error)
+                     (condition-case err
+                         (setq content (wikipedia--parse-async-revision-response))
+                       (error
+                        (message "wikipedia: prefetch parse error for rev %d: %s"
+                                 revid-arg (error-message-string err))))
+                     (when content
+                       (wikipedia--cache-put revid-arg content)))
+                   (dolist (cb (gethash revid-arg
+                                        wikipedia--prefetch-pending-callbacks))
+                     (funcall cb content))
+                   (remhash revid-arg wikipedia--prefetch-pending-callbacks))
+               (when (buffer-live-p (current-buffer))
+                 (kill-buffer (current-buffer)))))
+           (list revid)
+           t t)))))))
 
 (defvar wikipedia--prefetch-queue nil
   "Queue of (TITLE . REVID) pairs pending prefetch.")

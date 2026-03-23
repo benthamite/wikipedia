@@ -122,6 +122,7 @@ and can typically be skipped during review.")
     (setq wikipedia-watchlist--grouped-entries
           (wikipedia-watchlist--group-entries entries))
     (setq wikipedia-watchlist--original-group-order nil)
+    (wikipedia-ai-review--invalidate-stale-scores)
     (wikipedia-watchlist--rebuild-list)
     (tabulated-list-print t)
     (wikipedia--prefetch-watchlist-diffs entries)))

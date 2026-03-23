@@ -336,6 +336,36 @@ Requires the `gptel' package."
       (puthash title (cons old-revid revid)
                wikipedia-ai-review--scored-revisions))))
 
+(defun wikipedia-ai-review--invalidate-stale-scores ()
+  "Remove scores whose revision range no longer matches the watchlist.
+Called after refresh so that stale DB-restored scores from previous
+sessions are not displayed alongside current diffs."
+  (when wikipedia-watchlist--grouped-entries
+    (let ((stale nil))
+      (maphash
+       (lambda (title _)
+         (let ((group (assoc title wikipedia-watchlist--grouped-entries)))
+           (if (not group)
+               (push title stale)
+             (let* ((entries (cdr group))
+                    (revids (delq nil (mapcar (lambda (e) (alist-get 'revid e))
+                                             entries)))
+                    (old-revids (cl-remove-if
+                                 (lambda (x) (or (null x) (zerop x)))
+                                 (mapcar (lambda (e) (alist-get 'old_revid e))
+                                         entries)))
+                    (old-revid (and old-revids (apply #'min old-revids)))
+                    (revid (and revids (apply #'max revids)))
+                    (cached (gethash title
+                                     wikipedia-ai-review--scored-revisions)))
+               (unless (and cached
+                            (equal (car cached) old-revid)
+                            (equal (cdr cached) revid))
+                 (push title stale))))))
+       wikipedia-watchlist--scores)
+      (dolist (title stale)
+        (remhash title wikipedia-watchlist--scores)))))
+
 (add-hook 'wikipedia-watchlist-mode-hook
           #'wikipedia-ai-review--restore-cached-scores)
 
