@@ -47,7 +47,6 @@ no SUMMARY is provided, an AI-generated summary pre-fills the prompt."
   (interactive)
   (wp--ensure-logged-in)
   (if (and (not summary)
-           (called-interactively-p 'interactive)
            (bound-and-true-p wikipedia-ai-summarize-auto)
            (not (bound-and-true-p wikipedia-ai--pending-summary))
            (require 'gptel nil t))
