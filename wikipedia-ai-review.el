@@ -34,17 +34,16 @@
 ;;;; User options
 
 (defcustom wikipedia-ai-review-system-prompt
-  "You are a Wikipedia edit reviewer.  You will be shown a unified diff \
-of changes to a Wikipedia article.  Evaluate how much the edit warrants \
-manual review.
+  "You are a Wikipedia edit reviewer.  You will be shown a word-level \
+diff of changes to a Wikipedia article.  Evaluate how much the edit \
+warrants manual review.
 
 How to read the diff:
-- Lines starting with \"-\" (minus) are REMOVED text.
-- Lines starting with \"+\" (plus) are ADDED text.
-- When a \"-\" line and the following \"+\" line are nearly identical, \
-the actual change is only the small difference between them (e.g. a \
-typo fix or case change).  Do NOT describe the whole line as removed \
-or added; identify the specific words that changed.
+- Text marked [-like this-] was REMOVED.
+- Text marked {+like this+} was ADDED.
+- Unmarked text is UNCHANGED context — do not describe it as a change.
+- Lines prefixed with - or + that have NO inline markers are whole \
+lines removed or added respectively.
 - ONLY describe changes visible in the diff.  Do not infer changes \
 from the article title or from your training data.
 
@@ -143,7 +142,7 @@ alist in `wikipedia-ai-backend' / `wikipedia-ai-model'."
 (defun wikipedia-ai-review--fetch-diff-async (old-revid revid title callback)
   "Fetch diff between OLD-REVID and REVID for TITLE asynchronously.
 Fires two revision fetches in parallel (using the shared cache module);
-when both complete, computes the unified diff and calls CALLBACK with
+when both complete, computes a word-level diff and calls CALLBACK with
 the diff text or nil."
   (let ((pending 2)
         (from-content (wikipedia--cache-get old-revid))
@@ -162,8 +161,8 @@ the diff text or nil."
                                           to-content revid)))
                             (unwind-protect
                                 (funcall callback
-                                         (wikipedia--generate-unified-diff
-                                          from-file to-file old-revid revid 1))
+                                         (wikipedia--generate-word-diff
+                                          from-file to-file old-revid revid))
                               (delete-file from-file)
                               (delete-file to-file)))
                         (error (funcall callback nil)))
