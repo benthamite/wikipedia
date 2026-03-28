@@ -240,6 +240,37 @@ OLD-REVID and REVID record which revision range was scored."
            (wikipedia-ai-review--send-to-llm
             title old-revid revid diff-text))))))))
 
+(defvar wikipedia-ai-review--context-chars 40
+  "Characters of unchanged context to keep around each word-diff marker.")
+
+(defun wikipedia-ai-review--truncate-context (diff-text)
+  "Truncate unchanged context around word-diff markers in DIFF-TEXT.
+For lines containing [-...-] or {+...+} markers that exceed
+`wikipedia-ai-review--context-chars', keep only a window of context
+around the markers and replace the rest with \"...\".  This prevents
+the AI from treating long unchanged paragraphs as part of the edit."
+  (let ((max-context wikipedia-ai-review--context-chars)
+        (min-length (* 2 wikipedia-ai-review--context-chars)))
+    (mapconcat
+     (lambda (line)
+       (if (or (<= (length line) min-length)
+               (string-match-p "\\`[-+@~]" line)
+               (not (string-match-p "\\[-\\|{\\+" line)))
+           line
+         (let ((first-marker (string-match "\\[-\\|{\\+" line))
+               (last-end 0)
+               (pos 0))
+           (while (string-match "\\(?:-]\\|\\+}\\)" line pos)
+             (setq last-end (match-end 0)
+                   pos (match-end 0)))
+           (let ((start (max 0 (- first-marker max-context)))
+                 (end (min (length line) (+ last-end max-context))))
+             (concat (when (> start 0) "...")
+                     (substring line start end)
+                     (when (< end (length line)) "..."))))))
+     (split-string diff-text "\n")
+     "\n")))
+
 (defun wikipedia-ai-review--send-to-llm (title old-revid revid diff-text)
   "Send DIFF-TEXT for TITLE to the LLM for scoring.
 OLD-REVID and REVID identify the revision range."
@@ -250,7 +281,8 @@ OLD-REVID and REVID identify the revision range."
          (gptel-use-context nil)
          (gen wikipedia-ai-review--generation)
          (prompt (format "%s\n\nArticle: %s\n\nDiff:\n%s"
-                         wikipedia-ai-review-prompt title diff-text)))
+                         wikipedia-ai-review-prompt title
+                         (wikipedia-ai-review--truncate-context diff-text))))
     (gptel-request prompt
      :system wikipedia-ai-review-system-prompt
      :transforms nil
