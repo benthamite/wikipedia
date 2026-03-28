@@ -39,11 +39,13 @@ diff of changes to a Wikipedia article.  Evaluate how much the edit \
 warrants manual review.
 
 How to read the diff:
-- Text marked [-like this-] was REMOVED.
-- Text marked {+like this+} was ADDED.
-- Unmarked text is UNCHANGED context — do not describe it as a change.
-- Lines prefixed with - or + that have NO inline markers are whole \
-lines removed or added respectively.
+- Lines starting with \"-\" show REMOVED words.
+- Lines starting with \"+\" show ADDED words.
+- Lines starting with \" \" (space) are unchanged context (position \
+reference only) — do NOT describe these as changes.
+- \"~\" separates change groups.
+- Each \"-\" line and the \"+\" line after it show exactly which words \
+changed at that position.  Describe only those specific words.
 - ONLY describe changes visible in the diff.  Do not infer changes \
 from the article title or from your training data.
 
@@ -240,34 +242,32 @@ OLD-REVID and REVID record which revision range was scored."
            (wikipedia-ai-review--send-to-llm
             title old-revid revid diff-text))))))))
 
-(defvar wikipedia-ai-review--context-chars 40
-  "Characters of unchanged context to keep around each word-diff marker.")
+(defvar wikipedia-ai-review--context-words 5
+  "Maximum context words to keep in porcelain diff lines for AI review.
+Context lines (unchanged text) longer than this are trimmed to the
+first and last N words with [...] in between.")
 
-(defun wikipedia-ai-review--truncate-context (diff-text)
-  "Truncate unchanged context around word-diff markers in DIFF-TEXT.
-For lines containing [-...-] or {+...+} markers that exceed
-`wikipedia-ai-review--context-chars', keep only a window of context
-around the markers and replace the rest with \"...\".  This prevents
-the AI from treating long unchanged paragraphs as part of the edit."
-  (let ((max-context wikipedia-ai-review--context-chars)
-        (min-length (* 2 wikipedia-ai-review--context-chars)))
+(defun wikipedia-ai-review--trim-porcelain-context (diff-text)
+  "Trim long context lines in porcelain-format word-diff DIFF-TEXT.
+In porcelain format, changed words appear on their own lines
+prefixed with - or +, while unchanged context is prefixed with a
+space.  This function truncates only the context lines, keeping
+the actual changes untouched."
+  (let ((max-words wikipedia-ai-review--context-words))
     (mapconcat
      (lambda (line)
-       (if (or (<= (length line) min-length)
-               (string-match-p "\\`[-+@~]" line)
-               (not (string-match-p "\\[-\\|{\\+" line)))
+       (if (or (not (and (> (length line) 0)
+                         (eq (aref line 0) ?\s)))
+               (string-match-p "\\`\\s-*$" line))
            line
-         (let ((first-marker (string-match "\\[-\\|{\\+" line))
-               (last-end 0)
-               (pos 0))
-           (while (string-match "\\(?:-]\\|\\+}\\)" line pos)
-             (setq last-end (match-end 0)
-                   pos (match-end 0)))
-           (let ((start (max 0 (- first-marker max-context)))
-                 (end (min (length line) (+ last-end max-context))))
-             (concat (when (> start 0) "...")
-                     (substring line start end)
-                     (when (< end (length line)) "..."))))))
+         (let* ((text (substring line 1))
+                (words (split-string text)))
+           (if (<= (length words) (* 2 max-words))
+               line
+             (concat " "
+                     (string-join (seq-take words max-words) " ")
+                     " [...] "
+                     (string-join (last words max-words) " "))))))
      (split-string diff-text "\n")
      "\n")))
 
@@ -282,7 +282,7 @@ OLD-REVID and REVID identify the revision range."
          (gen wikipedia-ai-review--generation)
          (prompt (format "%s\n\nArticle: %s\n\nDiff:\n%s"
                          wikipedia-ai-review-prompt title
-                         (wikipedia-ai-review--truncate-context diff-text))))
+                         (wikipedia-ai-review--trim-porcelain-context diff-text))))
     (gptel-request prompt
      :system wikipedia-ai-review-system-prompt
      :transforms nil

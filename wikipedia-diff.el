@@ -310,21 +310,21 @@ Optional CONTEXT-LINES overrides the default context (3 lines)."
 
 (defun wikipedia--generate-word-diff (from-file to-file from-rev to-rev)
   "Generate a word-level diff between FROM-FILE and TO-FILE for AI review.
-Uses `git diff --word-diff' so that inline edits in long lines
-(e.g. a typo fix inside a paragraph) appear as [-old-]{+new+}
-markers rather than showing the whole line as removed and re-added.
+Uses `git diff --word-diff=porcelain' which places each changed word
+on its own line prefixed with - or +, making it trivial to separate
+actual changes from unchanged context.
 FROM-REV and TO-REV label the revisions in the header."
   (with-temp-buffer
     (let ((exit-code (call-process "git" nil t nil
                                    "diff" "--no-index"
-                                   "--word-diff=plain"
+                                   "--word-diff=porcelain"
                                    "--no-color"
-                                   "-U1"
+                                   "-U0"
                                    from-file to-file)))
       (cond
        ((zerop exit-code) "")            ; files are identical
        ((= exit-code 1)
-        ;; Replace git header with clean revision labels.
+        ;; Strip git-specific header, keep only hunks.
         (goto-char (point-min))
         (when (looking-at "diff --git[^\n]*\n\\(?:index [^\n]*\n\\)?")
           (replace-match ""))
