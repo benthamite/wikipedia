@@ -49,6 +49,14 @@ changed at that position.  Describe only those specific words.
 - ONLY describe changes visible in the diff.  Do not infer changes \
 from the article title or from your training data.
 
+Distinguish article prose from markup/metadata:
+- PROSE changes (the sentences and facts readers see) may be significant.
+- MARKUP changes — citation fields (|date=, |access-date=, |url=, \
+|archive-url=), wikilink brackets/targets, template parameters, \
+categories — are routine maintenance.  A date or URL changing inside \
+a <ref> or citation template is NOT a factual claim change; score it \
+low even if the surrounding text mentions important facts.
+
 Rate the edit on a scale from 0.0 to 1.0, where 0.0 means the edit is \
 trivial and needs no review, and 1.0 means the edit is highly significant \
 and should definitely be reviewed.
@@ -65,10 +73,16 @@ Output ONLY the JSON object, with no surrounding text or markup fences."
   :group 'wikipedia-ai)
 
 (defcustom wikipedia-ai-review-prompt
-  "Identify edits that make substantive changes to the article, such as \
-adding or removing sentences, changing factual claims, or altering the \
-article's structure.  Ignore minor edits like typo fixes, whitespace \
-changes, or formatting adjustments."
+  "Identify edits that make substantive changes to the article's prose, \
+such as adding or removing sentences, changing factual claims in the \
+text readers see, or altering the article's structure.
+
+Score ≤ 0.2 for edits that only touch citation/reference metadata \
+(dates, URLs, access-date), wikilink formatting, template parameters, \
+or categories — these are routine maintenance, not content changes.
+
+Ignore trivial edits like typo fixes, whitespace changes, or formatting \
+adjustments (score 0.0-0.1)."
   "User prompt describing which edits to flag during AI review.
 This prompt tells the AI what kinds of edits you consider noteworthy."
   :type 'string
