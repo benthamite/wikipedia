@@ -208,9 +208,10 @@ The user options ~wikipedia-ai-citation-system-prompt~,
 ~wikipedia-ai-summarize-system-prompt~, ~wikipedia-ai-review-system-prompt~,
 and ~wikipedia-ai-review-prompt~ control the LLM prompts for their
 respective commands.  Customize these to change the AI's behavior.
-The default review prompts instruct the AI to distinguish article prose
-changes from routine markup or metadata updates (citation dates, URLs,
-wikilink formatting, template parameters), scoring the latter low.
+Before scoring, the review system normalizes the wikitext by stripping
+citation markup and splitting sentences, so the AI receives a standard
+unified diff at sentence granularity.  This makes citation-only changes
+invisible (scored 0.0) and section moves clearly recognizable.
 
 #+vindex: wikipedia-ai-summarize-auto
 The user option ~wikipedia-ai-summarize-auto~ controls whether

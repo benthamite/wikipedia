@@ -34,32 +34,17 @@
 ;;;; User options
 
 (defcustom wikipedia-ai-review-system-prompt
-  "You are a Wikipedia edit reviewer.  You will be shown a word-level \
-diff of changes to a Wikipedia article.  Evaluate how much the edit \
-warrants manual review.
+  "You are a Wikipedia edit reviewer.  You will be shown a unified diff \
+of changes to a Wikipedia article.  Citations have been stripped, so \
+the diff shows only prose and structural markup.  Each diff line is \
+one sentence.
 
-How to read the diff:
-- Lines starting with \"-\" show REMOVED words.
-- Lines starting with \"+\" show ADDED words.
-- Lines starting with \" \" (space) are unchanged context (position \
-reference only) — do NOT describe these as changes.
-- \"~\" separates change groups.
-- Each \"-\" line and the \"+\" line after it show exactly which words \
-changed at that position.  Describe only those specific words.
-- ONLY describe changes visible in the diff.  Do not infer changes \
-from the article title or from your training data.
+If the same text appears as both removed and added at different \
+positions, it was MOVED, not rewritten — score moves low unless the \
+new location changes the meaning.
 
-Distinguish article prose from markup/metadata:
-- PROSE changes (the sentences and facts readers see) may be significant.
-- MARKUP changes — citation fields (|date=, |access-date=, |url=, \
-|archive-url=), wikilink brackets/targets, template parameters, \
-categories — are routine maintenance.  A date or URL changing inside \
-a <ref> or citation template is NOT a factual claim change; score it \
-low even if the surrounding text mentions important facts.
-
-Rate the edit on a scale from 0.0 to 1.0, where 0.0 means the edit is \
-trivial and needs no review, and 1.0 means the edit is highly significant \
-and should definitely be reviewed.
+Rate the edit from 0.0 (trivial, no review needed) to 1.0 (highly \
+significant, definitely review).
 
 Respond with a JSON object containing two fields:
 - \"score\": a float between 0.0 and 1.0
@@ -73,16 +58,9 @@ Output ONLY the JSON object, with no surrounding text or markup fences."
   :group 'wikipedia-ai)
 
 (defcustom wikipedia-ai-review-prompt
-  "Identify edits that make substantive changes to the article's prose, \
-such as adding or removing sentences, changing factual claims in the \
-text readers see, or altering the article's structure.
-
-Score ≤ 0.2 for edits that only touch citation/reference metadata \
-(dates, URLs, access-date), wikilink formatting, template parameters, \
-or categories — these are routine maintenance, not content changes.
-
-Ignore trivial edits like typo fixes, whitespace changes, or formatting \
-adjustments (score 0.0-0.1)."
+  "Flag edits that add, remove, or rewrite sentences, change factual \
+claims, or alter the article's structure.  Score low for section moves, \
+heading-level changes, whitespace, and formatting-only edits."
   "User prompt describing which edits to flag during AI review.
 This prompt tells the AI what kinds of edits you consider noteworthy."
   :type 'string
@@ -158,7 +136,8 @@ alist in `wikipedia-ai-backend' / `wikipedia-ai-model'."
 (defun wikipedia-ai-review--fetch-diff-async (old-revid revid title callback)
   "Fetch diff between OLD-REVID and REVID for TITLE asynchronously.
 Fires two revision fetches in parallel (using the shared cache module);
-when both complete, computes a word-level diff and calls CALLBACK with
+when both complete, normalizes the wikitext (stripping citations and
+splitting sentences) and computes a unified diff.  Calls CALLBACK with
 the diff text or nil."
   (let ((pending 2)
         (from-content (wikipedia--cache-get old-revid))
@@ -171,14 +150,18 @@ the diff text or nil."
                   (setq to-content (or to-content (wikipedia--cache-get revid)))
                   (if (and from-content to-content)
                       (condition-case nil
-                          (let ((from-file (wikipedia--write-temp-file
-                                            from-content old-revid))
-                                (to-file (wikipedia--write-temp-file
-                                          to-content revid)))
+                          (let* ((from-norm (wikipedia--normalize-wikitext-for-diff
+                                             from-content))
+                                 (to-norm (wikipedia--normalize-wikitext-for-diff
+                                           to-content))
+                                 (from-file (wikipedia--write-temp-file
+                                             from-norm old-revid))
+                                 (to-file (wikipedia--write-temp-file
+                                           to-norm revid)))
                             (unwind-protect
                                 (funcall callback
-                                         (wikipedia--generate-word-diff
-                                          from-file to-file old-revid revid))
+                                         (wikipedia--generate-unified-diff
+                                          from-file to-file old-revid revid 1))
                               (delete-file from-file)
                               (delete-file to-file)))
                         (error (funcall callback nil)))
@@ -256,35 +239,6 @@ OLD-REVID and REVID record which revision range was scored."
            (wikipedia-ai-review--send-to-llm
             title old-revid revid diff-text))))))))
 
-(defvar wikipedia-ai-review--context-words 5
-  "Maximum context words to keep in porcelain diff lines for AI review.
-Context lines (unchanged text) longer than this are trimmed to the
-first and last N words with [...] in between.")
-
-(defun wikipedia-ai-review--trim-porcelain-context (diff-text)
-  "Trim long context lines in porcelain-format word-diff DIFF-TEXT.
-In porcelain format, changed words appear on their own lines
-prefixed with - or +, while unchanged context is prefixed with a
-space.  This function truncates only the context lines, keeping
-the actual changes untouched."
-  (let ((max-words wikipedia-ai-review--context-words))
-    (mapconcat
-     (lambda (line)
-       (if (or (not (and (> (length line) 0)
-                         (eq (aref line 0) ?\s)))
-               (string-match-p "\\`\\s-*$" line))
-           line
-         (let* ((text (substring line 1))
-                (words (split-string text)))
-           (if (<= (length words) (* 2 max-words))
-               line
-             (concat " "
-                     (string-join (seq-take words max-words) " ")
-                     " [...] "
-                     (string-join (last words max-words) " "))))))
-     (split-string diff-text "\n")
-     "\n")))
-
 (defun wikipedia-ai-review--send-to-llm (title old-revid revid diff-text)
   "Send DIFF-TEXT for TITLE to the LLM for scoring.
 OLD-REVID and REVID identify the revision range."
@@ -295,8 +249,7 @@ OLD-REVID and REVID identify the revision range."
          (gptel-use-context nil)
          (gen wikipedia-ai-review--generation)
          (prompt (format "%s\n\nArticle: %s\n\nDiff:\n%s"
-                         wikipedia-ai-review-prompt title
-                         (wikipedia-ai-review--trim-porcelain-context diff-text))))
+                         wikipedia-ai-review-prompt title diff-text)))
     (gptel-request prompt
      :system wikipedia-ai-review-system-prompt
      :transforms nil

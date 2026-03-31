@@ -308,35 +308,35 @@ Optional CONTEXT-LINES overrides the default context (3 lines)."
    (format "Revision %d" to-rev)
    context-lines))
 
-(defun wikipedia--generate-word-diff (from-file to-file from-rev to-rev)
-  "Generate a word-level diff between FROM-FILE and TO-FILE for AI review.
-Uses `git diff --word-diff=porcelain' which places each changed word
-on its own line prefixed with - or +, making it trivial to separate
-actual changes from unchanged context.
-FROM-REV and TO-REV label the revisions in the header."
+(defun wikipedia--normalize-wikitext-for-diff (content)
+  "Normalize wikitext CONTENT for AI diff comparison.
+Strip citation markup and split sentences so that a standard unified
+diff operates at sentence granularity."
   (with-temp-buffer
-    (let ((exit-code (call-process "git" nil t nil
-                                   "diff" "--no-index"
-                                   "--word-diff=porcelain"
-                                   "--no-color"
-                                   "-U0"
-                                   from-file to-file)))
-      (cond
-       ((zerop exit-code) "")            ; files are identical
-       ((= exit-code 1)
-        ;; Strip git-specific header, keep only hunks.
-        (goto-char (point-min))
-        (when (looking-at "diff --git[^\n]*\n\\(?:index [^\n]*\n\\)?")
-          (replace-match ""))
-        (goto-char (point-min))
-        (when (re-search-forward "^--- " nil t)
-          (delete-region (point) (line-end-position))
-          (insert (format "Revision %d" from-rev)))
-        (when (re-search-forward "^\\+\\+\\+ " nil t)
-          (delete-region (point) (line-end-position))
-          (insert (format "Revision %d" to-rev)))
-        (buffer-string))
-       (t (error "git diff failed with exit code %d" exit-code))))))
+    (insert content)
+    ;; Strip self-closing ref tags: <ref name="foo" />
+    (goto-char (point-min))
+    (while (re-search-forward "<ref[^>]*/>" nil t) (replace-match ""))
+    ;; Strip content ref tags: <ref ...>...</ref>
+    (goto-char (point-min))
+    (while (re-search-forward "<ref[^>]*>" nil t)
+      (let ((start (match-beginning 0)))
+        (if (re-search-forward "</ref>" nil t)
+            (delete-region start (point))
+          (goto-char (1+ start)))))
+    ;; Collapse multiple spaces left by stripped refs.
+    (goto-char (point-min))
+    (while (re-search-forward "  +" nil t) (replace-match " "))
+    ;; Split sentences: period (or !?) followed by space then capital
+    ;; letter or opening bracket.  This puts each sentence on its own
+    ;; line so the diff shows sentence-level changes.
+    (goto-char (point-min))
+    (while (re-search-forward "\\([.!?]\\) \\([A-Z\"'(\\[]\\)" nil t)
+      (replace-match "\\1\n\\2"))
+    ;; Collapse runs of blank lines.
+    (goto-char (point-min))
+    (while (re-search-forward "\n\\{3,\\}" nil t) (replace-match "\n\n"))
+    (buffer-string)))
 
 (defun wikipedia--generate-labeled-diff (from-file to-file from-label to-label
                                                    &optional context-lines)
