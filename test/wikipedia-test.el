@@ -1308,6 +1308,69 @@
         (should (= (length wikipedia--prefetch-queue) 0))))))
 
 
+;;;; Completion tests
+
+(require 'wikipedia-completion)
+
+(ert-deftest completion-link-bounds/inside-link ()
+  "Detect bounds when point is inside [[...]]."
+  (with-temp-buffer
+    (insert "Some text [[Foo")
+    ;; Point is right after "Foo", inside an unclosed link.
+    (let ((bounds (wikipedia-completion--link-bounds)))
+      (should bounds)
+      (should (= (car bounds) (+ 2 (search-backward "[["))))
+      ;; End should be at point (after "Foo").
+      (goto-char (point-max))
+      (let ((bounds2 (wikipedia-completion--link-bounds)))
+        (should (= (cdr bounds2) (point)))))))
+
+(ert-deftest completion-link-bounds/outside-link ()
+  "Return nil when point is outside any link."
+  (with-temp-buffer
+    (insert "Some text without links")
+    (should-not (wikipedia-completion--link-bounds))))
+
+(ert-deftest completion-link-bounds/closed-link ()
+  "Return nil when the link is already closed."
+  (with-temp-buffer
+    (insert "Text [[Foo]] bar")
+    (goto-char (point-max))
+    (should-not (wikipedia-completion--link-bounds))))
+
+(ert-deftest completion-link-bounds/after-pipe ()
+  "Return nil when point is in the display text after |."
+  (with-temp-buffer
+    (insert "Text [[Foo|Ba")
+    (goto-char (point-max))
+    (should-not (wikipedia-completion--link-bounds))))
+
+(ert-deftest completion-fetch/caches-results ()
+  "Fetched results are cached."
+  (let ((wikipedia-completion--cache (make-hash-table :test #'equal))
+        (call-count 0))
+    (cl-letf (((symbol-function 'wp--ensure-logged-in) #'ignore)
+              ((symbol-function 'wp--api-call)
+               (lambda (_action _params)
+                 (cl-incf call-count)
+                 ;; Return a fake generator+info query result.
+                 '(query nil
+                   (pages nil
+                     (page ((title . "Foo") (displaytitle . "Foo")))
+                     (page ((title . "Foobar") (displaytitle . "Foobar"))))))))
+      (let ((r1 (wikipedia-completion--fetch "Fo"))
+            (r2 (wikipedia-completion--fetch "Fo")))
+        (should (equal r1 '("Foo" "Foobar")))
+        (should (equal r2 '("Foo" "Foobar")))
+        ;; API should only be called once due to caching.
+        (should (= call-count 1))))))
+
+(ert-deftest completion-fetch/empty-prefix ()
+  "Empty prefix returns nil without calling the API."
+  (let ((wikipedia-completion--cache (make-hash-table :test #'equal)))
+    (should-not (wikipedia-completion--fetch ""))
+    (should-not (wikipedia-completion--fetch nil))))
+
 (provide 'wikipedia-test)
 
 ;;; wikipedia-test.el ends here

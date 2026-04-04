@@ -61,6 +61,7 @@
 (require 'wikipedia-ai)
 (require 'wikipedia-ai-review)
 (require 'wikipedia-auto)
+(require 'wikipedia-completion)
 
 (defvar wikipedia-edit-mode-map (make-sparse-keymap)
   "Keymap for Wikipedia editing commands.
@@ -81,7 +82,12 @@ Overrides `mediawiki-mode' bindings for save/publish so that
 Provides keybindings for preview and other wikipedia.el features
 when editing a wiki page."
   :lighter " WP"
-  :keymap wikipedia-edit-mode-map)
+  :keymap wikipedia-edit-mode-map
+  (if wikipedia-edit-mode
+      (add-hook 'completion-at-point-functions
+                #'wikipedia-completion-at-point -10 t)
+    (remove-hook 'completion-at-point-functions
+                 #'wikipedia-completion-at-point t)))
 
 (provide 'wikipedia)
 

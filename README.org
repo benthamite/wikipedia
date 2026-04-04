@@ -66,6 +66,9 @@ The package is organized around several core workflows:
   templates, produce edit summaries from diffs, and score watchlist
   changes by review priority ([[#h:ai-commands][AI commands]]).
 
+- *Wiki link completion*: get title suggestions from the MediaWiki API
+  as you type inside =[[...]]= links ([[#h:wiki-link-completion][Wiki link completion]]).
+
 All commands are accessible through a unified transient menu
 ([[#h:transient-menu][Transient menu]]).
 
@@ -230,6 +233,18 @@ scored without pressing =R=.
 The user option ~wikipedia-ai-review-verbose~ controls whether
 per-entry progress messages are shown during scoring.
 
+** Wiki link completion
+:PROPERTIES:
+:CUSTOM_ID: h:completion-options
+:END:
+
+#+vindex: wikipedia-completion-limit
+The user option ~wikipedia-completion-limit~ controls the maximum number
+of title candidates fetched from the MediaWiki API for each completion
+request.  The default value is ~15~.  Increase this if you find that the
+desired page frequently does not appear among the suggestions; decrease
+it if API latency is a concern on slow connections.
+
 * Commands
 :PROPERTIES:
 :CUSTOM_ID: h:commands
@@ -282,9 +297,11 @@ source.  The command is also available from the transient menu
 ([[#h:transient-menu][Transient menu]]) under =e=.
 
 #+findex: wikipedia-edit-mode
-The minor mode ~wikipedia-edit-mode~ provides additional keybindings when
-editing a wiki page.  It displays =WP= in the mode line lighter and
-adds the following bindings:
+The minor mode ~wikipedia-edit-mode~ provides additional keybindings and
+completion when editing a wiki page.  It displays =WP= in the mode line
+lighter, registers ~wikipedia-completion-at-point~ for wiki link
+completion ([[#h:wiki-link-completion][Wiki link completion]]), and adds
+the following bindings:
 
 | Key       | Command                    | Description               |
 |-----------+----------------------------+---------------------------|
@@ -860,6 +877,31 @@ In the watchlist buffer:
 
 High scores (>=0.7) are highlighted with a warning face; low scores
 (<=0.3) are dimmed.
+
+** Wiki link completion
+:PROPERTIES:
+:CUSTOM_ID: h:wiki-link-completion
+:END:
+
+#+findex: wikipedia-completion-at-point
+When ~wikipedia-edit-mode~ is active ([[#h:page-editing][Page editing]]),
+typing inside a =[[...]]= wiki link triggers completion via
+~wikipedia-completion-at-point~.  The function queries the MediaWiki
+prefixsearch API for page titles matching what you have typed so far,
+and presents the results through the standard Emacs completion UI
+(~completion-at-point~, typically triggered with =C-M-i= or =TAB=
+depending on your configuration).
+
+Completion activates only when point is in the link target portion of a
+wiki link — that is, after =[[= and before any =|= pipe character.  If
+you are typing the display text after the pipe (e.g., =[[Foo|some
+text=), completion does not trigger, since the display text is
+free-form.
+
+Results are cached for five minutes per prefix to avoid redundant API
+calls.  The number of candidates per request is controlled by
+~wikipedia-completion-limit~ ([[#h:completion-options][Wiki link
+completion options]]).
 
 ** Transient menu
 :PROPERTIES:
