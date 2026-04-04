@@ -82,6 +82,61 @@ Falls back to normal publishing if the diff or AI request fails."
 ;;;###autoload
 (defalias 'wikipedia-save #'wikipedia-publish)
 
+(defvar eww-data)
+
+;;;###autoload
+(defun wikipedia-eww-open ()
+  "Open the Wikipedia article in the current EWW buffer for editing.
+Extract the article title from the EWW URL and open it with
+`wikipedia-open', positioning point at the corresponding location
+in the wikitext source."
+  (interactive)
+  (unless (derived-mode-p 'eww-mode)
+    (user-error "Not in an EWW buffer"))
+  (let* ((url (plist-get eww-data :url))
+         (title (wikipedia--extract-title-from-url url))
+         (context (wikipedia--eww-context-at-point)))
+    (unless title
+      (user-error "Cannot extract article title from URL: %s" url))
+    (wikipedia-open title)
+    (wikipedia--goto-context (window-buffer) context)))
+
+(defun wikipedia--eww-context-at-point ()
+  "Return words near point for locating the same position in wikitext."
+  (save-excursion
+    (forward-word -2)
+    (let ((bound (min (point-max) (+ (point) 200)))
+          words)
+      (while (and (< (length words) 5)
+                  (re-search-forward "\\<\\(\\w+\\)\\>" bound t))
+        (push (match-string-no-properties 1) words))
+      (nreverse words))))
+
+(defun wikipedia--goto-context (buffer words)
+  "In BUFFER, move point to where WORDS appear.
+Allow wiki markup inside and between words so that rendered EWW
+text like \"Nocturnes\" matches wikitext like \"[[Nocturne]]s\".
+Update the window point so the change is visible."
+  (when (>= (length words) 2)
+    (with-current-buffer buffer
+      (goto-char (point-min))
+      (let ((re (wikipedia--context-regexp words)))
+        (when (re-search-forward re nil t)
+          (goto-char (match-beginning 0))
+          (set-window-point (get-buffer-window buffer) (point)))))))
+
+(defun wikipedia--context-regexp (words)
+  "Build a regexp matching WORDS with possible wiki markup interspersed.
+Each character may be separated by markup like brackets, quotes,
+or braces, and words may be separated by markup plus whitespace."
+  (let ((markup "[]['\"{}|=]*"))
+    (mapconcat
+     (lambda (word)
+       (mapconcat (lambda (ch) (regexp-quote (char-to-string ch)))
+                  word markup))
+     words
+     (concat markup "[^[:alnum:]]+" markup))))
+
 ;;;###autoload
 (defun wikipedia-browse (title)
   "Open Wikipedia page TITLE in an external browser."

@@ -31,6 +31,7 @@
     ("P" "Publish page" wikipedia-publish)
     ("p" "Preview" wikipedia-preview)
     ("D" "Diff to live" wikipedia-diff-to-live)
+    ("e" "Edit from EWW" wikipedia-eww-open)
     ("b" "Browse page" wikipedia-browse)
     ("l" "Login" wikipedia-login)]
    ["Draft"

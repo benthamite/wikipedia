@@ -271,6 +271,15 @@ The command ~wikipedia-browse~ opens the page in an external web browser
 via ~browse-url~.  Like ~wikipedia-open~, it defaults to the title at
 point.
 
+#+findex: wikipedia-eww-open
+The command ~wikipedia-eww-open~ opens the Wikipedia article displayed
+in the current EWW buffer for editing.  It extracts the article title
+from the EWW URL and calls ~wikipedia-open~, positioning point at the
+corresponding location in the wikitext source.  This is useful when
+browsing Wikipedia in EWW and wanting to quickly fix something in the
+source.  The command is also available from the transient menu
+([[#h:transient-menu][Transient menu]]) under =e=.
+
 #+findex: wikipedia-edit-mode
 The minor mode ~wikipedia-edit-mode~ provides additional keybindings when
 editing a wiki page.  It displays =WP= in the mode line lighter and
@@ -861,7 +870,7 @@ The command ~wikipedia-transient~ opens a transient menu providing quick
 access to all =wikipedia.el= commands.  The menu is organized into
 groups:
 
-- *Page*: open, publish, preview, browse, and login.
+- *Page*: open, publish, preview, edit from EWW, browse, and login.
 - *Draft*: save, open, and delete drafts.
 - *Watchlist*: open the watchlist, watch/unwatch pages, browse, and mark
   all read.

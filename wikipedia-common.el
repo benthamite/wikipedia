@@ -46,6 +46,19 @@
             site-url
             (url-hexify-string username))))
 
+(defun wikipedia--extract-title-from-url (url)
+  "Extract the MediaWiki article title from URL.
+Handle both /wiki/Title and ?title=Title URL formats.
+Return nil if no title can be extracted."
+  (when (stringp url)
+    (let ((raw (cond
+                ((string-match "/wiki/\\([^#?]+\\)" url)
+                 (match-string 1 url))
+                ((string-match "[?&]title=\\([^&#]+\\)" url)
+                 (match-string 1 url)))))
+      (when raw
+        (replace-regexp-in-string "_" " " (url-unhex-string raw))))))
+
 ;;;; Display utilities
 
 (defun wikipedia--format-timestamp (timestamp &optional length)
@@ -98,6 +111,8 @@ so that commands can detect the current page regardless of mode.")
 
 ;;;; Context detection
 
+(defvar eww-data)
+
 (declare-function wikipedia-watchlist--revid-at-point "wikipedia-watchlist")
 (declare-function wikipedia-watchlist--user-at-point "wikipedia-watchlist")
 (declare-function wikipedia-watchlist--title-at-point "wikipedia-watchlist")
@@ -144,6 +159,8 @@ This function checks various contexts to find a page title."
     mediawiki-page-title)
    ((bound-and-true-p wikipedia--buffer-page-title)
     wikipedia--buffer-page-title)
+   ((derived-mode-p 'eww-mode)
+    (wikipedia--extract-title-from-url (plist-get eww-data :url)))
    (buffer-file-name
     (file-name-base buffer-file-name))
    (t nil)))
