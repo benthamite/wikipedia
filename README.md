@@ -26,28 +26,29 @@ All commands are accessible through a unified transient menu via `wikipedia-tran
 ### package-vc (built-in since Emacs 30)
 
 ```emacs-lisp
-(package-vc-install "https://github.com/benthamite/wikipedia")
+(use-package wikipedia
+  :vc (:url "https://github.com/benthamite/wikipedia"))
 ```
 
 ### Elpaca
 
 ```emacs-lisp
 (use-package wikipedia
-  :ensure (wikipedia :host github :repo "benthamite/wikipedia"))
+  :ensure (:host github :repo "benthamite/wikipedia"))
 ```
 
 ### straight.el
 
 ```emacs-lisp
-(straight-use-package
- '(wikipedia :type git :host github :repo "benthamite/wikipedia"))
+(use-package wikipedia
+  :straight (:host github :repo "benthamite/wikipedia"))
 ```
 
 ## Quick start
 
 ```emacs-lisp
 (use-package wikipedia
-  :ensure (wikipedia :host github :repo "benthamite/wikipedia")
+  :ensure (:host github :repo "benthamite/wikipedia")
   :bind ("C-c w" . wikipedia-transient))
 ```
 
