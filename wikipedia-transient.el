@@ -27,51 +27,52 @@
   "Wikipedia commands."
   :info-manual "(wikipedia)"
   [["Page"
-    ("o" "Open page" wikipedia-open)
-    ("P" "Publish page" wikipedia-publish)
-    ("p" "Preview" wikipedia-preview)
-    ("D" "Diff to live" wikipedia-diff-to-live)
-    ("e" "Edit from EWW" wikipedia-eww-open)
-    ("b" "Browse page" wikipedia-browse)
-    ("l" "Login" wikipedia-login)]
-   ["Draft"
+    ("p o" "Open page" wikipedia-open)
+    ("p P" "Publish page" wikipedia-publish)
+    ("p p" "Preview" wikipedia-preview)
+    ("p d" "Diff to live" wikipedia-diff-to-live)
+    ("p e" "Edit from EWW" wikipedia-eww-open)
+    ("p b" "Browse page" wikipedia-browse)
+    ("p l" "Login" wikipedia-login)
+    ""
+    "Draft"
     ("d s" "Save draft" wikipedia-draft-save)
     ("d o" "Open draft" wikipedia-draft-open)
-    ("d k" "Delete draft" wikipedia-draft-delete)]
-   ["Watchlist"
-    ("w w" "Watchlist" wikipedia-watchlist)
-    ("w a" "Watch page" wikipedia-watchlist-watch)
-    ("w u" "Unwatch page" wikipedia-watchlist-unwatch)
-    ("w b" "Browse watchlist" wikipedia-watchlist-browse)
-    ("w !" "Mark all read" wikipedia-watchlist-mark-all-read)]
-   ["History"
-    ("h" "History" wikipedia-history)
-    ("U" "Undo revision" wikipedia-undo)
-    ("r" "Restore revision" wikipedia-history-restore-revision)]]
-  [["User"
+    ("d D" "Delete draft" wikipedia-draft-delete)]
+   ["User"
     ("u c" "User contributions" wikipedia-user-contributions)
     ("u p" "User page" wikipedia-user-page)
     ("u t" "User talk" wikipedia-user-talk)
     ("u b" "Browse user" wikipedia-user-browse)
-    ("u T" "Thank user" wikipedia-thank)]
-   ["XTools"
+    ("u k" "Thank user" wikipedia-thank)
+    ""
+    "XTools"
     ("x u" "User stats" wikipedia-xtools-user-stats)
     ("x p" "Page stats" wikipedia-xtools-page-stats)
-    ("x e" "Top editors" wikipedia-xtools-top-editors)]
+    ("x t" "Top editors" wikipedia-xtools-top-editors)]
+   ["Watchlist"
+    ("w w" "Watchlist" wikipedia-watchlist)
+    ("w p" "Watch page" wikipedia-watchlist-watch)
+    ("w P" "Unwatch page" wikipedia-watchlist-unwatch)
+    ("w b" "Browse watchlist" wikipedia-watchlist-browse)
+    ("w a" "Mark all read" wikipedia-watchlist-mark-all-read)
+    ""
+    "History"
+    ("h h" "History" wikipedia-history)
+    ("h u" "Undo revision" wikipedia-undo)
+    ("h r" "Restore revision" wikipedia-history-restore-revision)]
    ["Sync & Mirror"
-    ("S p" "Sync page" wikipedia-sync-page)
-    ("S w" "Sync watchlist" wikipedia-sync-watchlist)
-    ("S u" "Sync update" wikipedia-sync-update)
-    ("m" "Mirror" wikipedia-mirror)]
-   ["AI Detection"
-    :if (lambda () (locate-library "pangram"))
-    ("a d" "Detect AI" pangram-detect)
-    ("a c" "Clear overlays" pangram-clear)]
-   ["AI Editing"
-    :if (lambda () (locate-library "gptel"))
-    ("c" "Generate citation" wikipedia-ai-cite)
-    ("s" "Generate edit summary" wikipedia-ai-summarize)
-    ("R" "Review watchlist" wikipedia-ai-review-watchlist)]])
+    ("s p" "Sync page" wikipedia-sync-page)
+    ("s w" "Sync watchlist" wikipedia-sync-watchlist)
+    ("s u" "Sync update" wikipedia-sync-update)
+    ("s m" "Mirror" wikipedia-mirror)
+    ""
+    "AI"
+    ("a d" "Detect AI" pangram-detect :if (lambda () (locate-library "pangram")))
+    ("a x" "Clear overlays" pangram-clear :if (lambda () (locate-library "pangram")))
+    ("a c" "Generate citation" wikipedia-ai-cite :if (lambda () (locate-library "gptel")))
+    ("a e" "Generate edit summary" wikipedia-ai-summarize :if (lambda () (locate-library "gptel")))
+    ("a r" "Review watchlist" wikipedia-ai-review-watchlist :if (lambda () (locate-library "gptel")))]])
 
 (provide 'wikipedia-transient)
 

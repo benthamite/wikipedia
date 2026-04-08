@@ -910,25 +910,22 @@ completion options]]).
 
 #+findex: wikipedia-transient
 The command ~wikipedia-transient~ opens a transient menu providing quick
-access to all =wikipedia.el= commands.  The menu is organized into
-groups:
+access to all =wikipedia.el= commands.  The menu is arranged in four
+vertically aligned columns, each containing two thematic groups:
 
-- *Page*: open, publish, preview, edit from EWW, browse, and login.
-- *Draft*: save, open, and delete drafts.
-- *Watchlist*: open the watchlist, watch/unwatch pages, browse, and mark
-  all read.
-- *History*: open page history.
-- *User*: user contributions, user page, user talk, browse user, and
-  thank.
-- *XTools*: user stats, page stats, and top editors.
-- *Sync & Mirror*: sync page, sync watchlist, sync update, and mirror
-  browser.
-- *AI Detection* (requires =pangram.el=): detect AI-generated text and
-  clear overlays.  This group is only shown when =pangram.el= is
-  installed.
-- *AI Editing* (requires =gptel=): generate citations (=c=), generate
-  edit summaries (=s=), and review the watchlist with AI scoring (=R=).
-  This group is only shown when =gptel= is installed.
+- *Page* / *Draft*: page operations (open, publish, preview, diff, edit
+  from EWW, browse, login) and draft management (save, open, delete).
+- *User* / *XTools*: user commands (contributions, user page, talk,
+  browse, thank) and XTools statistics (user stats, page stats, top
+  editors).
+- *Watchlist* / *History* (=h= prefix): watchlist operations (open,
+  watch/unwatch, browse, mark all read) and history commands (open,
+  undo, restore).
+- *Sync & Mirror* (=s= prefix) / *AI* (=a= prefix): sync commands
+  (sync page, sync watchlist, sync update, mirror) and AI commands
+  (detect AI, clear overlays, generate citation, generate edit summary,
+  review watchlist).  Individual AI items are shown only when their
+  required library (=pangram.el= or =gptel=) is installed.
 
 Bind ~wikipedia-transient~ to a convenient key for quick access to any
 command in the package.
