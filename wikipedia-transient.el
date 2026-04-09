@@ -65,9 +65,9 @@
     ("s p" "Sync page" wikipedia-sync-page)
     ("s w" "Sync watchlist" wikipedia-sync-watchlist)
     ("s u" "Sync update" wikipedia-sync-update)
-    ("s m" "Mirror" wikipedia-mirror)
-    ""
-    "AI"
+    ("s m" "Mirror" wikipedia-mirror)]
+   ["AI"
+    :if (lambda () (or (locate-library "pangram") (locate-library "gptel")))
     ("a d" "Detect AI" pangram-detect :if (lambda () (locate-library "pangram")))
     ("a x" "Clear overlays" pangram-clear :if (lambda () (locate-library "pangram")))
     ("a c" "Generate citation" wikipedia-ai-cite :if (lambda () (locate-library "gptel")))

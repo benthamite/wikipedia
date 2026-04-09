@@ -910,8 +910,8 @@ completion options]]).
 
 #+findex: wikipedia-transient
 The command ~wikipedia-transient~ opens a transient menu providing quick
-access to all =wikipedia.el= commands.  The menu is arranged in four
-vertically aligned columns, each containing two thematic groups:
+access to all =wikipedia.el= commands.  The menu is arranged in
+vertically aligned columns, each containing one or two thematic groups:
 
 - *Page* / *Draft*: page operations (open, publish, preview, diff, edit
   from EWW, browse, login) and draft management (save, open, delete).
@@ -921,11 +921,12 @@ vertically aligned columns, each containing two thematic groups:
 - *Watchlist* / *History* (=h= prefix): watchlist operations (open,
   watch/unwatch, browse, mark all read) and history commands (open,
   undo, restore).
-- *Sync & Mirror* (=s= prefix) / *AI* (=a= prefix): sync commands
-  (sync page, sync watchlist, sync update, mirror) and AI commands
-  (detect AI, clear overlays, generate citation, generate edit summary,
-  review watchlist).  Individual AI items are shown only when their
-  required library (=pangram.el= or =gptel=) is installed.
+- *Sync & Mirror* (=s= prefix): sync commands (sync page, sync
+  watchlist, sync update, mirror).
+- *AI* (=a= prefix): AI commands (detect AI, clear overlays, generate
+  citation, generate edit summary, review watchlist).  This column is
+  shown only when =pangram.el= or =gptel= is installed; individual
+  items are further filtered by their specific library dependency.
 
 Bind ~wikipedia-transient~ to a convenient key for quick access to any
 command in the package.
