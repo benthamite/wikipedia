@@ -72,6 +72,8 @@ The package is organized around several core workflows:
 All commands are accessible through a unified transient menu
 ([[#h:transient-menu][Transient menu]]).
 
+The development repository is on [[https://github.com/benthamite/wikipedia][GitHub]].
+
 * User options
 :PROPERTIES:
 :CUSTOM_ID: h:user-options
