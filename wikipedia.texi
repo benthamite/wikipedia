@@ -4,6 +4,7 @@
 @settitle wikipedia.el: Emacs interface for Wikipedia editing
 @documentencoding UTF-8
 @documentlanguage en
+@c AUTO-GENERATED from README.org via ox-texinfo — do not edit manually.
 @c %**end of header
 
 @dircategory Emacs misc features
@@ -13,6 +14,7 @@
 
 @finalout
 @titlepage
+@title wikipedia.el: Emacs interface for Wikipedia editing
 @author Pablo Stafforini (@email{pablo@@stafforini.com})
 @end titlepage
 
@@ -22,7 +24,7 @@
 @node Top
 @top wikipedia.el: Emacs interface for Wikipedia editing
 
-This manual describes the features and customization options for the Emacs Lisp package @samp{wikipedia.el}. @*
+This manual describes the features and customization options for the Emacs Lisp package @samp{wikipedia.el}.
 
 @end ifnottex
 
@@ -42,7 +44,8 @@ User options
 * XTools integration::
 * Local database::
 * Synchronization::
-* AI review options::
+* AI configuration::
+* Wiki link completion: Wiki link completion (1). 
 
 Commands
 
@@ -56,7 +59,8 @@ Commands
 * XTools statistics::
 * Synchronization and local mirror::
 * Diff follow mode::
-* AI review::
+* AI commands::
+* Wiki link completion::
 * Transient menu::
 
 Watchlist
@@ -84,18 +88,18 @@ XTools statistics
 * User statistics::
 * Page statistics::
 
-AI review options
-
-* Review prompt::
-* Review model::
-* Automatic scoring::
-
 Synchronization and local mirror
 
 * Synchronizing pages::
 * Browsing the local mirror::
 * Local revision history::
 * Database management::
+
+AI commands
+
+* Citation generation::
+* Edit summary generation::
+* Watchlist review::
 
 Indices
 
@@ -108,64 +112,72 @@ Indices
 @node Overview
 @chapter Overview
 
-The @samp{wikipedia.el} package provides a comprehensive Emacs interface for Wikipedia. @*
-It builds on top of @samp{mediawiki.el}, which handles the low-level protocol details, @*
-and adds higher-level workflows for editing, reviewing, and managing Wikipedia @*
-content. @*
+The @samp{wikipedia.el} package provides a comprehensive Emacs interface for Wikipedia.
+It builds on top of @samp{mediawiki.el}, which handles the low-level protocol details,
+and adds higher-level workflows for editing, reviewing, and managing Wikipedia
+content.
 
-The package requires Emacs 29.1 or later and @samp{mediawiki.el} for the @*
-underlying API communication.  Optionally, @samp{pangram.el} can be @*
-installed for AI-generated text detection; when available, an ``AI @*
-Detection'' group appears in the transient menu (@ref{Transient menu}). @*
-Before using any commands, you must configure at least one @*
-wiki site via @samp{mediawiki-site-alist} and establish a session with @*
-@code{wikipedia-login} (@ref{Session management}). @*
+The package requires Emacs 29.1 or later and @samp{mediawiki.el} for the
+underlying API communication.  Optionally, @samp{gptel} provides AI-powered
+features (citation generation, edit summary generation, and watchlist
+review scoring), and @samp{pangram.el} provides AI-generated text detection.
+When available, corresponding groups appear in the transient menu
+(@ref{Transient menu}).
+Before using any commands, you must configure at least one
+wiki site via @samp{mediawiki-site-alist} and establish a session with
+@code{wikipedia-login} (@ref{Session management}).
 
-The package is organized around several core workflows: @*
+The package is organized around several core workflows:
 
 @itemize
 @item
-@strong{Page editing}: open pages for editing in @samp{mediawiki-mode} buffers, @*
-preview rendered HTML, and publish changes back to the wiki @*
-(@ref{Page editing}). @*
+@strong{Page editing}: open pages for editing in @samp{mediawiki-mode} buffers,
+preview rendered HTML, and publish changes back to the wiki
+(@ref{Page editing}).
 
 @item
-@strong{Draft management}: save work-in-progress edits as local files that @*
-persist across sessions (@ref{Draft management}). @*
+@strong{Draft management}: save work-in-progress edits as local files that
+persist across sessions (@ref{Draft management}).
 
 @item
-@strong{Watchlist}: browse your watchlist with a grouped, expandable @*
-interface that shows recent changes organized by page, with unread @*
-tracking and background prefetching of diffs @*
-(@ref{Watchlist}). @*
+@strong{Watchlist}: browse your watchlist with a grouped, expandable
+interface that shows recent changes organized by page, with unread
+tracking and background prefetching of diffs
+(@ref{Watchlist}).
 
 @item
-@strong{Revision history}: inspect the full revision history of any page, @*
-view diffs between arbitrary revisions, and navigate between @*
-historical snapshots (@ref{Revision history}). @*
+@strong{Revision history}: inspect the full revision history of any page,
+view diffs between arbitrary revisions, and navigate between
+historical snapshots (@ref{Revision history}).
 
 @item
-@strong{User inspection}: view user contributions, visit user pages, send @*
-thanks, and look up detailed editing statistics via XTools @*
-(@ref{User inspection}, @ref{XTools statistics}). @*
+@strong{User inspection}: view user contributions, visit user pages, send
+thanks, and look up detailed editing statistics via XTools
+(@ref{User inspection}, @ref{XTools statistics}).
 
 @item
-@strong{Local mirror}: synchronize watched pages to a local SQLite database @*
-for offline browsing and faster access (@ref{Synchronization and local mirror}). @*
+@strong{Local mirror}: synchronize watched pages to a local SQLite database
+for offline browsing and faster access (@ref{Synchronization and local mirror}).
 
 @item
-@strong{Diff follow mode}: automatically display diffs as you navigate @*
-entries in the watchlist, history, or contributions buffers @*
-(@ref{Diff follow mode}). @*
+@strong{Diff follow mode}: automatically display diffs as you navigate
+entries in the watchlist, history, or contributions buffers
+(@ref{Diff follow mode}).
 
 @item
-@strong{AI review}: use an LLM to score watchlist changes by review @*
-priority, so you can focus on the edits that matter most @*
-(@ref{AI review}). @*
+@strong{AI-powered editing} (requires @samp{gptel}): generate Wikipedia citation
+templates, produce edit summaries from diffs, and score watchlist
+changes by review priority (@ref{AI commands}).
+
+@item
+@strong{Wiki link completion}: get title suggestions from the MediaWiki API
+as you type inside @samp{[[...]]} links (@ref{Wiki link completion}).
 @end itemize
 
-All commands are accessible through a unified transient menu @*
-(@ref{Transient menu}). @*
+All commands are accessible through a unified transient menu
+(@ref{Transient menu}).
+
+The development repository is on @uref{https://github.com/benthamite/wikipedia, GitHub}.
 
 @node User options
 @chapter User options
@@ -176,141 +188,172 @@ All commands are accessible through a unified transient menu @*
 * XTools integration::
 * Local database::
 * Synchronization::
-* AI review options::
+* AI configuration::
+* Wiki link completion: Wiki link completion (1). 
 @end menu
 
 @node Diff display
 @section Diff display
 
 @vindex wikipedia-diff-function
-The user option @code{wikipedia-diff-function} controls how diffs are @*
-displayed throughout the package.  It accepts two values: @*
+The user option @code{wikipedia-diff-function} controls how diffs are
+displayed throughout the package.  It accepts two values:
 
 @itemize
 @item
-@code{unified} (the default): show diffs in a single buffer using Emacs's @*
-built-in @code{diff-mode}.  This is compact and integrates well with the @*
-diff follow mode (@ref{Diff follow mode}). @*
+@code{unified} (the default): show diffs in a single buffer using Emacs's
+built-in @code{diff-mode}.  This is compact and integrates well with the
+diff follow mode (@ref{Diff follow mode}).
 
 @item
-@code{ediff}: use @code{ediff-buffers} for side-by-side comparison.  This gives @*
-a richer interactive experience but opens multiple windows and is @*
-incompatible with diff follow mode. @*
+@code{ediff}: use @code{ediff-buffers} for side-by-side comparison.  This gives
+a richer interactive experience but opens multiple windows and is
+incompatible with diff follow mode.
 @end itemize
 
-Change this option if you prefer side-by-side comparison and do not use @*
-diff follow mode. @*
+Change this option if you prefer side-by-side comparison and do not use
+diff follow mode.
 
 @node Draft storage
 @section Draft storage
 
 @vindex wikipedia-draft-directory
-The user option @code{wikipedia-draft-directory} specifies the directory @*
-where local drafts are stored.  Each draft is saved as a @samp{.wiki} file @*
-named after the page title, using a byte-level encoding scheme for @*
-filesystem safety.  The default value is @samp{wikipedia-drafts/} inside @*
-@code{user-emacs-directory}. @*
+The user option @code{wikipedia-draft-directory} specifies the directory
+where local drafts are stored.  Each draft is saved as a @samp{.wiki} file
+named after the page title, using a byte-level encoding scheme for
+filesystem safety.  The default value is @samp{wikipedia-drafts/} inside
+@code{user-emacs-directory}.
 
-Change this if you want drafts stored in a different location, for @*
-example a directory that is synchronized across machines. @*
+Change this if you want drafts stored in a different location, for
+example a directory that is synchronized across machines.
 
 @node XTools integration
 @section XTools integration
 
 @vindex wikipedia-xtools-base-url
 @vindex wikipedia-xtools-project
-The user option @code{wikipedia-xtools-base-url} specifies the base URL for @*
-the XTools API@.  The default value is @samp{https://xtools.wmcloud.org/api}. @*
-You would only change this if the XTools service moves to a different @*
-URL@. @*
+The user option @code{wikipedia-xtools-base-url} specifies the base URL for
+the XTools API@.  The default value is @samp{https://xtools.wmcloud.org/api}.
+You would only change this if the XTools service moves to a different
+URL@.
 
-The user option @code{wikipedia-xtools-project} specifies the default project @*
-for XTools queries.  The default value is @samp{en.wikipedia.org}.  Change @*
-this if you primarily edit a different Wikipedia language edition or @*
-another MediaWiki project (e.g., @samp{de.wikipedia.org} or @*
-@samp{commons.wikimedia.org}). @*
+The user option @code{wikipedia-xtools-project} specifies the default project
+for XTools queries.  The default value is @samp{en.wikipedia.org}.  Change
+this if you primarily edit a different Wikipedia language edition or
+another MediaWiki project (e.g., @samp{de.wikipedia.org} or
+@samp{commons.wikimedia.org}).
 
 @node Local database
 @section Local database
 
 @vindex wikipedia-db-file
-The user option @code{wikipedia-db-file} specifies the path to the SQLite @*
-database file used for local page storage.  The default value is @*
-@samp{wikipedia.db} inside @code{user-emacs-directory}.  Change this if you want @*
-the database stored elsewhere, for example to keep it separate from @*
-your Emacs configuration. @*
+The user option @code{wikipedia-db-file} specifies the path to the SQLite
+database file used for local page storage.  The default value is
+@samp{wikipedia.db} inside @code{user-emacs-directory}.  Change this if you want
+the database stored elsewhere, for example to keep it separate from
+your Emacs configuration.
 
 @node Synchronization
 @section Synchronization
 
 @vindex wikipedia-sync-revision-limit
 @vindex wikipedia-sync-fetch-content
-The user option @code{wikipedia-sync-revision-limit} controls the maximum @*
-number of revisions to synchronize per page.  The default value is 20. @*
-Increase this if you want deeper local history; decrease it if @*
-synchronization is too slow. @*
+The user option @code{wikipedia-sync-revision-limit} controls the maximum
+number of revisions to synchronize per page.  The default value is 20.
+Increase this if you want deeper local history; decrease it if
+synchronization is too slow.
 
-The user option @code{wikipedia-sync-fetch-content} controls whether full @*
-revision content (wikitext) is fetched during synchronization.  When @*
-non-nil (the default), the content of the most recent revision is @*
-downloaded and stored locally, enabling offline viewing and local diffs. @*
-Set this to @code{nil} if you only want revision metadata without the actual @*
-page content. @*
+The user option @code{wikipedia-sync-fetch-content} controls whether full
+revision content (wikitext) is fetched during synchronization.  When
+non-nil (the default), the content of the most recent revision is
+downloaded and stored locally, enabling offline viewing and local diffs.
+Set this to @code{nil} if you only want revision metadata without the actual
+page content.
 
-@node AI review options
-@section AI review options
+@node AI configuration
+@section AI configuration
 
-These options require the @samp{gptel} package.
+All AI-powered commands require the @samp{gptel} package.  When @samp{gptel} is
+not installed, the AI groups in the transient menu are hidden and the
+commands signal an error if called directly.
 
-@menu
-* Review prompt::
-* Review model::
-* Automatic scoring::
-@end menu
+@vindex wikipedia-ai-backend
+@vindex wikipedia-ai-model
+The user option @code{wikipedia-ai-backend} specifies the gptel backend name
+for AI commands (e.g., @samp{"Gemini"} or @samp{"Claude"}).  When @code{nil}, the
+backend is inferred from the model or falls back to @code{gptel-backend}.
 
-@node Review prompt
-@subsection Review prompt
+The user option @code{wikipedia-ai-model} specifies the gptel model for AI
+commands.  When @code{nil}, it defaults to @code{gptel-model}.
 
+Both options accept three forms:
+@itemize
+@item
+@code{nil}: use the gptel default.
+@item
+A single value (symbol for model, string for backend): use it for all
+AI commands.
+@item
+An alist mapping command keys to values, with @code{t} as the fallback:
+@end itemize
+
+@lisp
+(setq wikipedia-ai-model
+      '((cite . gemini-2.0-flash)
+        (review . claude-sonnet-4-5-20250514)
+        (t . gemini-2.0-flash-lite)))
+@end lisp
+
+Valid command keys are @code{cite} (@ref{Citation generation}),
+@code{summarize} (@ref{Edit summary generation}), and
+@code{review} (@ref{Watchlist review}).  Commands not
+listed in the alist fall back to the @code{t} entry, then to @code{gptel-model}.
+
+@vindex wikipedia-ai-review-backend
+@vindex wikipedia-ai-review-model
+The user options @code{wikipedia-ai-review-backend} and
+@code{wikipedia-ai-review-model} provide per-command overrides specifically
+for watchlist review.  When set, they take precedence over the alist in
+@code{wikipedia-ai-model} / @code{wikipedia-ai-backend}.
+
+@vindex wikipedia-ai-citation-system-prompt
+@vindex wikipedia-ai-summarize-system-prompt
 @vindex wikipedia-ai-review-system-prompt
 @vindex wikipedia-ai-review-prompt
-The user option @code{wikipedia-ai-review-system-prompt} is the system @*
-prompt sent to the LLM.  It instructs the model to return a JSON object @*
-with a @samp{score} (0.0--1.0) and a @samp{reason}.  You should not normally @*
-need to change this. @*
+The user options @code{wikipedia-ai-citation-system-prompt},
+@code{wikipedia-ai-summarize-system-prompt}, @code{wikipedia-ai-review-system-prompt},
+and @code{wikipedia-ai-review-prompt} control the LLM prompts for their
+respective commands.  Customize these to change the AI's behavior.
+Before scoring, the review system normalizes the wikitext by stripping
+citation markup and splitting sentences, so the AI receives a standard
+unified diff at sentence granularity.  This makes citation-only changes
+invisible (scored 0.0) and section moves clearly recognizable.
 
-The user option @code{wikipedia-ai-review-prompt} describes which edits @*
-to flag.  The default asks the model to identify substantive changes @*
-(adding or removing sentences, changing factual claims, altering @*
-structure) and ignore minor edits like typo fixes or formatting.  @*
-Customize this to match your review priorities. @*
-
-@node Review model
-@subsection Review model
-
-@vindex wikipedia-ai-review-model
-@vindex wikipedia-ai-review-backend
-The user option @code{wikipedia-ai-review-model} specifies the LLM model @*
-to use for scoring.  When nil (the default), the current @*
-@code{gptel-model} is used.  Set this to a specific model symbol to use @*
-a different model for review than for other @samp{gptel} tasks. @*
-
-The user option @code{wikipedia-ai-review-backend} specifies the @*
-@samp{gptel} backend name (e.g., @samp{"Gemini"} or @samp{"Claude"}).  When nil @*
-(the default), the backend is inferred from @*
-@code{wikipedia-ai-review-model}, falling back to @code{gptel-backend}. @*
-
-@node Automatic scoring
-@subsection Automatic scoring
+@vindex wikipedia-ai-summarize-auto
+The user option @code{wikipedia-ai-summarize-auto} controls whether
+@code{wikipedia-publish} automatically generates an AI edit summary before
+prompting.  When non-nil, the minibuffer is pre-filled with the AI's
+suggestion, which you can edit before confirming.  Defaults to @code{nil}.
 
 @vindex wikipedia-ai-review-auto
-@vindex wikipedia-watchlist-score-reason-auto
-The user option @code{wikipedia-ai-review-auto}, when non-nil, @*
-automatically runs AI scoring after each watchlist refresh.  This @*
-eliminates the need to press @samp{R} manually. @*
+The user option @code{wikipedia-ai-review-auto} controls whether the
+watchlist is automatically scored after each refresh.  When non-nil,
+@code{wikipedia-ai-review-watchlist} runs automatically, so entries are always
+scored without pressing @samp{R}.
 
-The user option @code{wikipedia-watchlist-score-reason-auto}, when @*
-non-nil, automatically displays the AI score and reason in the echo @*
-area as you move between watchlist entries. @*
+@vindex wikipedia-ai-review-verbose
+The user option @code{wikipedia-ai-review-verbose} controls whether
+per-entry progress messages are shown during scoring.
+
+@node Wiki link completion (1)
+@section Wiki link completion
+
+@vindex wikipedia-completion-limit
+The user option @code{wikipedia-completion-limit} controls the maximum number
+of title candidates fetched from the MediaWiki API for each completion
+request.  The default value is @code{15}.  Increase this if you find that the
+desired page frequently does not appear among the suggestions; decrease
+it if API latency is a concern on slow connections.
 
 @node Commands
 @chapter Commands
@@ -326,7 +369,8 @@ area as you move between watchlist entries. @*
 * XTools statistics::
 * Synchronization and local mirror::
 * Diff follow mode::
-* AI review::
+* AI commands::
+* Wiki link completion::
 * Transient menu::
 @end menu
 
@@ -334,12 +378,12 @@ area as you move between watchlist entries. @*
 @section Session management
 
 @findex wikipedia-login
-The command @code{wikipedia-login} establishes a session with a wiki site. @*
-When called interactively, it prompts for a site name from those @*
-configured in @code{mediawiki-site-alist}.  You must call this command (or @*
-let it be called implicitly) before using any other @samp{wikipedia.el} @*
-commands.  Most commands call @code{wp--ensure-logged-in} internally, which @*
-will prompt you to select a site if no session is active. @*
+The command @code{wikipedia-login} establishes a session with a wiki site.
+When called interactively, it prompts for a site name from those
+configured in @code{mediawiki-site-alist}.  You must call this command (or
+let it be called implicitly) before using any other @samp{wikipedia.el}
+commands.  Most commands call @code{wp--ensure-logged-in} internally, which
+will prompt you to select a site if no session is active.
 
 @node Page editing
 @section Page editing
@@ -347,24 +391,52 @@ will prompt you to select a site if no session is active. @*
 @findex wikipedia-open
 @findex wikipedia-publish
 @findex wikipedia-browse
-The command @code{wikipedia-open} opens a Wikipedia page for editing in a @*
-@samp{mediawiki-mode} buffer.  When called interactively, it prompts for the @*
-page title, defaulting to the title at point if available (for example, @*
-when invoked from a watchlist or history buffer). @*
+The command @code{wikipedia-open} opens a Wikipedia page for editing in a
+@samp{mediawiki-mode} buffer.  When called interactively, it prompts for the
+page title, defaulting to the title at point if available (for example,
+when invoked from a watchlist or history buffer).
 
-The command @code{wikipedia-publish} saves the current buffer's content back @*
-to the wiki.  It accepts an optional edit summary; when called @*
-interactively, @samp{mediawiki.el} prompts for one if needed.  The alias @*
-@code{wikipedia-save} is provided for discoverability. @*
+The command @code{wikipedia-publish} saves the current buffer's content back
+to the wiki.  It prompts for an edit summary in the minibuffer.  When
+@code{wikipedia-ai-summarize-auto} is non-nil (@ref{AI configuration, , AI
+configuration}), the summary prompt is pre-filled with an AI-generated
+suggestion.  The alias @code{wikipedia-save} is provided for
+discoverability.
 
-The command @code{wikipedia-browse} opens the page in an external web browser @*
-via @code{browse-url}.  Like @code{wikipedia-open}, it defaults to the title at @*
-point. @*
+The command @code{wikipedia-browse} opens the page in an external web browser
+via @code{browse-url}.  Like @code{wikipedia-open}, it defaults to the title at
+point.
+
+@findex wikipedia-eww-open
+The command @code{wikipedia-eww-open} opens the Wikipedia article displayed
+in the current EWW buffer for editing.  It extracts the article title
+from the EWW URL and calls @code{wikipedia-open}, positioning point at the
+corresponding location in the wikitext source.  This is useful when
+browsing Wikipedia in EWW and wanting to quickly fix something in the
+source.  The command is also available from the transient menu
+(@ref{Transient menu}) under @samp{e}.
 
 @findex wikipedia-edit-mode
-The minor mode @code{wikipedia-edit-mode} provides additional keybindings when @*
-editing a wiki page.  It displays @samp{WP} in the mode line lighter and @*
-binds @samp{C-c C-p} to @code{wikipedia-preview}. @*
+The minor mode @code{wikipedia-edit-mode} provides additional keybindings and
+completion when editing a wiki page.  It displays @samp{WP} in the mode line
+lighter, registers @code{wikipedia-completion-at-point} for wiki link
+completion (@ref{Wiki link completion}), and adds
+the following bindings:
+
+@multitable {aaaaaaaaa} {aaaaaaaaaaaaaaaaaaaaaaaa} {aaaaaaaaaaaaaaaaaaaaaaaa}
+@headitem Key
+@tab Command
+@tab Description
+@item @samp{C-c C-p}
+@tab @code{wikipedia-preview}
+@tab Preview rendered HTML
+@item @samp{C-c C-d}
+@tab @code{wikipedia-diff-to-live}
+@tab Diff buffer against live
+@item @samp{C-c C-s}
+@tab @code{wikipedia-ai-summarize}
+@tab Generate AI edit summary
+@end multitable
 
 @node Preview
 @section Preview
@@ -372,13 +444,13 @@ binds @samp{C-c C-p} to @code{wikipedia-preview}. @*
 @findex wikipedia-preview
 @findex wikipedia-preview-edit
 @findex wikipedia-preview-refresh
-The command @code{wikipedia-preview} sends the current buffer's wikitext to @*
-the MediaWiki parse API and displays the rendered HTML in a dedicated @*
-preview buffer.  The preview uses @code{shr-render-region} to display the @*
-HTML as formatted text within Emacs. @*
+The command @code{wikipedia-preview} sends the current buffer's wikitext to
+the MediaWiki parse API and displays the rendered HTML in a dedicated
+preview buffer.  The preview uses @code{shr-render-region} to display the
+HTML as formatted text within Emacs.
 
-The preview buffer uses @code{wikipedia-preview-mode}, which provides the @*
-following keybindings: @*
+The preview buffer uses @code{wikipedia-preview-mode}, which provides the
+following keybindings:
 
 @multitable {aaa} {aaaaaaaaaaaaaaaaaaaaaaaaaaa} {aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}
 @headitem Key
@@ -395,8 +467,8 @@ following keybindings: @*
 @tab Close the preview window
 @end multitable
 
-The preview buffer supports @code{revert-buffer} (bound to @samp{g} in @*
-@code{special-mode}), which re-fetches the preview from the source buffer. @*
+The preview buffer supports @code{revert-buffer} (bound to @samp{g} in
+@code{special-mode}), which re-fetches the preview from the source buffer.
 
 @node Draft management
 @section Draft management
@@ -404,52 +476,45 @@ The preview buffer supports @code{revert-buffer} (bound to @samp{g} in @*
 @findex wikipedia-draft-save
 @findex wikipedia-draft-open
 @findex wikipedia-draft-delete
-Drafts allow you to save work-in-progress edits locally before @*
-publishing them to the wiki.  Each draft is a @samp{.wiki} file stored in @*
-@code{wikipedia-draft-directory} (@ref{Draft storage}). @*
+Drafts allow you to save work-in-progress edits locally before
+publishing them to the wiki.  Each draft is a @samp{.wiki} file stored in
+@code{wikipedia-draft-directory} (@ref{Draft storage}).
 
-The command @code{wikipedia-draft-save} saves the current buffer's content as @*
-a local draft.  It requires the buffer to have a page title set (as is @*
-the case when editing a page opened via @code{wikipedia-open}).  Saving a @*
-draft for the same page overwrites the previous draft. @*
+The command @code{wikipedia-draft-save} saves the current buffer's content as
+a local draft.  It requires the buffer to have a page title set (as is
+the case when editing a page opened via @code{wikipedia-open}).  Saving a
+draft for the same page overwrites the previous draft.
 
-The command @code{wikipedia-draft-open} prompts you to select a draft from @*
-the list of saved drafts, then opens it in a @samp{mediawiki-mode} buffer @*
-with @code{wikipedia-edit-mode} enabled.  From there, you can continue @*
-editing and eventually publish with @code{wikipedia-publish}. @*
+The command @code{wikipedia-draft-open} prompts you to select a draft from
+the list of saved drafts, then opens it in a @samp{mediawiki-mode} buffer
+with @code{wikipedia-edit-mode} enabled.  From there, you can continue
+editing and eventually publish with @code{wikipedia-publish}.
 
-The command @code{wikipedia-draft-delete} prompts for a draft to delete, with @*
-a confirmation prompt before removing the file. @*
+The command @code{wikipedia-draft-delete} prompts for a draft to delete, with
+a confirmation prompt before removing the file.
 
-Page titles are encoded into safe filenames using a byte-level escape @*
-scheme: characters outside @samp{[a-zA-Z0-9 .-]} are replaced with @samp{_XX} @*
-sequences (where @samp{XX} is the hexadecimal byte value of each UTF-8 @*
-byte).  This ensures filenames are portable across operating systems @*
-while remaining mostly human-readable for ASCII titles. @*
+Page titles are encoded into safe filenames using a byte-level escape
+scheme: characters outside @samp{[a-zA-Z0-9 .-]} are replaced with @samp{_XX}
+sequences (where @samp{XX} is the hexadecimal byte value of each UTF-8
+byte).  This ensures filenames are portable across operating systems
+while remaining mostly human-readable for ASCII titles.
 
 @node Watchlist
 @section Watchlist
 
 @findex wikipedia-watchlist
 @findex wikipedia-watchlist-refresh
-The command @code{wikipedia-watchlist} opens a buffer displaying your @*
-Wikipedia watchlist.  Entries are grouped by page title: each page @*
-appears as a collapsible group header showing the most recent change @*
-summary, the contributing users, and the total size change.  A @samp{#} @*
-column shows the number of changes when a page has more than one. @*
+The command @code{wikipedia-watchlist} opens a buffer displaying your
+Wikipedia watchlist.  Entries are grouped by page title: each page
+appears as a collapsible group header showing the most recent change
+summary, the contributing users, and the total size change.  Pages with
+multiple recent changes display a count (e.g., ``Article name (3
+changes)'').
 
-The watchlist fetches all unseen changes from the last 30 days, @*
-including bot and minor edits.  This ensures that reverts are included @*
-in the group, so that group diffs accurately reflect the net change. @*
-After loading, it asynchronously prefetches revision content in the @*
-background so that diffs can be displayed instantly when you navigate @*
-to an entry. @*
-
-When the @samp{gptel} package is installed, the watchlist supports AI @*
-review scoring (@ref{AI review}).  A @samp{Score} column shows the @*
-priority score (0.0--1.0) for each page.  Scores are persisted in the @*
-local database and restored automatically when the watchlist is @*
-reopened. @*
+The watchlist fetches unseen changes from the last 30 days, excluding
+bot edits and minor edits.  After loading, it asynchronously prefetches
+revision content in the background so that diffs can be displayed
+instantly when you navigate to an entry.
 
 @menu
 * Navigation::
@@ -465,16 +530,16 @@ reopened. @*
 @findex wikipedia-watchlist-toggle-expand
 @findex wikipedia-watchlist-expand-all
 @findex wikipedia-watchlist-collapse-all
-Group headers with more than one change can be expanded and collapsed. @*
-The command @code{wikipedia-watchlist-toggle-expand}, bound to @samp{TAB} and @*
-@samp{SPC}, toggles the group at point.  Expanded groups show individual @*
-entries indented below the header, with per-edit timestamps, users, size @*
-changes, and summaries.  The indicators @samp{▶} (collapsed) and @samp{▼} @*
-(expanded) show the current state. @*
+Group headers with more than one change can be expanded and collapsed.
+The command @code{wikipedia-watchlist-toggle-expand}, bound to @samp{TAB} and
+@samp{SPC}, toggles the group at point.  Expanded groups show individual
+entries indented below the header, with per-edit timestamps, users, size
+changes, and summaries.  The indicators @samp{▶} (collapsed) and @samp{▼}
+(expanded) show the current state.
 
-The commands @code{wikipedia-watchlist-expand-all} (@samp{e}) and @*
-@code{wikipedia-watchlist-collapse-all} (@samp{c}) expand or collapse every group @*
-at once. @*
+The commands @code{wikipedia-watchlist-expand-all} (@samp{e}) and
+@code{wikipedia-watchlist-collapse-all} (@samp{c}) expand or collapse every group
+at once.
 
 @node Actions
 @subsection Actions
@@ -483,33 +548,33 @@ at once. @*
 @findex wikipedia-watchlist-show-diff
 @findex wikipedia-watchlist-show-history
 @findex wikipedia-watchlist-browse
-The command @code{wikipedia-watchlist-open-page} (@samp{RET}, @samp{o}) opens the page @*
-at point for editing, marking it as read.  The command @*
-@code{wikipedia-watchlist-show-diff} (@samp{d}, @samp{v}) displays the diff for the @*
-change at point, using the method specified by @code{wikipedia-diff-function} @*
-(@ref{Diff display}).  The command @*
-@code{wikipedia-watchlist-show-history} (@samp{h}) opens the full revision history @*
-for the page.  The command @code{wikipedia-watchlist-browse} (@samp{b}) opens the @*
-page in an external browser. @*
+The command @code{wikipedia-watchlist-open-page} (@samp{RET}, @samp{o}) opens the page
+at point for editing, marking it as read.  The command
+@code{wikipedia-watchlist-show-diff} (@samp{d}, @samp{v}) displays the diff for the
+change at point, using the method specified by @code{wikipedia-diff-function}
+(@ref{Diff display}).  The command
+@code{wikipedia-watchlist-show-history} (@samp{h}) opens the full revision history
+for the page.  The command @code{wikipedia-watchlist-browse} (@samp{b}) opens the
+page in an external browser.
 
 @node Unread tracking
 @subsection Unread tracking
 
 @findex wikipedia-watchlist-mark-all-read
-Unread entries are displayed in bold (using the @code{wikipedia-watchlist-unread} @*
-face).  Opening a page or viewing its diff marks it as read, both @*
-locally and on the server.  The command @code{wikipedia-watchlist-mark-all-read} @*
-(@samp{m} or @samp{!}) marks every entry as read. @*
+Unread entries are displayed in bold (using the @code{wikipedia-watchlist-unread}
+face).  Opening a page or viewing its diff marks it as read, both
+locally and on the server.  The command @code{wikipedia-watchlist-mark-all-read}
+(@samp{m} or @samp{!}) marks every entry as read.
 
 @node Managing watched pages
 @subsection Managing watched pages
 
 @findex wikipedia-watchlist-watch
 @findex wikipedia-watchlist-unwatch
-The command @code{wikipedia-watchlist-watch} (@samp{w}) adds a page to your @*
-watchlist.  The command @code{wikipedia-watchlist-unwatch} (@samp{x}) removes a @*
-page, after confirmation.  Both commands default to the title at point @*
-and send the request asynchronously. @*
+The command @code{wikipedia-watchlist-watch} (@samp{w}) adds a page to your
+watchlist.  The command @code{wikipedia-watchlist-unwatch} (@samp{x}) removes a
+page, after confirmation.  Both commands default to the title at point
+and send the request asynchronously.
 
 @node Full keybinding reference
 @subsection Full keybinding reference
@@ -575,15 +640,6 @@ and send the request asynchronously. @*
 @item @samp{x}
 @tab @code{wikipedia-watchlist-unwatch}
 @tab Unwatch a page
-@item @samp{R}
-@tab @code{wikipedia-ai-review-watchlist}
-@tab Score entries with AI
-@item @samp{S}
-@tab @code{wikipedia-watchlist-sort-by-score}
-@tab Sort by AI score
-@item @samp{I}
-@tab @code{wikipedia-watchlist-show-score-reason}
-@tab Show score reason
 @item @samp{g}
 @tab @code{wikipedia-watchlist-refresh}
 @tab Refresh the watchlist
@@ -597,11 +653,11 @@ and send the request asynchronously. @*
 
 @findex wikipedia-history
 @findex wikipedia-history-refresh
-The command @code{wikipedia-history} opens a buffer displaying the revision @*
-history of a page.  When called interactively, it prompts for the page @*
-title.  The history buffer shows each revision's ID, date, author, @*
-size, and edit summary in a tabulated list, sorted by date (newest @*
-first). @*
+The command @code{wikipedia-history} opens a buffer displaying the revision
+history of a page.  When called interactively, it prompts for the page
+title.  The history buffer shows each revision's ID, date, author,
+size, and edit summary in a tabulated list, sorted by date (newest
+first).
 
 @menu
 * Viewing and comparing revisions::
@@ -616,23 +672,23 @@ first). @*
 @findex wikipedia-history-diff-to-current
 @findex wikipedia-history-diff-revisions
 @findex wikipedia-history-browse-revision
-The command @code{wikipedia-history-view-revision} (@samp{RET}, @samp{v}) fetches and @*
-displays the full wikitext of the revision at point in a read-only @*
-buffer. @*
+The command @code{wikipedia-history-view-revision} (@samp{RET}, @samp{v}) fetches and
+displays the full wikitext of the revision at point in a read-only
+buffer.
 
-The command @code{wikipedia-history-diff-to-previous} (@samp{d}) shows the diff @*
-between the revision at point and its parent revision.  This corresponds @*
-to Wikipedia's ``prev'' link.  The command @*
-@code{wikipedia-history-diff-to-current} (@samp{c}) shows the diff between the @*
-revision at point and the most recent revision, corresponding to @*
-Wikipedia's ``cur'' link. @*
+The command @code{wikipedia-history-diff-to-previous} (@samp{d}) shows the diff
+between the revision at point and its parent revision.  This corresponds
+to Wikipedia's ``prev'' link.  The command
+@code{wikipedia-history-diff-to-current} (@samp{c}) shows the diff between the
+revision at point and the most recent revision, corresponding to
+Wikipedia's ``cur'' link.
 
-The command @code{wikipedia-history-diff-revisions} (@samp{D}) prompts for two @*
-revision IDs and displays the diff between them.  This is useful for @*
-comparing non-adjacent revisions. @*
+The command @code{wikipedia-history-diff-revisions} (@samp{D}) prompts for two
+revision IDs and displays the diff between them.  This is useful for
+comparing non-adjacent revisions.
 
-The command @code{wikipedia-history-browse-revision} (@samp{b}) opens the revision @*
-at point in an external browser. @*
+The command @code{wikipedia-history-browse-revision} (@samp{b}) opens the revision
+at point in an external browser.
 
 @node Full keybinding reference (1)
 @subsection Full keybinding reference
@@ -696,11 +752,11 @@ at point in an external browser. @*
 
 @findex wikipedia-user-contributions
 @findex wikipedia-user-contributions-refresh
-The command @code{wikipedia-user-contributions} opens a buffer displaying a @*
-user's recent contributions.  When called interactively, it prompts for @*
-the username, defaulting to the user at point when available (e.g., when @*
-invoked from a watchlist or history buffer).  The contributions buffer @*
-shows each edit's timestamp, page title, size change, and edit summary. @*
+The command @code{wikipedia-user-contributions} opens a buffer displaying a
+user's recent contributions.  When called interactively, it prompts for
+the username, defaulting to the user at point when available (e.g., when
+invoked from a watchlist or history buffer).  The contributions buffer
+shows each edit's timestamp, page title, size change, and edit summary.
 
 @menu
 * Contribution actions::
@@ -718,17 +774,17 @@ shows each edit's timestamp, page title, size change, and edit summary. @*
 @findex wikipedia-user-contributions-browse
 @findex wikipedia-user-contributions-show-history
 @findex wikipedia-user-contributions-thank
-The command @code{wikipedia-user-contributions-view-diff} (@samp{RET}, @samp{d}) shows @*
-the diff between the contribution at point and its parent revision.  The @*
-command @code{wikipedia-user-contributions-view-revision} (@samp{v}) displays the @*
-full wikitext.  The command @code{wikipedia-user-contributions-open-page} @*
-(@samp{o}) opens the page for editing. @*
+The command @code{wikipedia-user-contributions-view-diff} (@samp{RET}, @samp{d}) shows
+the diff between the contribution at point and its parent revision.  The
+command @code{wikipedia-user-contributions-view-revision} (@samp{v}) displays the
+full wikitext.  The command @code{wikipedia-user-contributions-open-page}
+(@samp{o}) opens the page for editing.
 
-The command @code{wikipedia-user-contributions-browse} (@samp{b}) opens the @*
-revision in an external browser.  The command @*
-@code{wikipedia-user-contributions-show-history} (@samp{h}) opens the full page @*
-history.  The command @code{wikipedia-user-contributions-thank} (@samp{t}) sends a @*
-thank notification for the edit. @*
+The command @code{wikipedia-user-contributions-browse} (@samp{b}) opens the
+revision in an external browser.  The command
+@code{wikipedia-user-contributions-show-history} (@samp{h}) opens the full page
+history.  The command @code{wikipedia-user-contributions-thank} (@samp{t}) sends a
+thank notification for the edit.
 
 @node User page and profile commands
 @subsection User page and profile commands
@@ -738,26 +794,26 @@ thank notification for the edit. @*
 @findex wikipedia-user-browse
 @findex wikipedia-user-at-point
 @findex wikipedia-user-stats
-The command @code{wikipedia-user-page} opens the user page (@samp{User:USERNAME}) @*
-for editing.  The command @code{wikipedia-user-talk} opens the user's talk @*
-page.  The command @code{wikipedia-user-browse} opens the user page in an @*
-external browser. @*
+The command @code{wikipedia-user-page} opens the user page (@samp{User:USERNAME})
+for editing.  The command @code{wikipedia-user-talk} opens the user's talk
+page.  The command @code{wikipedia-user-browse} opens the user page in an
+external browser.
 
-The command @code{wikipedia-user-at-point} inspects the user at point in any @*
-of the list buffers (watchlist, history, contributions), opening their @*
-contributions. @*
+The command @code{wikipedia-user-at-point} inspects the user at point in any
+of the list buffers (watchlist, history, contributions), opening their
+contributions.
 
-The command @code{wikipedia-user-stats} is a convenience wrapper that calls @*
-@code{wikipedia-xtools-user-stats} (@ref{XTools statistics}). @*
+The command @code{wikipedia-user-stats} is a convenience wrapper that calls
+@code{wikipedia-xtools-user-stats} (@ref{XTools statistics}).
 
 @node Sending thanks
 @subsection Sending thanks
 
 @findex wikipedia-thank
-The command @code{wikipedia-thank} sends a thank notification to the author @*
-of the revision at point.  It prompts for confirmation before sending. @*
-This command works from any buffer where a revision ID is available @*
-(history, watchlist, or contributions). @*
+The command @code{wikipedia-thank} sends a thank notification to the author
+of the revision at point.  It prompts for confirmation before sending.
+This command works from any buffer where a revision ID is available
+(history, watchlist, or contributions).
 
 @node Full keybinding reference (2)
 @subsection Full keybinding reference
@@ -816,11 +872,11 @@ This command works from any buffer where a revision ID is available @*
 @node XTools statistics
 @section XTools statistics
 
-The XTools commands fetch and display editing statistics from the @*
-@uref{https://www.mediawiki.org/wiki/XTools/API, XTools API}, a service that provides detailed analysis of editing @*
-activity on MediaWiki projects.  These commands supplement the @*
-information available through the MediaWiki API with data such as top @*
-edited pages and detailed edit breakdowns. @*
+The XTools commands fetch and display editing statistics from the
+@uref{https://www.mediawiki.org/wiki/XTools/API, XTools API}, a service that provides detailed analysis of editing
+activity on MediaWiki projects.  These commands supplement the
+information available through the MediaWiki API with data such as top
+edited pages and detailed edit breakdowns.
 
 @menu
 * User statistics::
@@ -831,47 +887,47 @@ edited pages and detailed edit breakdowns. @*
 @subsection User statistics
 
 @findex wikipedia-xtools-user-stats
-The command @code{wikipedia-xtools-user-stats} displays comprehensive @*
-statistics for a user.  The output includes: @*
+The command @code{wikipedia-xtools-user-stats} displays comprehensive
+statistics for a user.  The output includes:
 
 @itemize
 @item
-Basic information: user ID, registration date, project. @*
+Basic information: user ID, registration date, project.
 @item
-Admin status (highlighted if the user is a sysop or bureaucrat). @*
+Admin status (highlighted if the user is a sysop or bureaucrat).
 @item
-Edit counts: live edits, deleted edits, total, and pages created. @*
+Edit counts: live edits, deleted edits, total, and pages created.
 @item
-Activity period: first edit and most recent edit timestamps. @*
+Activity period: first edit and most recent edit timestamps.
 @item
-User group memberships (local and global). @*
+User group memberships (local and global).
 @item
-Top 10 most-edited pages in the article namespace. @*
+Top 10 most-edited pages in the article namespace.
 @end itemize
 
-The command combines data from both the XTools API (edit counts) and the @*
-MediaWiki API (registration, groups, contribution timestamps) to present @*
-a unified view. @*
+The command combines data from both the XTools API (edit counts) and the
+MediaWiki API (registration, groups, contribution timestamps) to present
+a unified view.
 
 @node Page statistics
 @subsection Page statistics
 
 @findex wikipedia-xtools-page-stats
 @findex wikipedia-xtools-top-editors
-The command @code{wikipedia-xtools-page-stats} displays statistics for a @*
-page, including revision count, number of editors, minor edit count, @*
-average edit size, page size, creation date, and top editors. @*
+The command @code{wikipedia-xtools-page-stats} displays statistics for a
+page, including revision count, number of editors, minor edit count,
+average edit size, page size, creation date, and top editors.
 
-The command @code{wikipedia-xtools-top-editors} displays a detailed list of @*
-the top editors for a page, showing each editor's edit count, minor edit @*
-count, and the date range of their activity. @*
+The command @code{wikipedia-xtools-top-editors} displays a detailed list of
+the top editors for a page, showing each editor's edit count, minor edit
+count, and the date range of their activity.
 
 @node Synchronization and local mirror
 @section Synchronization and local mirror
 
-The synchronization and mirror system stores Wikipedia pages and their @*
-revision history in a local SQLite database, enabling offline browsing @*
-and faster access to frequently visited pages. @*
+The synchronization and mirror system stores Wikipedia pages and their
+revision history in a local SQLite database, enabling offline browsing
+and faster access to frequently visited pages.
 
 @menu
 * Synchronizing pages::
@@ -886,22 +942,22 @@ and faster access to frequently visited pages. @*
 @findex wikipedia-sync-page
 @findex wikipedia-sync-watchlist
 @findex wikipedia-sync-update
-The command @code{wikipedia-sync-page} synchronizes a single page to the @*
-local database.  It downloads revision metadata (up to @*
-@code{wikipedia-sync-revision-limit} revisions) and, if @*
-@code{wikipedia-sync-fetch-content} is non-nil, the full wikitext of the most @*
-recent revision. @*
+The command @code{wikipedia-sync-page} synchronizes a single page to the
+local database.  It downloads revision metadata (up to
+@code{wikipedia-sync-revision-limit} revisions) and, if
+@code{wikipedia-sync-fetch-content} is non-nil, the full wikitext of the most
+recent revision.
 
-The command @code{wikipedia-sync-watchlist} performs a bulk synchronization of @*
-all pages from your watchlist.  It first fetches the watchlist, marks @*
-each page as watched in the database, and then synchronizes each page @*
-individually with a brief delay between requests to avoid overloading @*
-the server.  Pages that fail to synchronize are reported in a summary @*
-message without aborting the remaining pages. @*
+The command @code{wikipedia-sync-watchlist} performs a bulk synchronization of
+all pages from your watchlist.  It first fetches the watchlist, marks
+each page as watched in the database, and then synchronizes each page
+individually with a brief delay between requests to avoid overloading
+the server.  Pages that fail to synchronize are reported in a summary
+message without aborting the remaining pages.
 
-The command @code{wikipedia-sync-update} re-synchronizes all pages already @*
-marked as watched in the local database.  Use this for routine updates @*
-after the initial @code{wikipedia-sync-watchlist} import. @*
+The command @code{wikipedia-sync-update} re-synchronizes all pages already
+marked as watched in the local database.  Use this for routine updates
+after the initial @code{wikipedia-sync-watchlist} import.
 
 @node Browsing the local mirror
 @subsection Browsing the local mirror
@@ -912,13 +968,13 @@ after the initial @code{wikipedia-sync-watchlist} import. @*
 @findex wikipedia-mirror-show-history
 @findex wikipedia-mirror-sync-page
 @findex wikipedia-mirror-sync-all
-The command @code{wikipedia-mirror} opens a buffer listing all pages stored in @*
-the local database, showing each page's title, revision count, last sync @*
-time, and watched status. @*
+The command @code{wikipedia-mirror} opens a buffer listing all pages stored in
+the local database, showing each page's title, revision count, last sync
+time, and watched status.
 
-From the mirror browser, you can open a page for online editing (@samp{RET}, @*
-@samp{o}), view its local revision history (@samp{h}), synchronize a single page @*
-(@samp{s}), or synchronize all watched pages (@samp{S}). @*
+From the mirror browser, you can open a page for online editing (@samp{RET},
+@samp{o}), view its local revision history (@samp{h}), synchronize a single page
+(@samp{s}), or synchronize all watched pages (@samp{S}).
 
 @multitable {aaaaa} {aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa} {aaaaaaaaaaaaaaaaaaaaaaaaaaaa}
 @headitem Key
@@ -953,14 +1009,14 @@ From the mirror browser, you can open a page for online editing (@samp{RET}, @*
 @findex wikipedia-mirror-history-view
 @findex wikipedia-mirror-history-diff
 @findex wikipedia-mirror-history-refresh
-The local history buffer shows revisions stored in the database for a @*
-given page.  The command @code{wikipedia-mirror-history-view} (@samp{RET}, @samp{v}) @*
-displays the stored wikitext of the revision at point.  The command @*
-@code{wikipedia-mirror-history-diff} (@samp{d}) shows the diff between the @*
-revision and its parent, using locally stored content. @*
+The local history buffer shows revisions stored in the database for a
+given page.  The command @code{wikipedia-mirror-history-view} (@samp{RET}, @samp{v})
+displays the stored wikitext of the revision at point.  The command
+@code{wikipedia-mirror-history-diff} (@samp{d}) shows the diff between the
+revision and its parent, using locally stored content.
 
-Both commands require that the revision content was downloaded during @*
-synchronization.  If content is not available, an error is reported. @*
+Both commands require that the revision content was downloaded during
+synchronization.  If content is not available, an error is reported.
 
 @multitable {aaaaa} {aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa} {aaaaaaaaaaaaaaaaaaaaaaa}
 @headitem Key
@@ -988,108 +1044,177 @@ synchronization.  If content is not available, an error is reported. @*
 
 @findex wikipedia-db-close
 @findex wikipedia-db-stats
-The command @code{wikipedia-db-close} closes the database connection.  The @*
-connection is opened lazily on first use and remains open for the @*
-duration of the Emacs session. @*
+The command @code{wikipedia-db-close} closes the database connection.  The
+connection is opened lazily on first use and remains open for the
+duration of the Emacs session.
 
-The command @code{wikipedia-db-stats} displays a summary of the database @*
-contents: the number of pages, watched pages, revisions, and revisions @*
-with stored content. @*
+The command @code{wikipedia-db-stats} displays a summary of the database
+contents: the number of pages, watched pages, revisions, and revisions
+with stored content.
 
 @node Diff follow mode
 @section Diff follow mode
 
 @findex wikipedia-diff-follow-mode
-The minor mode @code{wikipedia-diff-follow-mode} automatically displays the @*
-diff for the entry at point whenever you move to a different line in a @*
-list buffer.  It works in the watchlist, history, and contributions @*
-buffers and is toggled with @samp{f} in any of these modes. @*
+The minor mode @code{wikipedia-diff-follow-mode} automatically displays the
+diff for the entry at point whenever you move to a different line in a
+list buffer.  It works in the watchlist, history, and contributions
+buffers and is toggled with @samp{f} in any of these modes.
 
-When enabled, navigating to a new entry triggers an automatic diff @*
-display in an adjacent window.  If both revisions are already in the @*
-cache (populated by the watchlist's background prefetching), the diff @*
-appears instantly.  Otherwise, the revisions are fetched asynchronously @*
-and the diff is displayed when both arrive, with a ``Loading diff@dots{}'' @*
-placeholder in the meantime. @*
+When enabled, navigating to a new entry triggers an automatic diff
+display in an adjacent window.  If both revisions are already in the
+cache (populated by the watchlist's background prefetching), the diff
+appears instantly.  Otherwise, the revisions are fetched asynchronously
+and the diff is displayed when both arrive, with a ``Loading diff@dots{}''
+placeholder in the meantime.
 
-Diff follow mode requires @code{wikipedia-diff-function} to be set to @*
-@code{unified} (@ref{Diff display}).  Attempting @*
-to enable it when @code{ediff} is selected produces a warning and the mode @*
-remains disabled. @*
+Diff follow mode requires @code{wikipedia-diff-function} to be set to
+@code{unified} (@ref{Diff display}).  Attempting
+to enable it when @code{ediff} is selected produces a warning and the mode
+remains disabled.
 
-In watchlist mode, viewing a diff via follow mode also marks the entry @*
-as read (@ref{Unread tracking}). @*
+In watchlist mode, viewing a diff via follow mode also marks the entry
+as read (@ref{Unread tracking}).
 
-@node AI review
-@section AI review
+@node AI commands
+@section AI commands
+
+All AI commands require the @samp{gptel} package.  See @ref{AI configuration, , AI
+configuration} for backend and model settings.
+
+@menu
+* Citation generation::
+* Edit summary generation::
+* Watchlist review::
+@end menu
+
+@node Citation generation
+@subsection Citation generation
+
+@findex wikipedia-ai-cite
+The command @code{wikipedia-ai-cite} generates a properly formatted Wikipedia
+citation template from a URL or free-text source description.  The
+generated citation uses the appropriate template (@samp{@{@{cite web@}@}},
+@samp{@{@{cite book@}@}}, @samp{@{@{cite journal@}@}}, etc.) and is inserted at point.
+
+When called interactively, it prompts for the input.  Examples:
+
+@itemize
+@item
+A URL: @samp{https://example.com/article}
+@item
+A description: @samp{"The Wealth of Nations by Adam Smith, 1776"}
+@end itemize
+
+@node Edit summary generation
+@subsection Edit summary generation
+
+@findex wikipedia-ai-summarize
+The command @code{wikipedia-ai-summarize} generates an AI-powered edit
+summary for the current buffer's changes.  It compares the buffer
+against the live version on Wikipedia, sends the unified diff to the
+LLM, and produces a concise summary following Wikipedia's
+@uref{https://en.wikipedia.org/wiki/Help:Edit_summary, edit summary conventions}:
+standard abbreviations, specific descriptions, and a 500-character
+limit.
+
+The generated summary is stored in a buffer-local variable.  When you
+next call @code{wikipedia-publish}, the summary pre-fills the minibuffer
+prompt so you can review and edit it before confirming.
+
+When @code{wikipedia-ai-summarize-auto} is non-nil, @code{wikipedia-publish}
+calls this command automatically before prompting, removing the need to
+invoke it separately.
+
+@node Watchlist review
+@subsection Watchlist review
 
 @findex wikipedia-ai-review-watchlist
-@findex wikipedia-watchlist-sort-by-score
-@findex wikipedia-watchlist-show-score-reason
-The command @code{wikipedia-ai-review-watchlist} (@samp{R} in the watchlist) @*
-scores each watchlist group using an LLM@.  For each group, it computes @*
-a unified diff between the oldest base revision and the newest @*
-revision, sends it to the model with the configured prompt @*
-(@ref{Review prompt}), and stores the returned score (0.0--1.0) and @*
-reason.  Scores appear in the watchlist's @samp{Score} column and are @*
-persisted in the local SQLite database. @*
+The command @code{wikipedia-ai-review-watchlist} scores watchlist changes
+using AI to prioritize review.  Each watchlist group is assigned a score
+between 0.0 (trivial, no review needed) and 1.0 (highly significant,
+should be reviewed).
 
-Processing is asynchronous and sequential: each group is scored one at @*
-a time.  Progress is reported in the echo area.  Re-invoking @samp{R} @*
-while a review is running cancels the previous run and starts a fresh @*
-one. @*
+The command fetches the unified diff for each unscored group
+asynchronously, sends it to the LLM, and parses the JSON response
+containing a score and a brief reason.  Scores are persisted in the
+local SQLite database and restored when the watchlist is reopened.
 
-The command @code{wikipedia-watchlist-sort-by-score} (@samp{S}) sorts @*
-the watchlist by score, highest first.  Unscored entries are placed at @*
-the bottom. @*
+In the watchlist buffer:
 
-The command @code{wikipedia-watchlist-show-score-reason} (@samp{I}) @*
-displays the AI's reasoning for the score of the entry at point in the @*
-echo area. @*
+@multitable {aaa} {aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa} {aaaaaaaaaaaaaaaaaaaaaaaaaaaaa}
+@headitem Key
+@tab Command
+@tab Description
+@item @samp{R}
+@tab @code{wikipedia-ai-review-watchlist}
+@tab Score unscored entries
+@item @samp{S}
+@tab sort by score
+@tab Toggle score vs. recency sort
+@item @samp{I}
+@tab show reason
+@tab Display AI reasoning
+@end multitable
 
-High scores (>= 0.7) are highlighted with the @*
-@code{wikipedia-watchlist-score-high} face, and low scores (<= 0.3) use @*
-the @code{wikipedia-watchlist-score-low} face. @*
+High scores (>=0.7) are highlighted with a warning face; low scores
+(<=0.3) are dimmed.
+
+@node Wiki link completion
+@section Wiki link completion
+
+@findex wikipedia-completion-at-point
+When @code{wikipedia-edit-mode} is active (@ref{Page editing}),
+typing inside a @samp{[[...]]} wiki link triggers completion via
+@code{wikipedia-completion-at-point}.  The function queries the MediaWiki
+prefixsearch API for page titles matching what you have typed so far,
+and presents the results through the standard Emacs completion UI
+(@code{completion-at-point}, typically triggered with @samp{C-M-i} or @samp{TAB}
+depending on your configuration).
+
+Completion activates only when point is in the link target portion of a
+wiki link — that is, after @samp{[[} and before any @samp{|} pipe character.  If
+you are typing the display text after the pipe (e.g., @samp{[[Foo|some
+text}), completion does not trigger, since the display text is
+free-form.
+
+Results are cached for five minutes per prefix to avoid redundant API
+calls.  The number of candidates per request is controlled by
+@code{wikipedia-completion-limit} (@ref{Wiki link completion (1), , Wiki link
+completion options}).
 
 @node Transient menu
 @section Transient menu
 
 @findex wikipedia-transient
-The command @code{wikipedia-transient} opens a transient menu providing quick @*
-access to all @samp{wikipedia.el} commands.  The menu is organized into @*
-groups: @*
+The command @code{wikipedia-transient} opens a transient menu providing quick
+access to all @samp{wikipedia.el} commands.  The menu is arranged in
+vertically aligned columns, each containing one or two thematic groups:
 
 @itemize
 @item
-@strong{Page}: open, publish, preview, browse, and login. @*
+@strong{Page} / @strong{Draft}: page operations (open, publish, preview, diff, edit
+from EWW, browse, login) and draft management (save, open, delete).
 @item
-@strong{Draft}: save, open, and delete drafts. @*
+@strong{User} / @strong{XTools}: user commands (contributions, user page, talk,
+browse, thank) and XTools statistics (user stats, page stats, top
+editors).
 @item
-@strong{Watchlist}: open the watchlist, watch/unwatch pages, browse, and mark @*
-all read. @*
+@strong{Watchlist} / @strong{History} (@samp{h} prefix): watchlist operations (open,
+watch/unwatch, browse, mark all read) and history commands (open,
+undo, restore).
 @item
-@strong{History}: open page history. @*
+@strong{Sync & Mirror} (@samp{s} prefix): sync commands (sync page, sync
+watchlist, sync update, mirror).
 @item
-@strong{User}: user contributions, user page, user talk, browse user, and @*
-thank. @*
-@item
-@strong{XTools}: user stats, page stats, and top editors. @*
-@item
-@strong{Sync & Mirror}: sync page, sync watchlist, sync update, and mirror @*
-browser. @*
-@item
-@strong{AI Detection} (requires @samp{pangram.el}): detect AI-generated text and @*
-clear overlays.  This group is only shown when @samp{pangram.el} is @*
-installed. @*
-
-@item
-@strong{AI Editing} (requires @samp{gptel}): generate citations and review @*
-watchlist changes with AI@.  This group is only shown when @samp{gptel} @*
-is installed. @*
+@strong{AI} (@samp{a} prefix): AI commands (detect AI, clear overlays, generate
+citation, generate edit summary, review watchlist).  This column is
+shown only when @samp{pangram.el} or @samp{gptel} is installed; individual
+items are further filtered by their specific library dependency.
 @end itemize
 
-Bind @code{wikipedia-transient} to a convenient key for quick access to any @*
-command in the package. @*
+Bind @code{wikipedia-transient} to a convenient key for quick access to any
+command in the package.
 
 @node Indices
 @chapter Indices
