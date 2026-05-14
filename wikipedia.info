@@ -310,7 +310,8 @@ suggestion, which you can edit before confirming.  Defaults to ‘nil’.
    The user option ‘wikipedia-ai-review-auto’ controls whether the
 watchlist is automatically scored after each refresh.  When non-nil,
 ‘wikipedia-ai-review-watchlist’ runs automatically, so entries are
-always scored without pressing ‘R’.
+always scored without pressing ‘R’.  Automatic refreshes skip scoring
+while a review is already running.
 
    The user option ‘wikipedia-ai-review-verbose’ controls whether
 per-entry progress messages are shown during scoring.
@@ -965,7 +966,11 @@ should be reviewed).
    The command fetches the unified diff for each unscored group
 asynchronously, sends it to the LLM, and parses the JSON response
 containing a score and a brief reason.  Scores are persisted in the
-local SQLite database and restored when the watchlist is reopened.
+local SQLite database and restored when the watchlist is reopened.  The
+completion message reports how many entries were processed, scored,
+skipped, or failed.  If an asynchronous diff fetch fails transiently,
+the review command retries that diff synchronously before counting the
+entry as failed.
 
    In the watchlist buffer:
 
@@ -1165,7 +1170,7 @@ File: wikipedia.info,  Node: Variable index,  Prev: Function index,  Up: Indices
 * wikipedia-ai-review-model:             AI configuration.     (line 33)
 * wikipedia-ai-review-prompt:            AI configuration.     (line 38)
 * wikipedia-ai-review-system-prompt:     AI configuration.     (line 38)
-* wikipedia-ai-review-verbose:           AI configuration.     (line 58)
+* wikipedia-ai-review-verbose:           AI configuration.     (line 59)
 * wikipedia-ai-summarize-auto:           AI configuration.     (line 48)
 * wikipedia-ai-summarize-system-prompt:  AI configuration.     (line 38)
 * wikipedia-completion-limit:            Wiki link completion (1).
@@ -1189,44 +1194,44 @@ Node: XTools integration6221
 Node: Local database6922
 Node: Synchronization7390
 Node: AI configuration8158
-Node: Wiki link completion (1)11055
-Node: Commands11557
-Node: Session management11946
-Node: Page editing12498
-Node: Preview14542
-Node: Draft management15517
-Node: Watchlist16887
-Node: Navigation17744
-Node: Actions18415
-Node: Unread tracking19068
-Node: Managing watched pages19500
-Node: Full keybinding reference19949
-Node: Revision history21792
-Node: Viewing and comparing revisions22336
-Node: Full keybinding reference (1)23361
-Node: User inspection24898
-Node: Contribution actions25566
-Node: User page and profile commands26400
-Node: Sending thanks27166
-Node: Full keybinding reference (2)27610
-Node: XTools statistics29144
-Node: User statistics29721
-Node: Page statistics30528
-Node: Synchronization and local mirror31070
-Node: Synchronizing pages31581
-Node: Browsing the local mirror32650
-Node: Local revision history33900
-Node: Database management35101
-Node: Diff follow mode35616
-Node: AI commands36765
-Node: Citation generation37125
-Node: Edit summary generation37764
-Node: Watchlist review38743
-Node: Wiki link completion39892
-Node: Transient menu41042
-Node: Indices42389
-Node: Function index42525
-Node: Variable index49431
+Node: Wiki link completion (1)11124
+Node: Commands11626
+Node: Session management12015
+Node: Page editing12567
+Node: Preview14611
+Node: Draft management15586
+Node: Watchlist16956
+Node: Navigation17813
+Node: Actions18484
+Node: Unread tracking19137
+Node: Managing watched pages19569
+Node: Full keybinding reference20018
+Node: Revision history21861
+Node: Viewing and comparing revisions22405
+Node: Full keybinding reference (1)23430
+Node: User inspection24967
+Node: Contribution actions25635
+Node: User page and profile commands26469
+Node: Sending thanks27235
+Node: Full keybinding reference (2)27679
+Node: XTools statistics29213
+Node: User statistics29790
+Node: Page statistics30597
+Node: Synchronization and local mirror31139
+Node: Synchronizing pages31650
+Node: Browsing the local mirror32719
+Node: Local revision history33969
+Node: Database management35170
+Node: Diff follow mode35685
+Node: AI commands36834
+Node: Citation generation37194
+Node: Edit summary generation37833
+Node: Watchlist review38812
+Node: Wiki link completion40192
+Node: Transient menu41342
+Node: Indices42689
+Node: Function index42825
+Node: Variable index49731
 
 End Tag Table
 

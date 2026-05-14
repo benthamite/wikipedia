@@ -229,7 +229,8 @@ suggestion, which you can edit before confirming.  Defaults to ~nil~.
 The user option ~wikipedia-ai-review-auto~ controls whether the
 watchlist is automatically scored after each refresh.  When non-nil,
 ~wikipedia-ai-review-watchlist~ runs automatically, so entries are always
-scored without pressing =R=.
+scored without pressing =R=.  Automatic refreshes skip scoring while a
+review is already running.
 
 #+vindex: wikipedia-ai-review-verbose
 The user option ~wikipedia-ai-review-verbose~ controls whether
@@ -867,7 +868,11 @@ should be reviewed).
 The command fetches the unified diff for each unscored group
 asynchronously, sends it to the LLM, and parses the JSON response
 containing a score and a brief reason.  Scores are persisted in the
-local SQLite database and restored when the watchlist is reopened.
+local SQLite database and restored when the watchlist is reopened.  The
+completion message reports how many entries were processed, scored,
+skipped, or failed.  If an asynchronous diff fetch fails transiently, the
+review command retries that diff synchronously before counting the entry
+as failed.
 
 In the watchlist buffer:
 

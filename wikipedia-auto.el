@@ -22,6 +22,7 @@
 (defvar wp--current-site)
 (defvar wikipedia-ai-review-auto)
 (defvar wikipedia-ai-review--queue)
+(declare-function wikipedia-ai-review--active-p "wikipedia-ai-review")
 
 ;;;; User options
 
@@ -57,8 +58,8 @@ Checks without prompting the user."
 
 (defun wikipedia-auto-update--scoring-p ()
   "Return non-nil if AI scoring is currently in progress."
-  (and (boundp 'wikipedia-ai-review--queue)
-       wikipedia-ai-review--queue))
+  (and (fboundp 'wikipedia-ai-review--active-p)
+       (wikipedia-ai-review--active-p)))
 
 (defun wikipedia-auto-update--tick ()
   "Timer callback: refresh the watchlist in the background.

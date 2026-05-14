@@ -105,6 +105,18 @@ When nil, defaults to `gptel-model'."
 (defvar wikipedia-ai-review--scored 0
   "Number of groups scored so far in the current review.")
 
+(defvar wikipedia-ai-review--processed 0
+  "Number of groups processed so far in the current review.")
+
+(defvar wikipedia-ai-review--skipped 0
+  "Number of groups skipped so far in the current review.")
+
+(defvar wikipedia-ai-review--failed 0
+  "Number of groups whose LLM scoring failed in the current review.")
+
+(defvar wikipedia-ai-review--active nil
+  "Non-nil while a review cycle has queued or in-flight work.")
+
 (defvar wikipedia-ai-review--generation 0
   "Generation counter to discard stale callbacks.
 Incremented each time a new review cycle starts.  Each LLM callback
@@ -118,6 +130,10 @@ review cycle has superseded it) and is silently dropped.")
 (defvar wikipedia-ai-review--scored-revisions
   (make-hash-table :test 'equal)
   "Map from TITLE to (OLD-REVID . REVID) for the last scored revision range.")
+
+(defun wikipedia-ai-review--active-p ()
+  "Return non-nil when an AI review cycle has pending work."
+  (or wikipedia-ai-review--active wikipedia-ai-review--queue))
 
 ;;;; Backend resolution
 
@@ -175,6 +191,30 @@ the diff text or nil."
         (wikipedia--fetch-revision-async
          title revid (lambda (_) (maybe-done)))))))
 
+(defun wikipedia-ai-review--get-diff-sync (old-revid revid title)
+  "Return normalized diff between OLD-REVID and REVID for TITLE.
+This synchronous fallback is used when the async revision fetch path
+returns nil, typically after a transient MediaWiki or URL retrieval
+failure."
+  (condition-case nil
+      (let ((from-content (wikipedia--get-revision-content-cached
+                           title old-revid))
+            (to-content (wikipedia--get-revision-content-cached
+                         title revid)))
+        (when (and from-content to-content)
+          (let* ((from-norm (wikipedia--normalize-wikitext-for-diff
+                             from-content))
+                 (to-norm (wikipedia--normalize-wikitext-for-diff
+                           to-content))
+                 (from-file (wikipedia--write-temp-file from-norm old-revid))
+                 (to-file (wikipedia--write-temp-file to-norm revid)))
+            (unwind-protect
+                (wikipedia--generate-unified-diff
+                 from-file to-file old-revid revid 1)
+              (delete-file from-file)
+              (delete-file to-file)))))
+    (error nil)))
+
 ;;;; Response parsing
 
 (defun wikipedia-ai-review--parse-response (response)
@@ -212,6 +252,26 @@ OLD-REVID and REVID record which revision range was scored."
         (wikipedia-watchlist--rebuild-list)
         (tabulated-list-print t)))))
 
+(defun wikipedia-ai-review--record-score (title score-data old-revid revid)
+  "Record SCORE-DATA for TITLE and count the group as processed.
+OLD-REVID and REVID record which revision range was scored."
+  (cl-incf wikipedia-ai-review--processed)
+  (cl-incf wikipedia-ai-review--scored)
+  (wikipedia-ai-review--store-score title score-data old-revid revid))
+
+(defun wikipedia-ai-review--record-skipped (title reason)
+  "Record TITLE as skipped because REASON prevented scoring."
+  (cl-incf wikipedia-ai-review--processed)
+  (cl-incf wikipedia-ai-review--skipped)
+  (when wikipedia-ai-review-verbose
+    (message "Skipping AI score for %s: %s" title reason)))
+
+(defun wikipedia-ai-review--record-failed (title reason)
+  "Record TITLE as failed because REASON prevented scoring."
+  (cl-incf wikipedia-ai-review--processed)
+  (cl-incf wikipedia-ai-review--failed)
+  (message "Scoring failed for %s: %s" title reason))
+
 ;;;; Async processing
 
 (defun wikipedia-ai-review--process-next ()
@@ -230,14 +290,31 @@ OLD-REVID and REVID record which revision range was scored."
        (lambda (diff-text)
          (cond
           ((null diff-text)
-           (wikipedia-ai-review--process-next))
+           (let ((fallback-diff
+                  (wikipedia-ai-review--get-diff-sync old-revid revid title)))
+             (if fallback-diff
+                 (wikipedia-ai-review--process-diff
+                  title old-revid revid fallback-diff)
+               (wikipedia-ai-review--record-failed
+                title "could not fetch diff")
+               (wikipedia-ai-review--process-next))))
           ((string-empty-p (string-trim diff-text))
-           (wikipedia-ai-review--store-score
+           (wikipedia-ai-review--record-score
             title (cons 0.0 "No net change") old-revid revid)
            (wikipedia-ai-review--process-next))
           (t
-           (wikipedia-ai-review--send-to-llm
+           (wikipedia-ai-review--process-diff
             title old-revid revid diff-text))))))))
+
+(defun wikipedia-ai-review--process-diff (title old-revid revid diff-text)
+  "Process DIFF-TEXT for TITLE between OLD-REVID and REVID."
+  (if (string-empty-p (string-trim diff-text))
+      (progn
+        (wikipedia-ai-review--record-score
+         title (cons 0.0 "No net change") old-revid revid)
+        (wikipedia-ai-review--process-next))
+    (wikipedia-ai-review--send-to-llm
+     title old-revid revid diff-text)))
 
 (defun wikipedia-ai-review--send-to-llm (title old-revid revid diff-text)
   "Send DIFF-TEXT for TITLE to the LLM for scoring.
@@ -256,26 +333,35 @@ OLD-REVID and REVID identify the revision range."
      :callback
      (lambda (response info)
        (when (= gen wikipedia-ai-review--generation)
-         (if (stringp response)
-             (let ((result (wikipedia-ai-review--parse-response response)))
-               (if (car result)
-                   (progn
-                     (cl-incf wikipedia-ai-review--scored)
-                     (wikipedia-ai-review--store-score
-                      title result old-revid revid))
-                 (message "Could not parse score for %s: %s" title (cdr result))))
-           (message "Scoring failed for %s: %s"
-                    title (plist-get info :status)))
+         (condition-case err
+             (if (stringp response)
+                 (let ((result (wikipedia-ai-review--parse-response response)))
+                   (if (car result)
+                       (wikipedia-ai-review--record-score
+                        title result old-revid revid)
+                     (wikipedia-ai-review--record-failed title (cdr result))))
+               (wikipedia-ai-review--record-failed
+                title (or (plist-get info :status) "no response")))
+           (error
+            (wikipedia-ai-review--record-failed
+             title (error-message-string err))))
          (wikipedia-ai-review--process-next))))))
 
 (defun wikipedia-ai-review--done ()
   "Called when all groups have been scored."
+  (setq wikipedia-ai-review--active nil
+        wikipedia-ai-review--queue nil)
   (let ((buffer wikipedia-ai-review--watchlist-buffer))
     (when (buffer-live-p buffer)
       (with-current-buffer buffer
         (wikipedia-watchlist--maybe-sort-by-score))))
-  (message "AI review complete (%d entries scored). Press S to sort by score."
-           wikipedia-ai-review--scored))
+  (message (concat "AI review complete: %d/%d processed, %d scored, "
+                   "%d skipped, %d failed. Press S to sort by score.")
+           wikipedia-ai-review--processed
+           wikipedia-ai-review--total
+           wikipedia-ai-review--scored
+           wikipedia-ai-review--skipped
+           wikipedia-ai-review--failed))
 
 ;;;; Gathering watchlist data
 
@@ -322,6 +408,8 @@ Requires the `gptel' package."
   (interactive)
   (unless (require 'gptel nil t)
     (user-error "This command requires the `gptel' package"))
+  (when (wikipedia-ai-review--active-p)
+    (user-error "AI review is already in progress"))
   (let ((groups (wikipedia-ai-review--gather-groups)))
     (if (null groups)
         (when (called-interactively-p 'any)
@@ -331,6 +419,10 @@ Requires the `gptel' package."
       (cl-incf wikipedia-ai-review--generation)
       (setq wikipedia-ai-review--queue groups
             wikipedia-ai-review--scored 0
+            wikipedia-ai-review--processed 0
+            wikipedia-ai-review--skipped 0
+            wikipedia-ai-review--failed 0
+            wikipedia-ai-review--active t
             wikipedia-ai-review--total (length groups))
       (message "Starting AI review of %d watchlist entries..." (length groups))
       (wikipedia-ai-review--process-next))))

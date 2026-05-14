@@ -54,6 +54,7 @@
 (require 'wikipedia-diff)
 (require 'wikipedia-draft)
 (require 'wikipedia-watchlist)
+(require 'wikipedia-auto)
 (require 'wikipedia-history)
 (require 'wikipedia-xtools)
 (require 'wikipedia-user)
@@ -1306,6 +1307,57 @@
       (let ((entries '(((title . "A") (revid . nil) (old_revid . nil)))))
         (wikipedia--prefetch-watchlist-diffs entries)
         (should (= (length wikipedia--prefetch-queue) 0))))))
+
+
+;;;; AI review queue state
+
+(ert-deftest ai-review-active-p/true-while-request-in-flight ()
+  "A review with an in-flight request is active even when the queue is empty."
+  (let ((wikipedia-ai-review--queue nil)
+        (wikipedia-ai-review--active t))
+    (should (wikipedia-ai-review--active-p))
+    (should (wikipedia-auto-update--scoring-p))))
+
+(ert-deftest ai-review-record-skipped/counts-processed-entry ()
+  "Skipped entries contribute to processed and skipped counts."
+  (let ((wikipedia-ai-review--processed 0)
+        (wikipedia-ai-review--skipped 0))
+    (wikipedia-ai-review--record-skipped "Example" "No diff")
+    (should (= wikipedia-ai-review--processed 1))
+    (should (= wikipedia-ai-review--skipped 1))))
+
+(ert-deftest ai-review-process-next/retries-diff-sync-after-async-nil ()
+  "A nil async diff is retried synchronously before the entry is failed."
+  (let ((wikipedia-ai-review--queue '(("Example" 1 2)))
+        (wikipedia-ai-review--watchlist-buffer nil)
+        (wikipedia-ai-review--processed 0)
+        (wikipedia-ai-review--scored 0)
+        (wikipedia-ai-review--skipped 0)
+        (wikipedia-ai-review--failed 0)
+        (wikipedia-ai-review--total 1)
+        (wikipedia-ai-review--active t)
+        sent-diff)
+    (cl-letf (((symbol-function 'wikipedia-ai-review--fetch-diff-async)
+               (lambda (_old _rev _title callback)
+                 (funcall callback nil)))
+              ((symbol-function 'wikipedia-ai-review--get-diff-sync)
+               (lambda (_old _rev _title) "fallback diff"))
+              ((symbol-function 'wikipedia-ai-review--send-to-llm)
+               (lambda (_title _old _rev diff-text)
+                 (setq sent-diff diff-text)
+                 (wikipedia-ai-review--record-score
+                  "Example" (cons 0.5 "fallback") 1 2)
+                 (wikipedia-ai-review--process-next)))
+              ((symbol-function 'wikipedia-ai-review--store-score)
+               #'ignore)
+              ((symbol-function 'wikipedia-watchlist--maybe-sort-by-score)
+               #'ignore))
+      (wikipedia-ai-review--process-next)
+      (should (equal sent-diff "fallback diff"))
+      (should (= wikipedia-ai-review--processed 1))
+      (should (= wikipedia-ai-review--scored 1))
+      (should (= wikipedia-ai-review--skipped 0))
+      (should (= wikipedia-ai-review--failed 0)))))
 
 
 ;;;; Completion tests
