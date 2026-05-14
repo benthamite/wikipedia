@@ -553,7 +553,9 @@ The command @code{wikipedia-watchlist-open-page} (@samp{RET}, @samp{o}) opens th
 at point for editing, marking it as read.  The command
 @code{wikipedia-watchlist-show-diff} (@samp{d}, @samp{v}) displays the diff for the
 change at point, using the method specified by @code{wikipedia-diff-function}
-(@ref{Diff display}).  The command
+(@ref{Diff display}).  Missing revisions are
+fetched asynchronously, so the watchlist remains responsive while the
+diff loads.  The command
 @code{wikipedia-watchlist-show-history} (@samp{h}) opens the full revision history
 for the page.  The command @code{wikipedia-watchlist-browse} (@samp{b}) opens the
 page in an external browser.
@@ -1141,9 +1143,8 @@ asynchronously, sends it to the LLM, and parses the JSON response
 containing a score and a brief reason.  Scores are persisted in the
 local SQLite database and restored when the watchlist is reopened.  The
 completion message reports how many entries were processed, scored,
-skipped, or failed.  If an asynchronous diff fetch fails transiently, the
-review command retries that diff synchronously before counting the entry
-as failed.
+skipped, or failed.  Entries whose diffs cannot be fetched are reported
+as failed rather than being silently skipped.
 
 In the watchlist buffer:
 

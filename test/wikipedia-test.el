@@ -1326,8 +1326,8 @@
     (should (= wikipedia-ai-review--processed 1))
     (should (= wikipedia-ai-review--skipped 1))))
 
-(ert-deftest ai-review-process-next/retries-diff-sync-after-async-nil ()
-  "A nil async diff is retried synchronously before the entry is failed."
+(ert-deftest ai-review-process-next/fails-after-async-nil-diff ()
+  "A nil async diff is counted as failed, not retried synchronously."
   (let ((wikipedia-ai-review--queue '(("Example" 1 2)))
         (wikipedia-ai-review--watchlist-buffer nil)
         (wikipedia-ai-review--processed 0)
@@ -1335,29 +1335,36 @@
         (wikipedia-ai-review--skipped 0)
         (wikipedia-ai-review--failed 0)
         (wikipedia-ai-review--total 1)
-        (wikipedia-ai-review--active t)
-        sent-diff)
+        (wikipedia-ai-review--active t))
     (cl-letf (((symbol-function 'wikipedia-ai-review--fetch-diff-async)
                (lambda (_old _rev _title callback)
                  (funcall callback nil)))
-              ((symbol-function 'wikipedia-ai-review--get-diff-sync)
-               (lambda (_old _rev _title) "fallback diff"))
-              ((symbol-function 'wikipedia-ai-review--send-to-llm)
-               (lambda (_title _old _rev diff-text)
-                 (setq sent-diff diff-text)
-                 (wikipedia-ai-review--record-score
-                  "Example" (cons 0.5 "fallback") 1 2)
-                 (wikipedia-ai-review--process-next)))
-              ((symbol-function 'wikipedia-ai-review--store-score)
-               #'ignore)
               ((symbol-function 'wikipedia-watchlist--maybe-sort-by-score)
                #'ignore))
       (wikipedia-ai-review--process-next)
-      (should (equal sent-diff "fallback diff"))
       (should (= wikipedia-ai-review--processed 1))
-      (should (= wikipedia-ai-review--scored 1))
+      (should (= wikipedia-ai-review--scored 0))
       (should (= wikipedia-ai-review--skipped 0))
-      (should (= wikipedia-ai-review--failed 0)))))
+      (should (= wikipedia-ai-review--failed 1)))))
+
+(ert-deftest show-diff/uses-async-fetch-when-cache-missing ()
+  "Showing a diff fetches missing revisions asynchronously."
+  (wikipedia-test--with-cache
+    (let (fetched rendered)
+      (cl-letf (((symbol-function 'wp--get-revision-content)
+                 (lambda (&rest _) (error "synchronous fetch used")))
+                ((symbol-function 'wikipedia--fetch-revision-async)
+                 (lambda (_title revid callback)
+                   (push revid fetched)
+                   (funcall callback (format "content-%d" revid))))
+                ((symbol-function 'wikipedia--show-diff-contents)
+                 (lambda (from-content to-content from-rev to-rev title)
+                   (setq rendered
+                         (list from-content to-content from-rev to-rev title))))
+                ((symbol-function 'pop-to-buffer) #'ignore))
+        (wikipedia--show-diff 1 2 "Example")
+        (should (equal (sort fetched #'<) '(1 2)))
+        (should (equal rendered '("content-1" "content-2" 1 2 "Example")))))))
 
 
 ;;;; Completion tests

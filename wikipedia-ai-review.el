@@ -191,30 +191,6 @@ the diff text or nil."
         (wikipedia--fetch-revision-async
          title revid (lambda (_) (maybe-done)))))))
 
-(defun wikipedia-ai-review--get-diff-sync (old-revid revid title)
-  "Return normalized diff between OLD-REVID and REVID for TITLE.
-This synchronous fallback is used when the async revision fetch path
-returns nil, typically after a transient MediaWiki or URL retrieval
-failure."
-  (condition-case nil
-      (let ((from-content (wikipedia--get-revision-content-cached
-                           title old-revid))
-            (to-content (wikipedia--get-revision-content-cached
-                         title revid)))
-        (when (and from-content to-content)
-          (let* ((from-norm (wikipedia--normalize-wikitext-for-diff
-                             from-content))
-                 (to-norm (wikipedia--normalize-wikitext-for-diff
-                           to-content))
-                 (from-file (wikipedia--write-temp-file from-norm old-revid))
-                 (to-file (wikipedia--write-temp-file to-norm revid)))
-            (unwind-protect
-                (wikipedia--generate-unified-diff
-                 from-file to-file old-revid revid 1)
-              (delete-file from-file)
-              (delete-file to-file)))))
-    (error nil)))
-
 ;;;; Response parsing
 
 (defun wikipedia-ai-review--parse-response (response)
@@ -290,14 +266,8 @@ OLD-REVID and REVID record which revision range was scored."
        (lambda (diff-text)
          (cond
           ((null diff-text)
-           (let ((fallback-diff
-                  (wikipedia-ai-review--get-diff-sync old-revid revid title)))
-             (if fallback-diff
-                 (wikipedia-ai-review--process-diff
-                  title old-revid revid fallback-diff)
-               (wikipedia-ai-review--record-failed
-                title "could not fetch diff")
-               (wikipedia-ai-review--process-next))))
+           (wikipedia-ai-review--record-failed title "could not fetch diff")
+           (wikipedia-ai-review--process-next))
           ((string-empty-p (string-trim diff-text))
            (wikipedia-ai-review--record-score
             title (cons 0.0 "No net change") old-revid revid)

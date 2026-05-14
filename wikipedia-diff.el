@@ -9,6 +9,7 @@
 
 ;;; Code:
 
+(require 'cl-lib)
 (require 'wikipedia-adapter)
 (require 'wikipedia-cache)
 
@@ -224,9 +225,75 @@ Only works with unified diff mode, not ediff."
 (defun wikipedia--show-diff (from-rev to-rev title)
   "Display diff between FROM-REV and TO-REV for TITLE.
 Uses `wikipedia-diff-function' to determine the diff style."
-  (let ((from-content (wp--get-revision-content title from-rev))
-        (to-content (wp--get-revision-content title to-rev)))
-    (wikipedia--show-diff-contents from-content to-content from-rev to-rev title)))
+  (let ((from-content (wikipedia--cache-get from-rev))
+        (to-content (wikipedia--cache-get to-rev)))
+    (if (and from-content to-content)
+        (wikipedia--show-diff-contents from-content to-content
+                                       from-rev to-rev title)
+      (wikipedia--show-diff-loading from-rev to-rev title)
+      (wikipedia--show-diff-fetch-async from-rev to-rev title
+                                        from-content to-content))))
+
+(defun wikipedia--show-diff-loading (from-rev to-rev title)
+  "Show a loading buffer for TITLE between FROM-REV and TO-REV."
+  (let ((buf (get-buffer-create
+              (wikipedia--diff-buffer-name title from-rev to-rev))))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert "Loading diff..."))
+      (setq-local wikipedia--buffer-page-title title)
+      (setq buffer-read-only t))
+    (pop-to-buffer buf)))
+
+(defun wikipedia--diff-buffer-name (title from-rev to-rev)
+  "Return the diff buffer name for TITLE between FROM-REV and TO-REV."
+  (format "*WP Diff: %s (%d → %d)*" title from-rev to-rev))
+
+(defun wikipedia--show-diff-fetch-async (from-rev to-rev title
+                                                  from-content to-content)
+  "Fetch and display diff between FROM-REV and TO-REV for TITLE.
+FROM-CONTENT and TO-CONTENT are cached revision contents, either of
+which may be nil."
+  (let ((pending 2))
+    (cl-flet ((maybe-display
+                ()
+                (cl-decf pending)
+                (when (zerop pending)
+                  (setq from-content (or from-content
+                                         (wikipedia--cache-get from-rev)))
+                  (setq to-content (or to-content
+                                       (wikipedia--cache-get to-rev)))
+                  (if (and from-content to-content)
+                      (wikipedia--show-diff-contents
+                       from-content to-content from-rev to-rev title)
+                    (wikipedia--show-diff-failed from-rev to-rev title)))))
+      (if from-content
+          (maybe-display)
+        (wikipedia--fetch-revision-async
+         title from-rev
+         (lambda (content)
+           (setq from-content content)
+           (maybe-display))))
+      (if to-content
+          (maybe-display)
+        (wikipedia--fetch-revision-async
+         title to-rev
+         (lambda (content)
+           (setq to-content content)
+           (maybe-display)))))))
+
+(defun wikipedia--show-diff-failed (from-rev to-rev title)
+  "Show a failed diff message for TITLE between FROM-REV and TO-REV."
+  (let ((buf (get-buffer-create
+              (wikipedia--diff-buffer-name title from-rev to-rev))))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert "Could not fetch revisions for diff."))
+      (setq-local wikipedia--buffer-page-title title)
+      (setq buffer-read-only t))
+    (message "Could not fetch diff for %s" title)))
 
 (defun wikipedia--get-diff-text (from-rev to-rev title)
   "Return unified diff text between FROM-REV and TO-REV for TITLE.
@@ -281,7 +348,7 @@ Returns the diff buffer."
 FROM-REV and TO-REV are the revision IDs, TITLE is the page title."
   (let ((buf (wikipedia--render-unified-diff
               from-content to-content from-rev to-rev
-              (format "*WP Diff: %s (%d → %d)*" title from-rev to-rev))))
+              (wikipedia--diff-buffer-name title from-rev to-rev))))
     (with-current-buffer buf
       (setq-local wikipedia--buffer-page-title title))
     (pop-to-buffer buf)))

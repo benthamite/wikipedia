@@ -510,10 +510,11 @@ The command ‘wikipedia-watchlist-open-page’ (‘RET’, ‘o’) opens the p
 at point for editing, marking it as read.  The command
 ‘wikipedia-watchlist-show-diff’ (‘d’, ‘v’) displays the diff for the
 change at point, using the method specified by ‘wikipedia-diff-function’
-(*note Diff display::).  The command ‘wikipedia-watchlist-show-history’
-(‘h’) opens the full revision history for the page.  The command
-‘wikipedia-watchlist-browse’ (‘b’) opens the page in an external
-browser.
+(*note Diff display::).  Missing revisions are fetched asynchronously,
+so the watchlist remains responsive while the diff loads.  The command
+‘wikipedia-watchlist-show-history’ (‘h’) opens the full revision history
+for the page.  The command ‘wikipedia-watchlist-browse’ (‘b’) opens the
+page in an external browser.
 
 
 File: wikipedia.info,  Node: Unread tracking,  Next: Managing watched pages,  Prev: Actions,  Up: Watchlist
@@ -968,9 +969,8 @@ asynchronously, sends it to the LLM, and parses the JSON response
 containing a score and a brief reason.  Scores are persisted in the
 local SQLite database and restored when the watchlist is reopened.  The
 completion message reports how many entries were processed, scored,
-skipped, or failed.  If an asynchronous diff fetch fails transiently,
-the review command retries that diff synchronously before counting the
-entry as failed.
+skipped, or failed.  Entries whose diffs cannot be fetched are reported
+as failed rather than being silently skipped.
 
    In the watchlist buffer:
 
@@ -1203,35 +1203,35 @@ Node: Draft management15586
 Node: Watchlist16956
 Node: Navigation17813
 Node: Actions18484
-Node: Unread tracking19137
-Node: Managing watched pages19569
-Node: Full keybinding reference20018
-Node: Revision history21861
-Node: Viewing and comparing revisions22405
-Node: Full keybinding reference (1)23430
-Node: User inspection24967
-Node: Contribution actions25635
-Node: User page and profile commands26469
-Node: Sending thanks27235
-Node: Full keybinding reference (2)27679
-Node: XTools statistics29213
-Node: User statistics29790
-Node: Page statistics30597
-Node: Synchronization and local mirror31139
-Node: Synchronizing pages31650
-Node: Browsing the local mirror32719
-Node: Local revision history33969
-Node: Database management35170
-Node: Diff follow mode35685
-Node: AI commands36834
-Node: Citation generation37194
-Node: Edit summary generation37833
-Node: Watchlist review38812
-Node: Wiki link completion40192
-Node: Transient menu41342
-Node: Indices42689
-Node: Function index42825
-Node: Variable index49731
+Node: Unread tracking19242
+Node: Managing watched pages19674
+Node: Full keybinding reference20123
+Node: Revision history21966
+Node: Viewing and comparing revisions22510
+Node: Full keybinding reference (1)23535
+Node: User inspection25072
+Node: Contribution actions25740
+Node: User page and profile commands26574
+Node: Sending thanks27340
+Node: Full keybinding reference (2)27784
+Node: XTools statistics29318
+Node: User statistics29895
+Node: Page statistics30702
+Node: Synchronization and local mirror31244
+Node: Synchronizing pages31755
+Node: Browsing the local mirror32824
+Node: Local revision history34074
+Node: Database management35275
+Node: Diff follow mode35790
+Node: AI commands36939
+Node: Citation generation37299
+Node: Edit summary generation37938
+Node: Watchlist review38917
+Node: Wiki link completion40257
+Node: Transient menu41407
+Node: Indices42754
+Node: Function index42890
+Node: Variable index49796
 
 End Tag Table
 
