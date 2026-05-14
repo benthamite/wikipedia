@@ -19,11 +19,11 @@
 ;; `wikipedia-adapter--' since its functions are called from nearly
 ;; every other module.
 ;;
-;; XML convention: MediaWiki API responses are parsed by `xml-parse-region'
-;; into trees of the form (TAG ATTRS . CHILDREN).  To navigate these
-;; trees, `(cadr NODE)' extracts the attribute alist and `(cddr NODE)'
-;; extracts the child list.  So `(cddr (assq 'KEY (cddr NODE)))' means
-;; "get the children of the KEY child element of NODE".
+;; JSON convention: As of mediawiki-el 3.0.0, MediaWiki API responses are
+;; parsed by `json-parse-string' into flat alists.  Use `(alist-get 'KEY
+;; alist)' to extract values.  Pages are returned as ((ID . page-alist) ...)
+;; and iterated with dolist; entries (revisions, watchlist items, etc.) are
+;; plain alists accessed directly with `alist-get'.
 
 ;;; Code:
 
@@ -52,8 +52,7 @@ SITE should be a site name configured in `mediawiki-site-alist'."
   "Make an API call with ACTION and PARAMS.
 ACTION is the MediaWiki API action (e.g., \"query\").
 PARAMS is an alist of additional parameters.
-Returns the parsed response.  Note that mediawiki.el uses XML format
-internally, so the response is an XML-derived structure, not JSON."
+Returns the parsed response.  mediawiki-el 3.0.0+ returns a JSON alist."
   (let ((site (wp--get-site)))
     (mediawiki-api-call site action params)))
 
@@ -63,23 +62,22 @@ Unlike `mediawiki-api-call', this does not expect the response to contain
 an element named after the action.  This is needed for APIs like `thank'
 that return `result' instead of the action name.
 Returns non-nil on success, signals an error on failure."
-  ;; Build request, parse XML response, and check for API-level errors.
   (let* ((url (mediawiki-make-api-url site))
          (all-params (append params
-                             (list (cons "format" "xml")
+                             (list (cons "format" "json")
                                    (cons "action" action))))
          (raw (url-http-post url all-params))
-         (result (assoc 'api
-                        (with-temp-buffer
-                          (insert raw)
-                          (xml-parse-region (point-min) (point-max))))))
+         (result (json-parse-string raw
+                   :object-type 'alist
+                   :array-type 'list
+                   :null-object nil
+                   :false-object nil)))
     (unless result
       (error "Failed to parse API response"))
-    (let ((error-elem (assq 'error (cddr result))))
-      (when error-elem
-        (let ((code (cdr (assq 'code (cadr error-elem))))
-              (info (cdr (assq 'info (cadr error-elem)))))
-          (error "API error (%s): %s" code info))))
+    (when-let ((err (alist-get 'error result)))
+      (error "API error (%s): %s"
+             (alist-get 'code err)
+             (alist-get 'info err)))
     t))
 
 (defun wp--get-site ()
@@ -96,7 +94,7 @@ CALLBACK is called with non-nil on success, nil on failure."
   (let* ((site (wp--get-site))
          (url (mediawiki-make-api-url site))
          (all-params (append params
-                             (list (cons "format" "xml")
+                             (list (cons "format" "json")
                                    (cons "action" action))))
          (url-request-method "POST")
          (url-request-extra-headers
@@ -172,17 +170,13 @@ Returns the parsed HTML as a string."
                         (cons "prop" "text")
                         (cons "disableeditsection" "1")
                         (cons "preview" "1"))))
-         (text-element (assq 'text (cddr result))))
-    (wp--extract-preview-html text-element)))
-
-(defun wp--extract-preview-html (text-element)
-  "Extract HTML string from TEXT-ELEMENT returned by parse API."
-  (when text-element
-    (let ((content (cddr text-element)))
-      (cond
-       ((stringp (car content)) (car content))
-       ((stringp (car (last text-element))) (car (last text-element)))
-       (t nil)))))
+         (parse-result (alist-get 'parse result))
+         (text-data (alist-get 'text parse-result)))
+    (cond
+     ((stringp text-data) text-data)
+     ((and (listp text-data) (assq '* text-data))
+      (alist-get '* text-data))
+     (t ""))))
 
 (defun wp--ensure-logged-in ()
   "Ensure we have an active session, prompting for login if needed.
@@ -208,21 +202,22 @@ timestamp, user, comment, size, minor."
                         (cons "prop" "revisions")
                         (cons "rvprop" "ids|timestamp|user|comment|size|flags")
                         (cons "rvlimit" (number-to-string (or limit 50))))))
-         (pages (cddr (assq 'pages (cddr result))))
-         (page (car pages))
-         (revisions (cddr (assq 'revisions (cddr page)))))
-    (mapcar #'wp--parse-revision revisions)))
+         (pages (alist-get 'pages (alist-get 'query result)))
+         revisions)
+    (dolist (p pages)
+      (let ((page (cdr p)))
+        (setq revisions (alist-get 'revisions page))))
+    (mapcar #'wp--parse-revision (or revisions '()))))
 
 (defun wp--parse-revision (rev)
-  "Parse a revision element REV into an alist."
-  (let ((attrs (cadr rev)))
-    `((revid . ,(wp--parse-number (cdr (assq 'revid attrs))))
-      (parentid . ,(wp--parse-number (cdr (assq 'parentid attrs))))
-      (timestamp . ,(cdr (assq 'timestamp attrs)))
-      (user . ,(cdr (assq 'user attrs)))
-      (comment . ,(or (cdr (assq 'comment attrs)) ""))
-      (size . ,(wp--parse-number (cdr (assq 'size attrs))))
-      (minor . ,(assq 'minor attrs)))))
+  "Parse a revision REV alist."
+  `((revid . ,(wp--parse-number (alist-get 'revid rev)))
+    (parentid . ,(wp--parse-number (alist-get 'parentid rev)))
+    (timestamp . ,(alist-get 'timestamp rev))
+    (user . ,(alist-get 'user rev))
+    (comment . ,(or (alist-get 'comment rev) ""))
+    (size . ,(wp--parse-number (alist-get 'size rev)))
+    (minor . ,(alist-get 'minor rev))))
 
 (defun wp--parse-number (value)
   "Parse VALUE as a number.
@@ -245,14 +240,16 @@ Returns a cons cell (REVID . CONTENT), or nil if the page doesn't exist."
                         (cons "rvprop" "ids|content")
                         (cons "rvslots" "main")
                         (cons "rvlimit" "1"))))
-         (pages (cddr (assq 'pages (cddr result))))
-         (page (car pages))
-         (revisions (cddr (assq 'revisions (cddr page))))
-         (rev (car revisions))
-         (revid (wp--parse-number (cdr (assq 'revid (cadr rev)))))
-         (content (wp--extract-revision-content rev)))
-    (when (and revid content)
-      (cons revid content))))
+         (pages (alist-get 'pages (alist-get 'query result)))
+         page revisions rev)
+    (dolist (p pages) (setq page (cdr p)))
+    (setq revisions (alist-get 'revisions page))
+    (setq rev (car revisions))
+    (when rev
+      (let ((revid (wp--parse-number (alist-get 'revid rev)))
+            (content (wp--extract-revision-content rev)))
+        (when (and revid content)
+          (cons revid content))))))
 
 (defun wp--get-revision-content (title revid)
   "Fetch the wikitext content of TITLE at revision REVID."
@@ -265,22 +262,18 @@ Returns a cons cell (REVID . CONTENT), or nil if the page doesn't exist."
                         (cons "rvslots" "main")
                         (cons "rvstartid" (number-to-string revid))
                         (cons "rvendid" (number-to-string revid)))))
-         (pages (cddr (assq 'pages (cddr result))))
-         (page (car pages))
-         (revisions (cddr (assq 'revisions (cddr page))))
-         (rev (car revisions)))
-    (wp--extract-revision-content rev)))
+         (pages (alist-get 'pages (alist-get 'query result)))
+         page revisions)
+    (dolist (p pages) (setq page (cdr p)))
+    (setq revisions (alist-get 'revisions page))
+    (wp--extract-revision-content (car revisions))))
 
 (defun wp--extract-revision-content (rev)
-  "Extract wikitext content from revision element REV."
+  "Extract wikitext content from revision alist REV."
   (when rev
-    (let* ((slots (assq 'slots (cddr rev)))
-           (slot (assq 'slot (cddr slots))))
-      (when slot
-        (let ((content (car (last slot))))
-          (if (stringp content)
-              content
-            nil))))))
+    (alist-get 'content
+      (alist-get 'main
+        (alist-get 'slots rev)))))
 
 (defun wp--compare-revisions (from-rev to-rev)
   "Get diff between FROM-REV and TO-REV revision IDs.
@@ -290,16 +283,9 @@ Returns the diff HTML as a string."
                   site "compare"
                   (list (cons "fromrev" (number-to-string from-rev))
                         (cons "torev" (number-to-string to-rev)))))
-         (diff-body (cddr result)))
-    (wp--extract-diff-content diff-body)))
-
-(defun wp--extract-diff-content (diff-body)
-  "Extract diff content string from DIFF-BODY."
-  (when diff-body
-    (let ((body-element (assq 'body diff-body)))
-      (if body-element
-          (car (seq-filter #'stringp (cddr body-element)))
-        (car (seq-filter #'stringp diff-body))))))
+         (compare (alist-get 'compare result))
+         (body (alist-get 'body compare)))
+    (or (and (stringp body) body) "")))
 
 (defun wp--get-watchlist (&optional limit days)
   "Fetch the user's watchlist.
@@ -319,20 +305,19 @@ creations."
                         (cons "wltype" "edit|new")
                         (cons "wlend" end-time)
                         (cons "wllimit" (number-to-string (or limit 50))))))
-         (watchlist (cddr (assq 'watchlist (cddr result)))))
-    (mapcar #'wp--parse-watchlist-entry watchlist)))
+         (watchlist (alist-get 'watchlist (alist-get 'query result))))
+    (mapcar #'wp--parse-watchlist-entry (or watchlist '()))))
 
 (defun wp--parse-watchlist-entry (entry)
-  "Parse a watchlist ENTRY element into an alist."
-  (let ((attrs (cadr entry)))
-    `((title . ,(cdr (assq 'title attrs)))
-      (revid . ,(wp--parse-number (cdr (assq 'revid attrs))))
-      (old_revid . ,(wp--parse-number (cdr (assq 'old_revid attrs))))
-      (timestamp . ,(cdr (assq 'timestamp attrs)))
-      (user . ,(cdr (assq 'user attrs)))
-      (comment . ,(or (cdr (assq 'comment attrs)) ""))
-      (oldlen . ,(wp--parse-number (cdr (assq 'oldlen attrs))))
-      (newlen . ,(wp--parse-number (cdr (assq 'newlen attrs)))))))
+  "Parse a watchlist ENTRY alist."
+  `((title . ,(alist-get 'title entry))
+    (revid . ,(wp--parse-number (alist-get 'revid entry)))
+    (old_revid . ,(wp--parse-number (alist-get 'old_revid entry)))
+    (timestamp . ,(alist-get 'timestamp entry))
+    (user . ,(alist-get 'user entry))
+    (comment . ,(or (alist-get 'comment entry) ""))
+    (oldlen . ,(wp--parse-number (alist-get 'oldlen entry)))
+    (newlen . ,(wp--parse-number (alist-get 'newlen entry)))))
 
 (defun wp--thank-revision (revid)
   "Send a thank notification for revision REVID.
@@ -349,28 +334,10 @@ Returns non-nil on success."
   (let* ((result (mediawiki-api-call
                   site "query"
                   (list (cons "meta" "tokens")
-                        (cons "type" "csrf")))))
-    (wp--extract-csrf-token result)))
-
-(defun wp--extract-csrf-token (result)
-  "Extract CSRF token from API RESULT."
-  (let ((token (wp--find-token-in-tree result)))
-    (or token
+                        (cons "type" "csrf"))))
+         (tokens (alist-get 'tokens (alist-get 'query result))))
+    (or (alist-get 'csrftoken tokens)
         (error "Failed to get CSRF token"))))
-
-(defun wp--find-token-in-tree (tree)
-  "Recursively search TREE for csrftoken attribute."
-  (cond
-   ((null tree) nil)
-   ((not (listp tree)) nil)
-   ((and (listp tree) (assq 'csrftoken (cadr tree)))
-    (cdr (assq 'csrftoken (cadr tree))))
-   ((and (listp tree) (assq 'csrftoken tree))
-    (cdr (assq 'csrftoken tree)))
-   (t (let ((found nil))
-        (dolist (elem tree found)
-          (when (and (not found) (listp elem))
-            (setq found (wp--find-token-in-tree elem))))))))
 
 (defun wp--get-watch-token (site)
   "Get a watch token for SITE."
@@ -378,11 +345,10 @@ Returns non-nil on success."
                   site "query"
                   (list (cons "meta" "tokens")
                         (cons "type" "watch"))))
-         (tokens-elem (assq 'tokens (cddr result)))
-         (token-attrs (when tokens-elem (cadr tokens-elem))))
-    (or (cdr (assq 'watchtoken token-attrs))
-        (cdr (assq 'csrftoken token-attrs))
-        (wp--extract-csrf-token result))))
+         (tokens (alist-get 'tokens (alist-get 'query result))))
+    (or (alist-get 'watchtoken tokens)
+        (alist-get 'csrftoken tokens)
+        (error "Failed to get watch token"))))
 
 (defun wp--set-watch (title unwatch)
   "Add or remove TITLE from the user's watchlist.
@@ -464,23 +430,22 @@ Returns a list of contribution alists."
                         (cons "ucuser" username)
                         (cons "ucprop" "ids|title|timestamp|comment|sizediff|flags")
                         (cons "uclimit" (number-to-string (or limit 50))))))
-         (contribs (cddr (assq 'usercontribs (cddr result)))))
-    (mapcar #'wp--parse-contrib-entry contribs)))
+         (contribs (alist-get 'usercontribs (alist-get 'query result))))
+    (mapcar #'wp--parse-contrib-entry (or contribs '()))))
 
 (defun wp--format-timestamp-for-api (time)
   "Format TIME (as seconds since epoch) for the MediaWiki API."
   (format-time-string "%Y-%m-%dT%H:%M:%SZ" (seconds-to-time time) t))
 
 (defun wp--parse-contrib-entry (entry)
-  "Parse a user contribution ENTRY element into an alist."
-  (let ((attrs (cadr entry)))
-    `((revid . ,(wp--parse-number (cdr (assq 'revid attrs))))
-      (parentid . ,(wp--parse-number (cdr (assq 'parentid attrs))))
-      (title . ,(cdr (assq 'title attrs)))
-      (timestamp . ,(cdr (assq 'timestamp attrs)))
-      (comment . ,(or (cdr (assq 'comment attrs)) ""))
-      (sizediff . ,(wp--parse-number (cdr (assq 'sizediff attrs))))
-      (minor . ,(assq 'minor attrs)))))
+  "Parse a user contribution ENTRY alist."
+  `((revid . ,(wp--parse-number (alist-get 'revid entry)))
+    (parentid . ,(wp--parse-number (alist-get 'parentid entry)))
+    (title . ,(alist-get 'title entry))
+    (timestamp . ,(alist-get 'timestamp entry))
+    (comment . ,(or (alist-get 'comment entry) ""))
+    (sizediff . ,(wp--parse-number (alist-get 'sizediff entry)))
+    (minor . ,(alist-get 'minor entry))))
 
 ;;;; Reverting edits
 
