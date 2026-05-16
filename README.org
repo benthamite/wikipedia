@@ -229,8 +229,8 @@ suggestion, which you can edit before confirming.  Defaults to ~nil~.
 The user option ~wikipedia-ai-review-auto~ controls whether the
 watchlist is automatically scored after each refresh.  When non-nil,
 ~wikipedia-ai-review-watchlist~ runs automatically, so entries are always
-scored without pressing =R=.  Automatic refreshes skip scoring while a
-review is already running.
+scored without pressing =R=.  Automatic refreshes skip scoring without
+signaling an error while a review is already running.
 
 #+vindex: wikipedia-ai-review-verbose
 The user option ~wikipedia-ai-review-verbose~ controls whether

@@ -448,7 +448,13 @@ sessions are not displayed alongside current diffs."
   "Run AI review after watchlist refresh if `wikipedia-ai-review-auto' is set."
   (when (and wikipedia-ai-review-auto
              (require 'gptel nil t))
-    (wikipedia-ai-review-watchlist)))
+    (if (wikipedia-ai-review--active-p)
+        (message "AI review already in progress; skipping auto-score.")
+      (condition-case err
+          (wikipedia-ai-review-watchlist)
+        (error
+         (message "AI review auto-score failed: %s"
+                  (error-message-string err)))))))
 
 (with-eval-after-load 'wikipedia-watchlist
   (define-key wikipedia-watchlist-mode-map "R"

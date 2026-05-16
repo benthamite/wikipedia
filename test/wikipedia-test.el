@@ -1318,6 +1318,19 @@
     (should (wikipedia-ai-review--active-p))
     (should (wikipedia-auto-update--scoring-p))))
 
+(ert-deftest ai-review-maybe-auto-score/skips-while-active ()
+  "Auto scoring does not signal when a review is already active."
+  (let ((wikipedia-ai-review-auto t)
+        (wikipedia-ai-review--active t)
+        called)
+    (cl-letf (((symbol-function 'wikipedia-ai-review-watchlist)
+               (lambda () (setq called t)))
+              ((symbol-function 'require)
+               (lambda (feature &rest _)
+                 (eq feature 'gptel))))
+      (wikipedia-ai-review--maybe-auto-score)
+      (should-not called))))
+
 (ert-deftest ai-review-record-skipped/counts-processed-entry ()
   "Skipped entries contribute to processed and skipped counts."
   (let ((wikipedia-ai-review--processed 0)
