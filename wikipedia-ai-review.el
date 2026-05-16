@@ -27,6 +27,7 @@
 (defvar wikipedia-watchlist-mode-map)
 (defvar wikipedia-watchlist--grouped-entries)
 (defvar wikipedia-watchlist--scores)
+(defvar wikipedia--prefetch-queue)
 
 (declare-function wikipedia-watchlist--rebuild-list "wikipedia-watchlist")
 (declare-function wikipedia-watchlist--maybe-sort-by-score "wikipedia-watchlist")
@@ -387,6 +388,7 @@ Requires the `gptel' package."
       (setq wikipedia-ai-review--watchlist-buffer
             (get-buffer "*Wikipedia Watchlist*"))
       (cl-incf wikipedia-ai-review--generation)
+      (setq wikipedia--prefetch-queue nil)
       (setq wikipedia-ai-review--queue groups
             wikipedia-ai-review--scored 0
             wikipedia-ai-review--processed 0

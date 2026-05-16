@@ -1308,6 +1308,42 @@
         (wikipedia--prefetch-watchlist-diffs entries)
         (should (= (length wikipedia--prefetch-queue) 0))))))
 
+(ert-deftest revision-fetch-retry-delay/parses-retry-after ()
+  "HTTP 429 responses use the Retry-After header as retry delay."
+  (with-temp-buffer
+    (insert "HTTP/1.1 429 Too Many Requests\r\nretry-after: 17\r\n\r\n")
+    (should (= (wikipedia--revision-fetch-retry-delay
+                '(:error (error http 429)))
+               17))))
+
+(ert-deftest revision-fetch-retry-delay/non-rate-limit ()
+  "Non-rate-limit responses do not schedule a retry."
+  (with-temp-buffer
+    (insert "HTTP/1.1 500 Internal Server Error\r\n\r\n")
+    (should-not (wikipedia--revision-fetch-retry-delay
+                 '(:error (error http 500))))))
+
+(ert-deftest revision-fetch-callback/retries-rate-limit-without-failing ()
+  "HTTP 429 schedules a retry without firing pending callbacks."
+  (wikipedia-test--with-cache
+    (let ((wikipedia--prefetch-pending-callbacks (make-hash-table :test 'eql))
+          scheduled callback-called)
+      (puthash 42 (list (lambda (_) (setq callback-called t)))
+               wikipedia--prefetch-pending-callbacks)
+      (cl-letf (((symbol-function 'wikipedia--revision-fetch-retry-delay)
+                 (lambda (_status) 3))
+                ((symbol-function 'run-at-time)
+                 (lambda (delay _repeat function &rest args)
+                   (setq scheduled (list delay function args)))))
+        (wikipedia--handle-revision-fetch-response
+         '(:error (error http 429)) "Example" 42 0)
+        (should-not callback-called)
+        (should (equal (car scheduled) 3))
+        (should (eq (cadr scheduled) #'wikipedia--fetch-revision-start))
+        (should (equal (caddr scheduled) '("Example" 42 1)))
+        (should (eq (gethash 42 wikipedia--prefetch-in-flight) 'retrying))
+        (should (gethash 42 wikipedia--prefetch-pending-callbacks))))))
+
 
 ;;;; AI review queue state
 

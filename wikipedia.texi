@@ -1069,7 +1069,8 @@ display in an adjacent window.  If both revisions are already in the
 cache (populated by the watchlist's background prefetching), the diff
 appears instantly.  Otherwise, the revisions are fetched asynchronously
 and the diff is displayed when both arrive, with a ``Loading diff@dots{}''
-placeholder in the meantime.
+placeholder in the meantime.  Revision fetches respect Wikimedia
+rate-limit responses by retrying after the requested delay.
 
 Diff follow mode requires @code{wikipedia-diff-function} to be set to
 @code{unified} (@ref{Diff display}).  Attempting
@@ -1144,7 +1145,9 @@ containing a score and a brief reason.  Scores are persisted in the
 local SQLite database and restored when the watchlist is reopened.  The
 completion message reports how many entries were processed, scored,
 skipped, or failed.  Entries whose diffs cannot be fetched are reported
-as failed rather than being silently skipped.
+as failed rather than being silently skipped.  Rate-limited revision
+fetches are retried after the delay requested by Wikimedia before they
+are treated as failures.
 
 In the watchlist buffer:
 

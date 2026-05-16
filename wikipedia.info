@@ -892,7 +892,8 @@ display in an adjacent window.  If both revisions are already in the
 cache (populated by the watchlist's background prefetching), the diff
 appears instantly.  Otherwise, the revisions are fetched asynchronously
 and the diff is displayed when both arrive, with a "Loading diff..."
-placeholder in the meantime.
+placeholder in the meantime.  Revision fetches respect Wikimedia
+rate-limit responses by retrying after the requested delay.
 
    Diff follow mode requires ‘wikipedia-diff-function’ to be set to
 ‘unified’ (*note Diff display::).  Attempting to enable it when ‘ediff’
@@ -970,7 +971,9 @@ containing a score and a brief reason.  Scores are persisted in the
 local SQLite database and restored when the watchlist is reopened.  The
 completion message reports how many entries were processed, scored,
 skipped, or failed.  Entries whose diffs cannot be fetched are reported
-as failed rather than being silently skipped.
+as failed rather than being silently skipped.  Rate-limited revision
+fetches are retried after the delay requested by Wikimedia before they
+are treated as failures.
 
    In the watchlist buffer:
 
@@ -1223,15 +1226,15 @@ Node: Browsing the local mirror32851
 Node: Local revision history34101
 Node: Database management35302
 Node: Diff follow mode35817
-Node: AI commands36966
-Node: Citation generation37326
-Node: Edit summary generation37965
-Node: Watchlist review38944
-Node: Wiki link completion40284
-Node: Transient menu41434
-Node: Indices42781
-Node: Function index42917
-Node: Variable index49823
+Node: AI commands37062
+Node: Citation generation37422
+Node: Edit summary generation38061
+Node: Watchlist review39040
+Node: Wiki link completion40499
+Node: Transient menu41649
+Node: Indices42996
+Node: Function index43132
+Node: Variable index50038
 
 End Tag Table
 

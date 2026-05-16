@@ -105,6 +105,9 @@ Returns the wikitext content or nil."
           (when (stringp content)
             content))))))
 
+(defvar wikipedia--revision-fetch-max-retries 3
+  "Maximum retries for rate-limited async revision fetches.")
+
 (defun wikipedia--fetch-revision-async (title revid &optional callback)
   "Fetch revision REVID for TITLE asynchronously.
 CALLBACK is called with the content when done (optional).
@@ -130,35 +133,67 @@ in-flight, CALLBACK is queued and fires when that fetch completes."
         (when callback
           (puthash revid (list callback)
                    wikipedia--prefetch-pending-callbacks))
-        (let* ((site (wp--get-site))
-               (url (wikipedia--build-revision-api-url site title revid)))
-          (url-retrieve
-           url
-           (lambda (status revid-arg)
-             (unwind-protect
-                 (let ((content nil))
-                   (remhash revid-arg wikipedia--prefetch-in-flight)
-                   (unless (plist-get status :error)
-                     (condition-case err
-                         (setq content (wikipedia--parse-async-revision-response))
-                       (error
-                        (message "wikipedia: prefetch parse error for rev %d: %s"
-                                 revid-arg (error-message-string err))))
-                     (when content
-                       (wikipedia--cache-put revid-arg content)))
-                   (dolist (cb (gethash revid-arg
-                                        wikipedia--prefetch-pending-callbacks))
-                     (funcall cb content))
-                   (remhash revid-arg wikipedia--prefetch-pending-callbacks))
-               (when (buffer-live-p (current-buffer))
-                 (kill-buffer (current-buffer)))))
-           (list revid)
-           t t)))))))
+        (wikipedia--fetch-revision-start title revid 0))))))
+
+(defun wikipedia--fetch-revision-start (title revid attempts)
+  "Start fetching REVID for TITLE after ATTEMPTS previous attempts."
+  (puthash revid t wikipedia--prefetch-in-flight)
+  (let* ((site (wp--get-site))
+         (url (wikipedia--build-revision-api-url site title revid)))
+    (url-retrieve
+     url
+     (lambda (status revid-arg title-arg attempts-arg)
+       (unwind-protect
+           (wikipedia--handle-revision-fetch-response
+            status title-arg revid-arg attempts-arg)
+         (when (buffer-live-p (current-buffer))
+           (kill-buffer (current-buffer)))))
+     (list revid title attempts)
+     t t)))
+
+(defun wikipedia--handle-revision-fetch-response (status title revid attempts)
+  "Handle async revision fetch STATUS for TITLE and REVID.
+ATTEMPTS is the number of previous attempts for this request."
+  (let ((retry-delay (wikipedia--revision-fetch-retry-delay status))
+        (content nil))
+    (cond
+     ((and retry-delay (< attempts wikipedia--revision-fetch-max-retries))
+      (puthash revid 'retrying wikipedia--prefetch-in-flight)
+      (message "wikipedia: rate limited fetching rev %d; retrying in %ds"
+               revid retry-delay)
+      (run-at-time retry-delay nil #'wikipedia--fetch-revision-start
+                   title revid (1+ attempts)))
+     (t
+      (remhash revid wikipedia--prefetch-in-flight)
+      (unless (plist-get status :error)
+        (condition-case err
+            (setq content (wikipedia--parse-async-revision-response))
+          (error
+           (message "wikipedia: prefetch parse error for rev %d: %s"
+                    revid (error-message-string err))))
+        (when content
+          (wikipedia--cache-put revid content)))
+      (wikipedia--finish-revision-fetch revid content)))))
+
+(defun wikipedia--revision-fetch-retry-delay (status)
+  "Return retry delay in seconds for rate-limited STATUS, or nil."
+  (when (equal (plist-get status :error) '(error http 429))
+    (save-excursion
+      (goto-char (point-min))
+      (if (re-search-forward "^retry-after:[ \t]*\\([0-9]+\\)" nil t)
+          (string-to-number (match-string 1))
+        60))))
+
+(defun wikipedia--finish-revision-fetch (revid content)
+  "Run pending callbacks for REVID with CONTENT and clear pending state."
+  (dolist (cb (gethash revid wikipedia--prefetch-pending-callbacks))
+    (funcall cb content))
+  (remhash revid wikipedia--prefetch-pending-callbacks))
 
 (defvar wikipedia--prefetch-queue nil
   "Queue of (TITLE . REVID) pairs pending prefetch.")
 
-(defvar wikipedia--prefetch-max-concurrent 10
+(defvar wikipedia--prefetch-max-concurrent 2
   "Maximum number of concurrent prefetch requests.
 Kept conservative to avoid triggering MediaWiki API rate limits.")
 
