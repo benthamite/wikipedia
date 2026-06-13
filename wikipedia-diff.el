@@ -157,11 +157,40 @@ SOURCE-WINDOW is preserved for display."
       (if from-content
           (maybe-render)
         (wikipedia--fetch-revision-async
-         title from-rev (lambda (_) (maybe-render))))
+         title from-rev (lambda (_) (maybe-render))
+         (lambda (status)
+           (wikipedia-diff-follow--show-fetch-status
+            title from-rev to-rev source-window status))))
       (if to-content
           (maybe-render)
         (wikipedia--fetch-revision-async
-         title to-rev (lambda (_) (maybe-render)))))))
+         title to-rev (lambda (_) (maybe-render))
+         (lambda (status)
+           (wikipedia-diff-follow--show-fetch-status
+            title from-rev to-rev source-window status)))))))
+
+(defun wikipedia-diff-follow--show-fetch-status (title from-rev to-rev
+                                                       source-window status)
+  "Show fetch STATUS for TITLE between FROM-REV and TO-REV.
+SOURCE-WINDOW is preserved for display."
+  (when (eq (plist-get status :event) 'rate-limited)
+    (wikipedia-diff-follow--show-loading-message
+     title from-rev to-rev source-window
+     (wikipedia--rate-limited-diff-message status))))
+
+(defun wikipedia-diff-follow--show-loading-message (title from-rev to-rev
+                                                          source-window message)
+  "Show MESSAGE in the follow diff buffer for TITLE, FROM-REV, and TO-REV.
+SOURCE-WINDOW is preserved for display."
+  (let ((buf (get-buffer-create wikipedia-diff-follow--buffer-name)))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert message))
+      (setq buffer-read-only t)
+      (setq header-line-format
+            (format " %s: %d → %d (loading...)" title from-rev to-rev)))
+    (wikipedia-diff-follow--display-buffer buf source-window)))
 
 (defun wikipedia-diff-follow--render-diff (from-content to-content from-rev to-rev title source-window)
   "Render diff between FROM-CONTENT and TO-CONTENT in the diff buffer.
@@ -274,14 +303,45 @@ which may be nil."
          title from-rev
          (lambda (content)
            (setq from-content content)
-           (maybe-display))))
+           (maybe-display))
+         (lambda (status)
+           (wikipedia--show-diff-fetch-status
+            from-rev to-rev title status))))
       (if to-content
           (maybe-display)
         (wikipedia--fetch-revision-async
          title to-rev
          (lambda (content)
            (setq to-content content)
-           (maybe-display)))))))
+           (maybe-display))
+         (lambda (status)
+           (wikipedia--show-diff-fetch-status
+            from-rev to-rev title status)))))))
+
+(defun wikipedia--show-diff-fetch-status (from-rev to-rev title status)
+  "Show fetch STATUS in the loading buffer for TITLE.
+FROM-REV and TO-REV identify the diff buffer."
+  (when (eq (plist-get status :event) 'rate-limited)
+    (wikipedia--show-diff-loading-message
+     from-rev to-rev title (wikipedia--rate-limited-diff-message status))))
+
+(defun wikipedia--show-diff-loading-message (from-rev to-rev title message)
+  "Show MESSAGE in the loading buffer for TITLE between FROM-REV and TO-REV."
+  (let ((buf (get-buffer-create
+              (wikipedia--diff-buffer-name title from-rev to-rev))))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert message))
+      (setq-local wikipedia--buffer-page-title title)
+      (setq buffer-read-only t))))
+
+(defun wikipedia--rate-limited-diff-message (status)
+  "Return a user-visible loading message for rate-limited STATUS."
+  (format "Loading diff...\n\nRate limited by Wikipedia API; retrying in %ds (retry %d/%d)."
+          (plist-get status :retry-delay)
+          (plist-get status :attempt)
+          (plist-get status :max-attempts)))
 
 (defun wikipedia--show-diff-failed (from-rev to-rev title)
   "Show a failed diff message for TITLE between FROM-REV and TO-REV."

@@ -84,7 +84,9 @@
   `(let ((wikipedia--revision-cache (make-hash-table :test 'eql))
          (wikipedia--revision-cache-keys nil)
          (wikipedia--revision-cache-max-size 5)
-         (wikipedia--prefetch-in-flight (make-hash-table :test 'eql)))
+         (wikipedia--prefetch-in-flight (make-hash-table :test 'eql))
+         (wikipedia--prefetch-pending-status-callbacks
+          (make-hash-table :test 'eql)))
      ,@body))
 
 (defmacro wikipedia-test--with-draft-dir (&rest body)
@@ -1403,7 +1405,7 @@
       (cl-letf (((symbol-function 'wp--get-revision-content)
                  (lambda (&rest _) (error "synchronous fetch used")))
                 ((symbol-function 'wikipedia--fetch-revision-async)
-                 (lambda (_title revid callback)
+                 (lambda (_title revid callback &optional _status-callback)
                    (push revid fetched)
                    (funcall callback (format "content-%d" revid))))
                 ((symbol-function 'wikipedia--show-diff-contents)
@@ -1414,6 +1416,27 @@
         (wikipedia--show-diff 1 2 "Example")
         (should (equal (sort fetched #'<) '(1 2)))
         (should (equal rendered '("content-1" "content-2" 1 2 "Example")))))))
+
+(ert-deftest show-diff/rate-limited-fetch-updates-loading-buffer ()
+  "Rate-limited interactive diff fetches update the loading buffer."
+  (wikipedia-test--with-cache
+    (let ((buffer-name (wikipedia--diff-buffer-name "Example" 1 2)))
+      (unwind-protect
+          (cl-letf (((symbol-function 'wikipedia--fetch-revision-async)
+                     (lambda (_title _revid _callback status-callback)
+                       (when status-callback
+                         (funcall status-callback
+                                  '(:event rate-limited
+                                    :retry-delay 49
+                                    :attempt 1
+                                    :max-attempts 3)))))
+                    ((symbol-function 'pop-to-buffer) #'ignore))
+            (wikipedia--show-diff 1 2 "Example")
+            (with-current-buffer buffer-name
+              (should (string-match-p "Rate limited" (buffer-string)))
+              (should (string-match-p "retrying in 49s" (buffer-string)))))
+        (when (get-buffer buffer-name)
+          (kill-buffer buffer-name))))))
 
 
 ;;;; Completion tests

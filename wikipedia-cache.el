@@ -38,6 +38,11 @@ Maps revision ID to a list of callbacks to invoke when the fetch
 completes.  This allows multiple callers (e.g. prefetch and AI review)
 to request the same revision concurrently without dropping callbacks.")
 
+(defvar wikipedia--prefetch-pending-status-callbacks (make-hash-table :test 'eql)
+  "Status callbacks waiting for in-flight revision fetch updates.
+Maps revision ID to a list of callbacks to invoke with fetch status
+plists, such as rate-limit retry notifications.")
+
 (defun wikipedia--cache-get (revid)
   "Get cached content for REVID, or nil if not cached."
   (gethash revid wikipedia--revision-cache))
@@ -108,9 +113,11 @@ Returns the wikitext content or nil."
 (defvar wikipedia--revision-fetch-max-retries 3
   "Maximum retries for rate-limited async revision fetches.")
 
-(defun wikipedia--fetch-revision-async (title revid &optional callback)
+(defun wikipedia--fetch-revision-async (title revid &optional callback status-callback)
   "Fetch revision REVID for TITLE asynchronously.
 CALLBACK is called with the content when done (optional).
+STATUS-CALLBACK is called with status plists for intermediate
+fetch-state updates.
 The content is always stored in the cache.  If the revision is
 already cached, CALLBACK fires immediately.  If a fetch is already
 in-flight, CALLBACK is queued and fires when that fetch completes."
@@ -123,17 +130,25 @@ in-flight, CALLBACK is queued and fires when that fetch completes."
        ;; Already in-flight — register callback for when it completes.
        ((gethash revid wikipedia--prefetch-in-flight)
         (when callback
-          (puthash revid
-                   (cons callback
-                         (gethash revid wikipedia--prefetch-pending-callbacks))
-                   wikipedia--prefetch-pending-callbacks)))
+          (wikipedia--queue-revision-callback
+           revid callback wikipedia--prefetch-pending-callbacks))
+        (when status-callback
+          (wikipedia--queue-revision-callback
+           revid status-callback wikipedia--prefetch-pending-status-callbacks)))
        ;; New fetch.
        (t
         (puthash revid t wikipedia--prefetch-in-flight)
         (when callback
-          (puthash revid (list callback)
-                   wikipedia--prefetch-pending-callbacks))
+          (wikipedia--queue-revision-callback
+           revid callback wikipedia--prefetch-pending-callbacks))
+        (when status-callback
+          (wikipedia--queue-revision-callback
+           revid status-callback wikipedia--prefetch-pending-status-callbacks))
         (wikipedia--fetch-revision-start title revid 0))))))
+
+(defun wikipedia--queue-revision-callback (revid callback table)
+  "Queue CALLBACK for REVID in TABLE."
+  (puthash revid (cons callback (gethash revid table)) table))
 
 (defun wikipedia--fetch-revision-start (title revid attempts)
   "Start fetching REVID for TITLE after ATTEMPTS previous attempts."
@@ -161,6 +176,11 @@ ATTEMPTS is the number of previous attempts for this request."
       (puthash revid 'retrying wikipedia--prefetch-in-flight)
       (message "wikipedia: rate limited fetching rev %d; retrying in %ds"
                revid retry-delay)
+      (wikipedia--notify-revision-fetch-status
+       revid (list :event 'rate-limited
+                   :retry-delay retry-delay
+                   :attempt (1+ attempts)
+                   :max-attempts wikipedia--revision-fetch-max-retries))
       (run-at-time retry-delay nil #'wikipedia--fetch-revision-start
                    title revid (1+ attempts)))
      (t
@@ -188,7 +208,13 @@ ATTEMPTS is the number of previous attempts for this request."
   "Run pending callbacks for REVID with CONTENT and clear pending state."
   (dolist (cb (gethash revid wikipedia--prefetch-pending-callbacks))
     (funcall cb content))
-  (remhash revid wikipedia--prefetch-pending-callbacks))
+  (remhash revid wikipedia--prefetch-pending-callbacks)
+  (remhash revid wikipedia--prefetch-pending-status-callbacks))
+
+(defun wikipedia--notify-revision-fetch-status (revid status)
+  "Run pending status callbacks for REVID with STATUS."
+  (dolist (cb (gethash revid wikipedia--prefetch-pending-status-callbacks))
+    (funcall cb status)))
 
 (defvar wikipedia--prefetch-queue nil
   "Queue of (TITLE . REVID) pairs pending prefetch.")
