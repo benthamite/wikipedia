@@ -1,3 +1,6 @@
 .aider*
 .claude
 .agent-shell
+/logs/
+/CLAUDE.md
+/AGENTS.md
